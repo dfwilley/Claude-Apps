@@ -33,7 +33,7 @@ jobs:
             -destination "platform=iOS Simulator,name=$DEVICE" \
             -resultBundlePath TestResults.xcresult \
             CODE_SIGNING_ALLOWED=NO 2>&1 | tee test.log | grep -E "error:|Test Case .*(passed|failed)|Executed|\*\* TEST" || true
-          grep -E "Executed [0-9]+ test" test.log | tail -2 | while IFS= read -r l; do echo "::notice::$l"; done
+          grep -E "Test Suite .*(passed|failed)|Executed [0-9]+ test" test.log | sort -u | while IFS= read -r l; do echo "::notice::$l"; done
           if ! grep -q "\*\* TEST SUCCEEDED \*\*" test.log; then
             grep -E "error:|: error|failed|xcodebuild: error" test.log | sort -u | head -10 | while IFS= read -r l; do echo "::error::${l:0:900}"; done
             exit 1

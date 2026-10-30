@@ -22,6 +22,7 @@ struct BinFinderApp: App {
             ContentView()
                 .environmentObject(store)
                 .environmentObject(router)
+                .tint(Color("AccentColor"))
                 .onOpenURL { url in
                     // Opened by scanning a bin's QR label with the Camera app.
                     if let id = BinLinks.binID(from: url), store.bin(id) != nil { router.path = [id] }
