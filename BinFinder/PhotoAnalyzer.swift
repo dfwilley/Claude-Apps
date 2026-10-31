@@ -39,7 +39,7 @@ enum PhotoAnalyzer {
         }
 
         try? handler.perform([classify])
-        for obs in (classify.results ?? []) where obs.confidence > 0.3 {
+        for obs in (classify.results ?? []) where obs.confidence > 0.6 {
             add(obs.identifier.replacingOccurrences(of: "_", with: " "))
         }
         return out

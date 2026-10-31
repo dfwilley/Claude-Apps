@@ -176,10 +176,10 @@ struct FlowChips: View {
     let words: [String]
     let tap: (String) -> Void
     var body: some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 96), spacing: 8)], alignment: .leading, spacing: 8) {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 8)], alignment: .leading, spacing: 8) {
             ForEach(words, id: \.self) { w in
                 Button { tap(w) } label: {
-                    Label(w, systemImage: "plus").font(.subheadline).lineLimit(1)
+                    Label(w, systemImage: "plus").font(.subheadline).lineLimit(1).minimumScaleFactor(0.75)
                         .padding(.horizontal, 10).padding(.vertical, 7)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .background(Color.accentColor.opacity(0.12), in: Capsule())
