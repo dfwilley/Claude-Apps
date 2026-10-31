@@ -112,12 +112,18 @@ final class BinStore: ObservableObject {
         upsert(b)
     }
 
+    /// Photos are read one at a time, in the background, so adding several at once doesn't bog the phone down.
+    private let analysisQueue = DispatchQueue(label: "BinFinder.photo-reader", qos: .utility)
+
     func analyzePhoto(_ name: String, of id: UUID) {
         let url = photoURL(name)
-        Task.detached(priority: .utility) { [weak self] in
-            guard let img = UIImage(contentsOfFile: url.path) else { return }
-            let words = await PhotoAnalyzer.words(in: img)
-            await MainActor.run { self?.addAutoWords(words, to: id) }
+        analysisQueue.async { [weak self] in
+            guard let img = UIImage(contentsOfFile: url.path), let cg = img.cgImage else {
+                NSLog("BinFinder photo reader: couldn't open %@", name); return
+            }
+            let words = PhotoAnalyzer.analyze(cg, orientation: CGImagePropertyOrientation(img.imageOrientation))
+            NSLog("BinFinder photo reader: %d words from %@: %@", words.count, name, words.joined(separator: ", "))
+            DispatchQueue.main.async { self?.addAutoWords(words, to: id) }
         }
     }
 

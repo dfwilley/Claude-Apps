@@ -42,10 +42,18 @@ final class ScreenshotTests: XCTestCase {
         field.typeText("levelers")
         sleep(1)
         snap(app, "6-search-photo-word")
-        XCTAssertTrue(app.staticTexts["Leveling blocks"].exists, "photo word search should find the leveling blocks bin")
+        let foundByPhoto = app.staticTexts["Leveling blocks"].exists
 
         if app.buttons["Cancel"].exists { app.buttons["Cancel"].firstMatch.tap(); sleep(1) }
+        app.swipeUp(); sleep(1)
+        app.staticTexts["Leveling blocks"].firstMatch.tap(); sleep(2)
+        app.swipeUp(); sleep(1)
+        snap(app, "7-leveling-blocks-detail")
+        app.navigationBars.buttons.firstMatch.tap(); sleep(1)
+        app.swipeDown(); sleep(1)
+
         let add = app.buttons["addBin"]
-        if add.waitForExistence(timeout: 3) { add.tap(); sleep(1); snap(app, "7-new-bin") }
+        if add.waitForExistence(timeout: 3) { add.tap(); sleep(1); snap(app, "8-new-bin") }
+        XCTAssertTrue(foundByPhoto, "photo word search should find the leveling blocks bin")
     }
 }
