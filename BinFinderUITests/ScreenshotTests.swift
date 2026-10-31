@@ -40,9 +40,9 @@ final class ScreenshotTests: XCTestCase {
         field.tap()
         if field.buttons["Clear text"].exists { field.buttons["Clear text"].tap() }
         field.typeText("levelers")
-        sleep(1)
+        // Photos are read in the background, one at a time; results appear by themselves once this one is read.
+        let foundByPhoto = app.staticTexts["Leveling blocks"].waitForExistence(timeout: 90)
         snap(app, "6-search-photo-word")
-        let foundByPhoto = app.staticTexts["Leveling blocks"].exists
 
         if app.buttons["Cancel"].exists { app.buttons["Cancel"].firstMatch.tap(); sleep(1) }
         app.swipeUp(); sleep(1)
