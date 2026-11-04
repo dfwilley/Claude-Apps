@@ -45,39 +45,115 @@
     $('#sync').innerHTML = m.hgvAsOf ? `Owner site data from ${esc(H.longDate(m.hgvAsOf))}` : (S.properties.length ? 'Entered by hand' : '');
   }
 
+  // ---------- screens are made of blocks you can move and resize ----------
+  // Each screen is a list of blocks {id, html, size}. Sizes: s (small), m (medium), l (full width).
+  // Your order and sizes are kept per screen (all, points, fees, binder) in settings.layout.
+  let arranging = false;
+  const SIZES = ['s', 'm', 'l'];
+  const SIZE_NAMES = { s: 'Small', m: 'Medium', l: 'Wide' };
+  function blk(id, html, size) { return html ? { id, html, size: size || 'l' } : null; }
+  function arranged(screen, blocks) {
+    blocks = blocks.filter(Boolean);
+    const saved = ((S.settings || {}).layout || {})[screen] || [];
+    const pos = id => { const i = saved.findIndex(x => x.id === id); return i < 0 ? 1000 + blocks.findIndex(b => b.id === id) : i; };
+    for (const b of blocks) { const sv = saved.find(x => x.id === b.id); if (sv && SIZES.includes(sv.size)) b.size = sv.size; }
+    blocks.sort((a, b) => pos(a.id) - pos(b.id));
+    const tools = b => arranging ? `<div class="blk-tools" role="group" aria-label="Arrange ${esc(b.id)}">
+        <button class="blk-handle" data-act="noop" aria-label="Drag to move" title="Drag to move">⠿</button>
+        <button data-act="blk-move" data-dir="-1" aria-label="Move earlier">◀</button><button data-act="blk-move" data-dir="1" aria-label="Move later">▶</button>
+        <span class="grow"></span>${SIZES.map(z => `<button data-act="blk-size" data-size="${z}" class="${b.size === z ? 'on' : ''}" aria-pressed="${b.size === z}" aria-label="${SIZE_NAMES[z]}">${z.toUpperCase()}</button>`).join('')}</div>` : '';
+    return `<div class="board ${arranging ? 'arranging' : ''}" data-screen="${screen}">${blocks.map(b => `<div class="blk sz-${b.size}" data-blk="${esc(b.id)}">${tools(b)}<div class="blk-body">${b.html}</div></div>`).join('')}</div>`;
+  }
+  function saveLayout(board) {
+    const screen = board.dataset.screen;
+    S.settings = S.settings || {}; S.settings.layout = S.settings.layout || {};
+    S.settings.layout[screen] = [...board.querySelectorAll(':scope > .blk')].map(el => ({ id: el.dataset.blk, size: SIZES.find(z => el.classList.contains('sz-' + z)) || 'l' }));
+    commit();
+  }
+  function arrangeBar() {
+    return arranging ? `<div class="arrange-bar" role="status"><span class="grow">Drag ⠿ or tap ◀ ▶ to move · S M L to resize</span><button class="btn small" data-act="arrange-reset">Reset this screen</button><button class="btn small primary" data-act="arrange">Done</button></div>` : '';
+  }
+
+  // Drag a block by its ⠿ handle (works with a finger or a mouse).
+  let drag = null;
+  document.addEventListener('pointerdown', e => {
+    const h = e.target.closest('.blk-handle'); if (!h) return;
+    const el = h.closest('.blk'); e.preventDefault();
+    drag = { el, board: el.parentElement, id: e.pointerId }; el.classList.add('dragging'); h.setPointerCapture(e.pointerId);
+  });
+  document.addEventListener('pointermove', e => {
+    if (!drag || e.pointerId !== drag.id) return;
+    drag.el.style.pointerEvents = 'none';
+    const over = document.elementFromPoint(e.clientX, e.clientY); drag.el.style.pointerEvents = '';
+    const t = over && over.closest('.blk');
+    if (t && t !== drag.el && t.parentElement === drag.board) {
+      const r = t.getBoundingClientRect();
+      const after = (e.clientY > r.top + r.height / 2) || (e.clientY > r.top && e.clientX > r.left + r.width / 2 && e.clientY < r.bottom && r.width < drag.board.clientWidth * 0.9);
+      drag.board.insertBefore(drag.el, after ? t.nextSibling : t);
+    }
+    if (e.clientY < 90) window.scrollBy(0, -12); else if (e.clientY > window.innerHeight - 60) window.scrollBy(0, 12);
+  });
+  const endDrag = e => { if (!drag || e.pointerId !== drag.id) return; drag.el.classList.remove('dragging'); const b = drag.board; drag = null; saveLayout(b); };
+  document.addEventListener('pointerup', endDrag); document.addEventListener('pointercancel', endDrag);
+
+  function resList(list, t, showProp) {
+    return '<ul class="list">' + list.map(({ r, p }) => {
+      const up = r.checkIn && H.daysBetween(t, r.checkIn) >= 0 && r.status !== 'Cancelled';
+      const days = r.checkIn ? H.daysBetween(t, r.checkIn) : null;
+      return `<li class="row" ${showProp ? `data-tab="${esc(p.id)}" tabindex="0"` : ''}><span class="ic" aria-hidden="true">${r.status === 'Cancelled' ? '✕' : up ? '🏝' : '✓'}</span><span class="grow"><b>${esc(r.resort)}</b><small>${esc(H.shortDate(r.checkIn))}${r.checkOut ? ' – ' + esc(H.shortDate(r.checkOut)) : ''}${r.unit ? ' · ' + esc(r.unit) : ''}${r.via ? ' · ' + esc(r.via) : ''}${r.refLast4 ? ' · No. ' + esc(H.mask(r.refLast4)) : ''}${r.status === 'Cancelled' ? ' · cancelled' : ''}</small>${showProp ? `<small>Points from ${esc(p.short || p.name)}${up && days != null ? ' · ' + daysText(days) : ''}</small>` : (up && days != null ? `<small>${daysText(days)}</small>` : '')}</span><span class="when"><b>${H.pts(r.points)}</b><small>points</small></span>${showProp ? '' : `<button class="link" data-act="edit-res" data-id="${esc(r.id)}">Edit</button>`}</li>`;
+    }).join('') + '</ul>';
+  }
+  function splitRes(items, t) {
+    const up = items.filter(x => x.r.status !== 'Cancelled' && x.r.checkIn && H.daysBetween(t, x.r.checkOut || x.r.checkIn) >= 0).sort((a, b) => a.r.checkIn < b.r.checkIn ? -1 : 1);
+    const past = items.filter(x => !up.includes(x)).sort((a, b) => (a.r.checkIn || '') < (b.r.checkIn || '') ? 1 : -1);
+    return { up, past };
+  }
+  function resCard(items, t, showProp, addBtn) {
+    const { up, past } = splitRes(items, t);
+    let h = `<section class="card"><div class="card-head"><h2>Reservations</h2>${addBtn ? '<button class="btn small" data-act="add-res">＋ Add</button>' : ''}</div>`;
+    h += up.length ? `<h3>Upcoming</h3>${resList(up, t, showProp)}` : '<p class="muted">No upcoming reservations.</p>';
+    if (past.length) h += `<details ${up.length ? '' : 'open'}><summary>Past and cancelled (${past.length})</summary>${resList(past, t, showProp)}</details>`;
+    return h + '</section>';
+  }
+
   // ---------- All Properties ----------
   function renderAll() {
     const t = today(); const sm = H.summary(S, t);
     if (!S.properties.length) return renderWelcome();
-    let h = '';
-    const alerts = sm.expiring.filter(e => e.days <= 60);
-    for (const e of alerts) {
+    let al = '';
+    for (const e of sm.expiring.filter(e => e.days <= 60)) {
       const save = e.batch.saveBy && H.daysBetween(t, e.batch.saveBy) >= 0 ? ` Save them by <b>${esc(H.longDate(e.batch.saveBy))}</b>${e.batch.saveNote ? ' (' + esc(e.batch.saveNote) + ')' : ''}.` : '';
-      h += `<div class="alert ${urgency(e.days)}" role="status">⏳ <b>${H.pts(e.batch.available)} ${esc(e.property.currency || 'points')}</b> at ${esc(e.property.short || e.property.name)} expire <b>${esc(H.longDate(e.batch.expires))}</b> (${daysText(e.days)}).${save}</div>`;
+      al += `<div class="alert ${urgency(e.days)}" role="status">⏳ <b>${H.pts(e.batch.available)} ${esc(e.property.currency || 'points')}</b> at ${esc(e.property.short || e.property.name)} expire <b>${esc(H.longDate(e.batch.expires))}</b> (${daysText(e.days)}).${save}</div>`;
     }
     for (const d of sm.due) {
       const days = d.fee.due ? H.daysBetween(t, d.fee.due) : null;
       if (days != null && days > 60) continue;
-      h += `<div class="alert ${days != null ? urgency(days) : ''}" role="status">💵 <b>${H.money(H.num(d.fee.amount))}</b> ${esc(d.fee.label || 'fee')} for ${esc(d.property.short || d.property.name)} is unpaid${d.fee.due ? `, due <b>${esc(H.longDate(d.fee.due))}</b> (${daysText(days)})` : ''}.</div>`;
+      al += `<div class="alert ${days != null ? urgency(days) : ''}" role="status">💵 <b>${H.money(H.num(d.fee.amount))}</b> ${esc(d.fee.label || 'fee')} for ${esc(d.property.short || d.property.name)} is unpaid${d.fee.due ? `, due <b>${esc(H.longDate(d.fee.due))}</b> (${daysText(days)})` : ''}.</div>`;
     }
-    const cur = Object.entries(sm.byCurrency).filter(([, n]) => n > 0 || true).map(([c, n]) => `<div class="mini"><span>${esc(c)}</span><b>${H.pts(n)}</b></div>`).join('');
-    h += `<div class="tiles">
-      ${tile('Points available now', H.pts(sm.totalAvailable), cur)}
-      ${tile('Fees unpaid', H.money(sm.dueTotal), sm.due.length ? sm.due.length + ' item' + (sm.due.length > 1 ? 's' : '') : 'All paid', sm.dueTotal > 0 ? 'warn' : 'good')}
-      ${tile('Points each year', H.pts(sm.annualPoints), S.properties.length + ' properties')}
-    </div>`;
-    h += `<section class="card"><h2>Coming up</h2>${sm.deadlines.length ? '<ul class="list">' + sm.deadlines.slice(0, 10).map(d =>
+    const cur = Object.entries(sm.byCurrency).map(([c, n]) => `<div class="mini"><span>${esc(c)}</span><b>${H.pts(n)}</b></div>`).join('');
+    const allRes = []; for (const p of S.properties) for (const r of p.reservations || []) allRes.push({ r, p });
+    const next = splitRes(allRes, t).up[0];
+    const coming = `<section class="card"><h2>Coming up</h2>${sm.deadlines.length ? '<ul class="list">' + sm.deadlines.slice(0, 10).map(d =>
       `<li class="row ${urgency(d.days)}" data-tab="${esc(d.propertyId)}" tabindex="0"><span class="ic" aria-hidden="true">${kindIcon(d.kind)}</span><span class="grow"><b>${esc(d.title)}</b><small>${esc(d.sub)}</small></span><span class="when">${esc(H.longDate(d.date))}<small>${daysText(d.days)}</small></span></li>`).join('') + '</ul>' : '<p class="muted">Nothing coming up.</p>'}
-      ${Store.native ? '<p class="muted small">Your iPhone will remind you before each of these. Change when in Settings.</p>' : '<button class="btn" data-act="ics">Add these reminders to my calendar</button>'}</section>`;
-    h += `<section class="card"><h2>Properties</h2><div class="table-wrap"><table class="props"><thead><tr><th>Property</th><th class="r">Points / yr</th><th class="r">Available</th><th>Next expiration</th><th class="r">Latest fee</th><th class="r">Cost / point</th></tr></thead><tbody>`;
+      ${Store.native ? '<p class="muted small">Your iPhone will remind you before each of these. Change when in the menu under Reminders.</p>' : '<button class="btn" data-act="ics">Add these reminders to my calendar</button>'}</section>`;
+    let props = `<section class="card"><h2>Properties</h2><div class="table-wrap"><table class="props"><thead><tr><th>Property</th><th class="r">Points / yr</th><th class="r">Available</th><th>Next expiration</th><th class="r">Latest fee</th><th class="r">Cost / point</th></tr></thead><tbody>`;
     for (const p of S.properties) {
       const ps = H.pointsSummary(p, t); const fy = H.feeYears(p); const last = fy[fy.length - 1];
-      h += `<tr data-tab="${esc(p.id)}" tabindex="0" class="click"><td><b>${esc(p.short || p.name)}</b><small>${esc(p.account || '')}${p.currency ? ' · ' + esc(p.currency) : ''}</small></td><td class="r">${H.pts(p.annualPoints)}</td><td class="r">${H.pts(ps.availableNow)}</td>
+      props += `<tr data-tab="${esc(p.id)}" tabindex="0" class="click"><td><b>${esc(p.short || p.name)}</b><small>${esc(p.account || '')}${p.currency ? ' · ' + esc(p.currency) : ''}</small></td><td class="r">${H.pts(p.annualPoints)}</td><td class="r">${H.pts(ps.availableNow)}</td>
         <td>${ps.nextExpiring ? esc(H.shortDate(ps.nextExpiring.date)) + '<small>' + H.pts(ps.nextExpiring.points) + ' pts</small>' : '—'}</td>
         <td class="r">${last ? H.money(last.total) + '<small>' + last.year + (last.paid ? ' · paid' : ' · unpaid') + '</small>' : '—'}</td><td class="r">${last && last.costPerPoint ? '$' + last.costPerPoint.toFixed(3) : '—'}</td></tr>`;
     }
-    h += `</tbody></table></div><p class="muted small">ClubPoints, By Hilton Club points and HGV Max points are separate pools — each can only be used on its own account.</p></section>`;
-    return h;
+    props += `</tbody></table></div><p class="muted small">ClubPoints, By Hilton Club points and HGV Max points are separate pools — each can only be used on its own account.</p></section>`;
+    return arrangeBar() + arranged('all', [
+      blk('alerts', al, 'l'),
+      blk('t-points', tile('Points available now', H.pts(sm.totalAvailable), cur), 's'),
+      blk('t-fees', tile('Fees unpaid', H.money(sm.dueTotal), sm.due.length ? sm.due.length + ' item' + (sm.due.length > 1 ? 's' : '') : 'All paid', sm.dueTotal > 0 ? 'warn' : 'good'), 's'),
+      blk('t-annual', tile('Points each year', H.pts(sm.annualPoints), S.properties.length + ' properties'), 's'),
+      blk('t-trip', tile('Next trip', next ? esc(H.shortDate(next.r.checkIn)) : '—', next ? esc(next.r.resort) + ' · ' + daysText(H.daysBetween(t, next.r.checkIn)) : 'None booked'), 's'),
+      blk('coming', coming, 'm'),
+      blk('reservations', resCard(allRes, t, true, false), 'm'),
+      blk('properties', props, 'l')
+    ]);
   }
 
   function renderWelcome() {
@@ -94,46 +170,46 @@
   function renderProperty(p) {
     let h = `<section class="prop-head"><div><h2>${esc(p.name)}</h2><p class="muted">${esc([p.location, p.account, p.currency].filter(Boolean).join(' · '))}</p></div>
       <div class="seg" role="tablist">${['points', 'fees', 'binder'].map(s => `<button role="tab" aria-selected="${sub === s}" class="${sub === s ? 'on' : ''}" data-sub="${s}">${{ points: 'Points', fees: 'Fees', binder: 'Binder' }[s]}</button>`).join('')}</div></section>`;
-    h += sub === 'points' ? renderPoints(p) : sub === 'fees' ? renderFees(p) : renderBinder(p);
+    h += arrangeBar() + (sub === 'points' ? renderPoints(p) : sub === 'fees' ? renderFees(p) : renderBinder(p));
     return h;
   }
 
   function renderPoints(p) {
-    const t = today(); const ps = H.pointsSummary(p, t); let h = '';
+    const t = today(); const ps = H.pointsSummary(p, t); let al = '';
     if (ps.nextExpiring && ps.nextExpiring.days <= 60) {
       const b = ps.nextExpiring.batch;
-      h += `<div class="alert ${urgency(ps.nextExpiring.days)}">⏳ <b>${H.pts(b.available)}</b> points expire <b>${esc(H.longDate(b.expires))}</b> (${daysText(ps.nextExpiring.days)}).${b.saveBy && H.daysBetween(t, b.saveBy) >= 0 ? ` Save by <b>${esc(H.longDate(b.saveBy))}</b>${b.saveNote ? ' — ' + esc(b.saveNote) : ''}.` : ''}</div>`;
+      al = `<div class="alert ${urgency(ps.nextExpiring.days)}">⏳ <b>${H.pts(b.available)}</b> points expire <b>${esc(H.longDate(b.expires))}</b> (${daysText(ps.nextExpiring.days)}).${b.saveBy && H.daysBetween(t, b.saveBy) >= 0 ? ` Save by <b>${esc(H.longDate(b.saveBy))}</b>${b.saveNote ? ' — ' + esc(b.saveNote) : ''}.` : ''}</div>`;
     }
-    h += `<div class="tiles four">${tile('Available now', H.pts(ps.availableNow))}${tile('Used this year', H.pts(ps.usedThisYear))}${tile('Saved this year', H.pts(ps.savedThisYear), 'moved to next year')}${tile('Borrowed', H.pts(ps.borrowedThisYear), 'taken from next year')}</div>`;
-    h += `<section class="card"><div class="card-head"><h2>Points by year</h2><button class="btn small" data-act="add-batch">＋ Add</button></div>
+    let yrs = `<section class="card"><div class="card-head"><h2>Points by year</h2><button class="btn small" data-act="add-batch">＋ Add</button></div>
       <p class="muted small">Use year: ${esc(p.useYear || 'January 1 – December 31')} · ${H.pts(p.annualPoints)} points a year</p><ul class="list">`;
     const batches = (p.batches || []).slice().sort((a, b) => (a.expires || '9') < (b.expires || '9') ? -1 : 1);
     for (const b of batches) {
       const dead = b.expires && H.daysBetween(t, b.expires) < 0;
       const extra = [b.saved ? H.pts(b.saved) + ' saved' : '', b.borrowed ? H.pts(b.borrowed) + ' borrowed' : '', H.batchUsed(b) ? H.pts(H.batchUsed(b)) + ' used' : ''].filter(Boolean).join(' · ');
-      h += `<li class="row batch ${dead ? 'dim' : ''}"><span class="grow"><b>${esc(b.label || b.year)}</b><small>${esc({ current: 'This year', saved: 'Saved', borrowed: 'Borrowed', bonus: 'Bonus', future: 'Future year' }[b.kind] || b.kind || '')} · ${H.pts(b.points)} allotted${extra ? ' · ' + extra : ''}</small>
+      yrs += `<li class="row batch ${dead ? 'dim' : ''}"><span class="grow"><b>${esc(b.label || b.year)}</b><small>${esc({ current: 'This year', saved: 'Saved', borrowed: 'Borrowed', bonus: 'Bonus', future: 'Future year' }[b.kind] || b.kind || '')} · ${H.pts(b.points)} allotted${extra ? ' · ' + extra : ''}</small>
         <small>${b.expires ? (dead ? 'Expired ' : 'Expires ') + esc(H.longDate(b.expires)) : ''}${b.saveBy ? ' · save by ' + esc(H.longDate(b.saveBy)) : ''}</small></span>
         <span class="when"><b class="big">${H.pts(b.available)}</b><small>available</small></span><button class="link" data-act="edit-batch" data-id="${esc(b.id)}" aria-label="Edit ${esc(b.label || b.year)}">Edit</button></li>`;
     }
-    h += `</ul></section>`;
-    const res = (p.reservations || []).slice().sort((a, b) => (a.checkIn || '') < (b.checkIn || '') ? 1 : -1);
-    h += `<section class="card"><div class="card-head"><h2>Reservations</h2><button class="btn small" data-act="add-res">＋ Add</button></div>`;
-    h += res.length ? '<ul class="list">' + res.map(r => {
-      const up = r.checkIn && H.daysBetween(t, r.checkIn) >= 0 && r.status !== 'Cancelled';
-      return `<li class="row"><span class="ic" aria-hidden="true">${r.status === 'Cancelled' ? '✕' : up ? '🏝' : '✓'}</span><span class="grow"><b>${esc(r.resort)}</b><small>${esc(H.shortDate(r.checkIn))}${r.checkOut ? ' – ' + esc(H.shortDate(r.checkOut)) : ''}${r.unit ? ' · ' + esc(r.unit) : ''}${r.via ? ' · ' + esc(r.via) : ''}${r.refLast4 ? ' · No. ' + esc(H.mask(r.refLast4)) : ''}${r.status === 'Cancelled' ? ' · cancelled' : ''}</small></span><span class="when"><b>${H.pts(r.points)}</b><small>points</small></span><button class="link" data-act="edit-res" data-id="${esc(r.id)}">Edit</button></li>`;
-    }).join('') + '</ul>' : '<p class="muted">No reservations yet.</p>';
-    h += `</section>`;
-    if ((p.ledger || []).length) {
-      h += `<section class="card"><details><summary><h2 style="display:inline">Points history</h2> <span class="muted small">(${p.ledger.length} entries from the owner site)</span></summary><div class="table-wrap"><table><thead><tr><th>Date</th><th>Year</th><th>What</th><th class="r">Points</th></tr></thead><tbody>` +
-        p.ledger.slice().sort((a, b) => (a.date < b.date ? 1 : -1)).map(l => `<tr><td>${esc(H.shortDate(l.date))}</td><td>${esc(l.year || '')}</td><td>${esc(l.type)}${l.note ? '<small>' + esc(l.note) + '</small>' : ''}</td><td class="r ${H.num(l.points) < 0 ? 'neg' : ''}">${H.num(l.points) > 0 ? '+' : ''}${H.pts(l.points)}</td></tr>`).join('') + `</tbody></table></div></details></section>`;
-    }
-    h += `<section class="card info"><h2>The rules, in short</h2><ul>
+    yrs += `</ul></section>`;
+    const hist = (p.ledger || []).length ? `<section class="card"><details><summary><h2 style="display:inline">Points history</h2> <span class="muted small">(${p.ledger.length} entries from the owner site)</span></summary><div class="table-wrap"><table><thead><tr><th>Date</th><th>Year</th><th>What</th><th class="r">Points</th></tr></thead><tbody>` +
+        p.ledger.slice().sort((a, b) => (a.date < b.date ? 1 : -1)).map(l => `<tr><td>${esc(H.shortDate(l.date))}</td><td>${esc(l.year || '')}</td><td>${esc(l.type)}${l.note ? '<small>' + esc(l.note) + '</small>' : ''}</td><td class="r ${H.num(l.points) < 0 ? 'neg' : ''}">${H.num(l.points) > 0 ? '+' : ''}${H.pts(l.points)}</td></tr>`).join('') + `</tbody></table></div></details></section>` : '';
+    const rules = `<section class="card info"><h2>The rules, in short</h2><ul>
       <li>This year's points expire at the end of the year (December 31).</li>
       <li><b>Saving</b> moves unused points into next year for a fee (cheaper online). Saved points can't be saved again or used for a Home Week or Hilton Honors.</li>
       <li><b>Borrowing</b> takes points from next year with no fee, but gives up next year's Home Week rights.</li>
       <li>Bonus points last two years and can't be saved or borrowed.</li></ul>
       <p class="small">From HGV's Club Navigator. Fees and dates change yearly — check your Club Rules. <a href="${RULES_URL}" target="_blank" rel="noopener">HGV: Types of Points</a></p></section>`;
-    return h;
+    return arranged('points', [
+      blk('alerts', al, 'l'),
+      blk('t-avail', tile('Available now', H.pts(ps.availableNow)), 's'),
+      blk('t-used', tile('Used this year', H.pts(ps.usedThisYear)), 's'),
+      blk('t-saved', tile('Saved this year', H.pts(ps.savedThisYear), 'moved to next year'), 's'),
+      blk('t-borrowed', tile('Borrowed', H.pts(ps.borrowedThisYear), 'taken from next year'), 's'),
+      blk('years', yrs, 'l'),
+      blk('reservations', resCard((p.reservations || []).map(r => ({ r, p })), t, false, true), 'l'),
+      blk('history', hist, 'l'),
+      blk('rules', rules, 'l')
+    ]);
   }
 
   function feeChart(years) {
@@ -158,56 +234,61 @@
   }
 
   function renderFees(p) {
-    const t = today(); const years = H.feeYears(p); let h = '';
+    const t = today(); const years = H.feeYears(p); let al = '';
     for (const f of H.feesDue(p)) {
       const d = f.due ? H.daysBetween(t, f.due) : null;
-      h += `<div class="alert ${d != null ? urgency(d) : ''}">💵 <b>${H.money(H.num(f.amount))}</b> ${esc(f.label || 'fee')} (${esc(f.year)}) is unpaid${f.due ? `, due <b>${esc(H.longDate(f.due))}</b> (${daysText(d)})` : ''}. Pay it on the owner site — this app never makes payments.</div>`;
+      al += `<div class="alert ${d != null ? urgency(d) : ''}">💵 <b>${H.money(H.num(f.amount))}</b> ${esc(f.label || 'fee')} (${esc(f.year)}) is unpaid${f.due ? `, due <b>${esc(H.longDate(f.due))}</b> (${daysText(d)})` : ''}. Pay it on the owner site — this app never makes payments.</div>`;
     }
     const last = years[years.length - 1];
-    h += `<div class="tiles">${tile('Latest year', last ? H.money(last.total) : '—', last ? last.year + (last.paid ? ' · paid' : ' · unpaid') : '')}
-      ${tile('Cost per point', last && last.costPerPoint ? '$' + last.costPerPoint.toFixed(3) : '—', p.annualPoints ? 'fee ÷ ' + H.pts(p.annualPoints) + ' points' : 'add annual points in Binder')}
-      ${tile('Change from last year', last && last.change != null ? (last.change > 0 ? '+' : '') + (last.change * 100).toFixed(1) + '%' : '—')}</div>`;
-    h += `<section class="card"><h2>Fee history</h2>${feeChart(years)}</section>`;
-    h += `<section class="card"><div class="card-head"><h2>By year</h2><span><button class="btn small" data-act="import-pdf">Read a PDF statement</button> <button class="btn small" data-act="add-fee">＋ Add</button></span></div>`;
+    let by = `<section class="card"><div class="card-head"><h2>By year</h2><span><button class="btn small" data-act="import-pdf">Read a PDF statement</button> <button class="btn small" data-act="add-fee">＋ Add</button></span></div>`;
     for (const r of years.slice().reverse()) {
-      h += `<div class="year"><div class="year-head"><b>${r.year}</b><span>${H.money(r.total)}</span><span class="pill ${r.paid ? 'good' : 'warn'}">${r.paid ? 'Paid' : 'Unpaid'}</span>${r.due ? `<small>due ${esc(H.longDate(r.due))}</small>` : ''}${r.costPerPoint ? `<small>$${r.costPerPoint.toFixed(3)} / point</small>` : ''}</div><ul class="list">` +
+      by += `<div class="year"><div class="year-head"><b>${r.year}</b><span>${H.money(r.total)}</span><span class="pill ${r.paid ? 'good' : 'warn'}">${r.paid ? 'Paid' : 'Unpaid'}</span>${r.due ? `<small>due ${esc(H.longDate(r.due))}</small>` : ''}${r.costPerPoint ? `<small>$${r.costPerPoint.toFixed(3)} / point</small>` : ''}</div><ul class="list">` +
         r.items.map(f => `<li class="row"><label class="check"><input type="checkbox" data-act="toggle-paid" data-id="${esc(f.id)}" ${f.paid ? 'checked' : ''} ${H.num(f.amount) <= 0 ? 'disabled' : ''}><span class="sr">Paid</span></label><button class="grow link-row" data-act="edit-fee" data-id="${esc(f.id)}" aria-label="Edit ${esc(f.label)}">${esc(f.label)}<small>${esc(f.kind || '')}${f.paidDate ? ' · paid ' + esc(H.shortDate(f.paidDate)) : ''}${f.note ? ' · ' + esc(f.note) : ''} · <span class="edit-hint">Edit</span></small></button><span class="when ${H.num(f.amount) < 0 ? 'neg' : ''}">${H.money(H.num(f.amount))}</span></li>`).join('') + '</ul></div>';
     }
-    if (!years.length) h += '<p class="muted">No fees yet. Add one, or read a PDF statement you downloaded from the owner site.</p>';
+    if (!years.length) by += '<p class="muted">No fees yet. Add one, or read a PDF statement you downloaded from the owner site.</p>';
     const pays = (p.fees || []).filter(f => f.kind === 'Payment');
-    if (pays.length) h += `<details><summary>Payments on the owner site (${pays.length})</summary><ul class="list">${pays.map(f => `<li class="row"><span class="grow">${esc(H.shortDate(f.paidDate || f.due))}<small>${esc(f.label || '')}</small></span><span class="when">${H.money(Math.abs(H.num(f.amount)))}</span></li>`).join('')}</ul></details>`;
-    h += `</section>`;
-    return h;
+    if (pays.length) by += `<details><summary>Payments on the owner site (${pays.length})</summary><ul class="list">${pays.map(f => `<li class="row"><span class="grow">${esc(H.shortDate(f.paidDate || f.due))}<small>${esc(f.label || '')}</small></span><span class="when">${H.money(Math.abs(H.num(f.amount)))}</span></li>`).join('')}</ul></details>`;
+    by += `</section>`;
+    return arranged('fees', [
+      blk('alerts', al, 'l'),
+      blk('t-latest', tile('Latest year', last ? H.money(last.total) : '—', last ? last.year + (last.paid ? ' · paid' : ' · unpaid') : ''), 's'),
+      blk('t-cpp', tile('Cost per point', last && last.costPerPoint ? '$' + last.costPerPoint.toFixed(3) : '—', p.annualPoints ? 'fee ÷ ' + H.pts(p.annualPoints) + ' points' : 'add annual points in Binder'), 's'),
+      blk('t-change', tile('Change from last year', last && last.change != null ? (last.change > 0 ? '+' : '') + (last.change * 100).toFixed(1) + '%' : '—'), 's'),
+      blk('chart', `<section class="card"><h2>Fee history</h2>${feeChart(years)}</section>`, 'l'),
+      blk('by-year', by, 'l')
+    ]);
   }
 
   function renderBinder(p) {
     const rows = [['Resort', p.name], ['Location', p.location], ['Account', p.account], ['Points currency', p.currency], ['Unit type', p.unitType], ['Season', p.season],
       ['Home weeks', (p.homeWeeks || []).map(w => w.label + (w.points ? ' — ' + H.pts(w.points) + ' pts' : '')).join('\n')], ['Purchase date', H.longDate(p.purchaseDate)], ['Ownership', p.ownership],
       ['Check-in day', p.checkInDay], ['Points each year', p.annualPoints ? H.pts(p.annualPoints) : ''], ['Use year', p.useYear]].filter(r => r[1]);
-    let h = `<section class="card"><div class="card-head"><h2>Contract summary</h2><button class="btn small" data-act="edit-contract">Edit</button></div><dl class="dl">${rows.map(r => `<dt>${esc(r[0])}</dt><dd>${esc(r[1]).replace(/\n/g, '<br>')}</dd>`).join('')}</dl></section>`;
-    h += `<section class="card"><h2>Account numbers</h2><dl class="dl nums">
+    const summary = `<section class="card"><div class="card-head"><h2>Contract summary</h2><button class="btn small" data-act="edit-contract">Edit</button></div><dl class="dl">${rows.map(r => `<dt>${esc(r[0])}</dt><dd>${esc(r[1]).replace(/\n/g, '<br>')}</dd>`).join('')}</dl></section>`;
+    const nums = `<section class="card"><h2>Account numbers</h2><dl class="dl nums">
       <dt>Contract no.</dt><dd><span id="num-contract" class="mono">${esc(H.mask(p.contractLast4))}</span> <button class="link" data-act="reveal" data-which="contract">${Store.native ? 'Show' : ''}</button></dd>
       <dt>Member no.</dt><dd><span id="num-member" class="mono">${esc(H.mask(p.memberLast4))}</span> <button class="link" data-act="reveal" data-which="member">${Store.native ? 'Show' : ''}</button></dd></dl>
       <p class="muted small">${Store.native ? 'Full numbers stay locked in this iPhone\'s Keychain and need Face ID to show.' : 'Only the last 4 digits are kept here. Full numbers are kept only in the iPhone app, behind Face ID.'}</p></section>`;
     const kinds = ['Statement', 'Deed / contract', 'Receipt', 'Other'];
-    h += `<section class="card"><div class="card-head"><h2>Documents</h2><button class="btn small" data-act="add-doc">＋ Add</button></div>`;
+    let docsH = `<section class="card"><div class="card-head"><h2>Documents</h2><button class="btn small" data-act="add-doc">＋ Add</button></div>`;
     const docs = p.docs || [];
-    if (!docs.length) h += '<p class="muted">Keep yearly statements, the deed or contract, and receipts here. They stay on this device.</p>';
+    if (!docs.length) docsH += '<p class="muted">Keep yearly statements, the deed or contract, and receipts here. They stay on this device.</p>';
     for (const k of kinds) {
       const list = docs.filter(d => (d.kind || 'Other') === k).sort((a, b) => (b.year || 0) - (a.year || 0));
       if (!list.length) continue;
-      h += `<h3>${esc(k)}</h3><ul class="list">${list.map(d => `<li class="row"><span class="ic" aria-hidden="true">${/pdf/.test(d.mime) ? '📄' : '🖼'}</span><button class="grow link-row" data-act="open-doc" data-id="${esc(d.id)}"><b>${esc(d.name)}</b><small>${esc(d.year || '')}${d.size ? ' · ' + Math.max(1, Math.round(d.size / 1024)) + ' KB' : ''}</small></button><button class="link" data-act="edit-doc" data-id="${esc(d.id)}">Edit</button></li>`).join('')}</ul>`;
+      docsH += `<h3>${esc(k)}</h3><ul class="list">${list.map(d => `<li class="row"><span class="ic" aria-hidden="true">${/pdf/.test(d.mime) ? '📄' : '🖼'}</span><button class="grow link-row" data-act="open-doc" data-id="${esc(d.id)}"><b>${esc(d.name)}</b><small>${esc(d.year || '')}${d.size ? ' · ' + Math.max(1, Math.round(d.size / 1024)) + ' KB' : ''}</small></button><button class="link" data-act="edit-doc" data-id="${esc(d.id)}">Edit</button></li>`).join('')}</ul>`;
     }
-    h += `</section>`;
-    h += `<section class="card"><div class="card-head"><h2>Phone numbers</h2><button class="btn small" data-act="add-contact">＋ Add</button></div><ul class="list">${(p.contacts || []).map(c => `<li class="row"><span class="ic" aria-hidden="true">📞</span><span class="grow"><b>${esc(c.label)}</b><small>${esc(c.note || '')}</small></span><a class="btn small" href="tel:${esc(String(c.phone).replace(/[^\d+]/g, ''))}">${esc(c.phone)}</a><button class="link" data-act="edit-contact" data-id="${esc(c.id)}">Edit</button></li>`).join('') || '<li class="muted">No numbers yet.</li>'}</ul></section>`;
-    h += `<section class="card"><h2>Notes</h2><label class="sr" for="notes">Notes</label><textarea id="notes" rows="4" placeholder="Anything worth remembering about this property">${esc(p.notes)}</textarea></section>`;
-    h += `<p class="center"><button class="link danger" data-act="remove-property">Remove this property from the app</button></p>`;
-    return h;
+    docsH += `</section>`;
+    const phones = `<section class="card"><div class="card-head"><h2>Phone numbers</h2><button class="btn small" data-act="add-contact">＋ Add</button></div><ul class="list">${(p.contacts || []).map(c => `<li class="row"><span class="ic" aria-hidden="true">📞</span><span class="grow"><b>${esc(c.label)}</b><small>${esc(c.note || '')}</small></span><a class="btn small" href="tel:${esc(String(c.phone).replace(/[^\d+]/g, ''))}">${esc(c.phone)}</a><button class="link" data-act="edit-contact" data-id="${esc(c.id)}">Edit</button></li>`).join('') || '<li class="muted">No numbers yet.</li>'}</ul></section>`;
+    const notes = `<section class="card"><h2>Notes</h2><label class="sr" for="notes">Notes</label><textarea id="notes" rows="4" placeholder="Anything worth remembering about this property">${esc(p.notes)}</textarea></section>`;
+    return arranged('binder', [blk('summary', summary, 'l'), blk('numbers', nums, 'm'), blk('docs', docsH, 'm'), blk('phones', phones, 'l'), blk('notes', notes, 'l')])
+      + `<p class="center"><button class="link danger" data-act="remove-property">Remove this property from the app</button></p>`;
   }
 
   function render() {
     if (tab !== 'all' && !prop(tab)) tab = 'all';
     renderTabs();
+    $('#arrange-btn').classList.toggle('on', arranging);
+    $('#arrange-btn').setAttribute('aria-pressed', arranging);
     const main = $('#main');
     main.innerHTML = tab === 'all' ? renderAll() : renderProperty(prop(tab));
     const n = $('#notes'); if (n) n.addEventListener('change', () => { prop(tab).notes = n.value; commit(); });
@@ -424,6 +505,17 @@
 
   // ---------- clicks ----------
   document.addEventListener('click', async e => {
+    // Arranging: only the arrange controls work; the rest of each block is "frozen".
+    if (arranging && e.target.closest('.blk-body')) { e.preventDefault(); e.stopPropagation(); return; }
+    const ar = e.target.closest('[data-act="arrange"],[data-act="arrange-reset"],[data-act="blk-move"],[data-act="blk-size"],[data-act="noop"]');
+    if (ar) {
+      const act = ar.dataset.act; const board = $('.board');
+      if (act === 'arrange') { arranging = !arranging; render(); if (arranging) toast('Arrange mode: move and resize, then tap Done'); }
+      else if (act === 'arrange-reset' && board) { const L = (S.settings || {}).layout; if (L) delete L[board.dataset.screen]; commit('Back to the standard layout'); }
+      else if (act === 'blk-move') { const el = ar.closest('.blk'); const sib = ar.dataset.dir === '-1' ? el.previousElementSibling : el.nextElementSibling; if (sib) { el.parentElement.insertBefore(el, ar.dataset.dir === '-1' ? sib : sib.nextSibling); saveLayout(el.parentElement); } }
+      else if (act === 'blk-size') { const el = ar.closest('.blk'); SIZES.forEach(z => el.classList.remove('sz-' + z)); el.classList.add('sz-' + ar.dataset.size); saveLayout(el.parentElement); }
+      return;
+    }
     const tb = e.target.closest('[data-tab]');
     if (tb && !e.target.closest('[data-act]')) { tab = tb.dataset.tab; sub = 'points'; render(); window.scrollTo(0, 0); return; }
     const sb = e.target.closest('[data-sub]'); if (sb) { sub = sb.dataset.sub; render(); return; }
