@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>HGVC Binder</title>
+<meta name="description" content="Points, fees and ownership papers for your Hilton Grand Vacations properties.">
+<meta name="theme-color" content="#14304f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="HGVC Binder">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand"><img src="icon.svg" alt="" width="34" height="34"><div><h1>HGVC Binder</h1><p id="sync" class="sync"></p></div></div>
+  <button class="icon-btn" data-act="menu" aria-label="Menu">☰</button>
+</header>
+<nav id="tabs" class="tabs" role="tablist" aria-label="Properties"></nav>
+<main id="main" tabindex="-1"></main>
+<dialog id="dlg"></dialog>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+<script src="js/core.js"></script>
+<script src="js/store.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

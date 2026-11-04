@@ -1,0 +1,68 @@
+name: HGVCBinder
+options:
+  bundleIdPrefix: com.dfwilley
+  deploymentTarget:
+    iOS: "16.0"
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+targets:
+  HGVCBinder:
+    type: application
+    platform: iOS
+    sources:
+      - path: HGVCBinder
+      - path: ../../hgvc-binder
+        type: folder
+        buildPhase: resources
+    info:
+      path: HGVCBinder/Info.plist
+      properties:
+        CFBundleDisplayName: HGVC Binder
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSRequiresIPhoneOS: true
+        UILaunchScreen:
+          UIColorName: AccentColor
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
+        NSFaceIDUsageDescription: HGVC Binder uses Face ID before showing your full contract and member numbers.
+        UIFileSharingEnabled: true
+        LSSupportsOpeningDocumentsInPlace: true
+        LSApplicationQueriesSchemes: [tel]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.dfwilley.hgvcbinder
+        TARGETED_DEVICE_FAMILY: "1"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+  HGVCBinderTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [HGVCBinderTests]
+    dependencies:
+      - target: HGVCBinder
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        TARGETED_DEVICE_FAMILY: "1"
+  HGVCBinderUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [HGVCBinderUITests]
+    dependencies:
+      - target: HGVCBinder
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        TARGETED_DEVICE_FAMILY: "1"
+schemes:
+  HGVCBinder:
+    build:
+      targets:
+        HGVCBinder: all
+    test:
+      targets:
+        - HGVCBinderTests
+        - HGVCBinderUITests

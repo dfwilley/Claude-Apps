@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1f4a74"/><stop offset="1" stop-color="#0e2440"/></linearGradient>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f7c873"/><stop offset="1" stop-color="#ee8f5a"/></linearGradient>
+    <linearGradient id="cover" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fbf5e8"/><stop offset="1" stop-color="#ece0c6"/></linearGradient>
+    <clipPath id="win"><circle cx="545" cy="455" r="170"/></clipPath>
+  </defs>
+  <rect width="1024" height="1024" fill="url(#bg)"/>
+  <!-- binder -->
+  <rect x="226" y="176" width="590" height="690" rx="46" fill="#0a1a2e" opacity=".35" transform="translate(14 18)"/>
+  <rect x="226" y="176" width="590" height="690" rx="46" fill="url(#cover)"/>
+  <rect x="226" y="176" width="112" height="690" rx="46" fill="#c9962e"/>
+  <rect x="300" y="176" width="38" height="690" fill="#b0801f"/>
+  <g fill="#fbf5e8" stroke="#8a6416" stroke-width="10">
+    <circle cx="282" cy="330" r="26"/><circle cx="282" cy="521" r="26"/><circle cx="282" cy="712" r="26"/>
+  </g>
+  <!-- sunset window -->
+  <circle cx="545" cy="455" r="182" fill="#c9962e"/>
+  <g clip-path="url(#win)">
+    <rect x="360" y="270" width="380" height="380" fill="url(#sky)"/>
+    <circle cx="545" cy="500" r="78" fill="#fff3c4"/>
+    <rect x="360" y="500" width="380" height="200" fill="#1f7a7a"/>
+    <path d="M360 528 q30 -14 60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 v20 h-380z" fill="#2f9a98"/>
+    <path d="M360 572 q30 -14 60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 v20 h-380z" fill="#25878a"/>
+    <!-- palm -->
+    <path d="M628 640 C 634 560, 640 470, 612 400" stroke="#14304f" stroke-width="16" fill="none" stroke-linecap="round"/>
+    <g fill="#14304f">
+      <path d="M612 400 c 40 -40 95 -38 128 -6 c -44 -12 -86 -6 -128 6z"/>
+      <path d="M612 400 c 30 6 70 32 86 76 c -28 -32 -56 -50 -86 -76z"/>
+      <path d="M612 400 c -36 -34 -92 -40 -128 -12 c 44 -6 86 0 128 12z"/>
+      <path d="M612 400 c -30 12 -64 44 -74 88 c 22 -36 48 -60 74 -88z"/>
+      <path d="M612 400 c 4 -44 30 -84 72 -100 c -30 30 -48 62 -72 100z"/>
+    </g>
+  </g>
+  <!-- label lines -->
+  <rect x="400" y="700" width="290" height="26" rx="13" fill="#14304f"/>
+  <rect x="440" y="750" width="210" height="18" rx="9" fill="#14304f" opacity=".35"/>
+</svg>
