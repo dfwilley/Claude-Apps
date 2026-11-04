@@ -1,12 +1,13 @@
 # HGVC Binder data file
 
 The scheduled Claude task writes `Claude - HGVC Binder Data YYYY-MM-DD HHMM.json` to your Dropbox folder. The app loads the newest one.
-It must never contain a password, a full contract/member/reservation number (last 4 digits only), card numbers, or a Hilton Honors number.
+It must never contain a password, a full contract/member/reservation number (last 4 digits only), card numbers, or a Hilton Honors member number (the Honors points balance and tier are fine).
 
 ```json
 {
   "app": "HGVC Binder", "schema": 1, "asOf": "YYYY-MM-DD", "generated": "ISO time", "source": "HGV owner site, read-only (Claude)",
   "notes": ["anything the task couldn't read"],
+  "honors": { "balance": 0, "tier": "Diamond", "asOf": "YYYY-MM-DD" },
   "properties": [{
     "id": "stable-slug", "name": "Resort name", "short": "Tab name", "location": "", "account": "HGVC | HGV Max",
     "currency": "ClubPoints | By Hilton Club points | HGV Max points", "unitType": "", "season": "",

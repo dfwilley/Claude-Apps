@@ -149,6 +149,7 @@
       blk('t-points', tile('Points available now', H.pts(sm.totalAvailable), cur), 's'),
       blk('t-fees', tile('Fees unpaid', H.money(sm.dueTotal), sm.due.length ? sm.due.length + ' item' + (sm.due.length > 1 ? 's' : '') : 'All paid', sm.dueTotal > 0 ? 'warn' : 'good'), 's'),
       blk('t-annual', tile('Points each year', H.pts(sm.annualPoints), S.properties.length + ' properties'), 's'),
+      blk('t-honors', `<button class="tile-btn" data-act="edit-honors" aria-label="Hilton Honors balance — edit">${tile('Hilton Honors', sm.honors ? H.pts(sm.honors.balance) : '—', sm.honors ? [sm.honors.tier ? esc(sm.honors.tier) : '', sm.honors.asOf ? 'as of ' + esc(H.shortDate(sm.honors.asOf)) : ''].filter(Boolean).join(' · ') : 'Tap to add your balance', 'honors')}</button>`, 's'),
       blk('t-trip', tile('Next trip', next ? esc(H.shortDate(next.r.checkIn)) : '—', next ? esc(next.r.resort) + ' · ' + daysText(H.daysBetween(t, next.r.checkIn)) : 'None booked'), 's'),
       blk('coming', coming, 'm'),
       blk('reservations', resCard(allRes, t, true, false), 'm'),
@@ -529,6 +530,14 @@
       case 'settings': settings(); break;
       case 'add-property': editContract(null); break;
       case 'edit-contract': editContract(p); break;
+      case 'edit-honors': {
+        const h = S.honors || {};
+        openForm({ title: 'Hilton Honors', values: { balance: h.balance, tier: h.tier || '', asOf: h.asOf || today() },
+          note: 'Just the points balance and tier. The monthly update fills this in from the owner site; a change you make here stays until the next update.',
+          fields: [{ key: 'balance', label: 'Points balance', type: 'number', step: 1 }, { key: 'tier', label: 'Tier', type: 'select', options: ['', 'Member', 'Silver', 'Gold', 'Diamond', 'Diamond Reserve'] }, { key: 'asOf', label: 'As of', type: 'date' }],
+          onSave: v => { if (v.balance == null) return 'Add the balance.'; S.honors = H.normalizeHonors(v); commit('Saved'); } });
+        break;
+      }
       case 'remove-property':
         if (confirm('Remove ' + p.name + ' and its documents from this app? This doesn\'t change anything with HGV.')) {
           for (const d of p.docs || []) await Store.deleteDoc(d.id).catch(() => {});
@@ -551,7 +560,7 @@
       case 'import-file': { const f = await pickFile(''); if (f) { if (f.size > 20e6) toast('That file is too big to be a data file.', true); else importData(await f.text()); } break; }
       case 'send-copy': {
         if (!S.properties.length) { toast('Nothing to send yet.', true); break; }
-        const copy = { app: 'HGVC Binder', schema: H.SCHEMA, asOf: (S.meta && S.meta.hgvAsOf) || today(), generated: new Date().toISOString(), source: 'Shared from HGVC Binder',
+        const copy = { app: 'HGVC Binder', schema: H.SCHEMA, asOf: (S.meta && S.meta.hgvAsOf) || today(), generated: new Date().toISOString(), source: 'Shared from HGVC Binder', honors: S.honors || undefined,
           properties: S.properties.map(p => Object.assign({}, p, { docs: [], locked: undefined, suppress: undefined }, Object.fromEntries(['batches', 'ledger', 'reservations', 'fees'].map(k => [k, (p[k] || []).map(x => Object.assign({}, x, { source: undefined }))])))) };
         Store.share('Claude - HGVC Binder Data ' + today() + '.json', new Blob([JSON.stringify(copy)], { type: 'application/json' }));
         toast('Send it by Messages, Mail or AirDrop. They save it to Files, then use “Open a data file”.'); break;

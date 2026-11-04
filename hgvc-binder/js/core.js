@@ -198,7 +198,16 @@
     expiring.sort((a, b) => a.days - b.days);
     const totalAvailable = Object.values(byCurrency).reduce((s, n) => s + n, 0);
     const annualPoints = props.reduce((s, p) => s + num(p.annualPoints), 0);
-    return { byCurrency, totalAvailable, annualPoints, dueTotal: Math.round(dueTotal * 100) / 100, due, expiring, deadlines: deadlines(state, today) };
+    return { byCurrency, totalAvailable, annualPoints, dueTotal: Math.round(dueTotal * 100) / 100, due, expiring, deadlines: deadlines(state, today), honors: normalizeHonors(state.honors) };
+  }
+
+  // ---------- Hilton Honors ----------
+  // Just the points balance and tier (no Honors member number is ever kept).
+  function normalizeHonors(h) {
+    if (!h || typeof h !== 'object') return null;
+    const balance = h.balance == null || h.balance === '' ? null : Math.round(num(h.balance));
+    if (balance == null || isNaN(balance)) return null;
+    return { balance, tier: h.tier ? String(h.tier).slice(0, 40) : '', asOf: h.asOf ? iso(h.asOf) : '' };
   }
 
   // ---------- data file import ----------
@@ -224,6 +233,7 @@
     if (d.app && d.app !== 'HGVC Binder') return { ok: false, problems: ['This file belongs to a different app (' + d.app + ').'] };
     d = scrub(d);
     d.properties = d.properties.map(normalizeProperty);
+    if ('honors' in d) d.honors = normalizeHonors(d.honors);
     return { ok: true, data: d, problems: [] };
   }
 
@@ -253,6 +263,7 @@
       for (const c of inc.contacts || []) if (!(p.contacts || []).some(x => x.label === c.label)) p.contacts.push(Object.assign({ id: uid() }, c));
       changes.push('Updated ' + p.name);
     }
+    if (incoming.honors && !(s.locked && s.locked.honors)) s.honors = normalizeHonors(incoming.honors);
     s.meta = Object.assign({}, s.meta, { hgvAsOf: incoming.asOf || incoming.generated || null, importedAt: new Date().toISOString(), source: incoming.source || 'data file' });
     if (incoming.notes) s.meta.syncNotes = incoming.notes;
     return { state: s, changes };
@@ -293,6 +304,6 @@
 
   const api = { SCHEMA, DEFAULT_SETTINGS, parseDate, iso, addDays, daysBetween, longDate, shortDate, money, pts, num, last4, mask, scrub,
     batchUsed, pointsSummary, feeYears, feesDue, deadlines, notifications, buildICS, summary, slug, uid, emptyState, normalizeProperty,
-    validateDataFile, mergeData, parseStatement, statementToFees, MONTHS };
+    validateDataFile, mergeData, normalizeHonors, parseStatement, statementToFees, MONTHS };
   if (typeof module === 'object' && module.exports) module.exports = api; else root.HB = api;
 })(typeof self !== 'undefined' ? self : this);

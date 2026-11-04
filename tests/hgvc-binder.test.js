@@ -163,4 +163,18 @@ test('fee lines you replaced with a statement stay replaced after the next updat
   assert.ok(!st.properties[0].fees.some(f => f.id === 'f27'));
 });
 
+test('Hilton Honors balance and tier come through; the Honors number never does', () => {
+  const d = sample(); d.honors = { balance: '740,291', tier: 'Diamond', asOf: '11/04/2026', honorsNumber: '123456789' };
+  const v = H.validateDataFile(d);
+  assert.deepStrictEqual(v.data.honors, { balance: 740291, tier: 'Diamond', asOf: '2026-11-04' });
+  let st = H.mergeData(H.emptyState(), v.data).state;
+  assert.strictEqual(H.summary(st, '2026-11-04').honors.balance, 740291);
+  const upd = sample(); upd.honors = { balance: 750000, tier: 'Diamond', asOf: '2026-12-02' };
+  st = H.mergeData(st, H.validateDataFile(upd).data).state;
+  assert.strictEqual(st.honors.balance, 750000);
+  const noH = sample(); st = H.mergeData(st, H.validateDataFile(noH).data).state;
+  assert.strictEqual(st.honors.balance, 750000, 'a file without Honors keeps the last balance');
+  assert.ok(!JSON.stringify(st).includes('123456789'));
+});
+
 console.log(`\n${passed} passed`);
