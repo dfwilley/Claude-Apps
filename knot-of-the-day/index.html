@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Knot of the Day</title>
+<meta name="description" content="Learn one sailor's knot at a time with step-by-step drawings.">
+<meta name="theme-color" content="#1c2f4f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Knots">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-180.png">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <svg class="mark" viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="18" fill="none" stroke="#e9d3a2" stroke-width="3"/><path d="M8 26 C14 8, 26 8, 30 18 S22 32, 14 22 S24 8, 34 14" fill="none" stroke="#e9d3a2" stroke-width="3" stroke-linecap="round"/></svg>
+    <div>
+      <h1>Knot of the Day</h1>
+      <p id="today-date" class="date"></p>
+    </div>
+  </div>
+  <div class="progress" aria-live="polite"><span id="learned-count">0</span> of <span id="total-count">10</span> learned</div>
+</header>
+
+<nav class="tabs" role="tablist">
+  <button role="tab" id="tab-today" aria-selected="true" data-view="lesson">Today</button>
+  <button role="tab" id="tab-knots" aria-selected="false" data-view="knots">My Knots</button>
+</nav>
+
+<main>
+  <section id="view-lesson" class="view">
+    <p id="lesson-badge" class="badge"></p>
+    <h2 id="knot-name"></h2>
+    <p id="knot-also" class="also"></p>
+
+    <div class="stage-wrap">
+      <button id="stage" class="stage" aria-label="Next step"></button>
+      <div class="stepbar">
+        <button id="prev" class="nav-btn" aria-label="Previous step">&#8249; Back</button>
+        <div id="dots" class="dots" aria-hidden="true"></div>
+        <button id="next" class="nav-btn primary" aria-label="Next step">Next &#8250;</button>
+      </div>
+      <p class="stepnum" id="stepnum"></p>
+      <p class="caption" id="caption" aria-live="polite"></p>
+    </div>
+
+    <p id="knot-summary" class="summary"></p>
+
+    <div class="actions">
+      <button id="btn-tied" class="act">I tied it!</button>
+      <button id="btn-learned" class="act learned">Mark as learned</button>
+    </div>
+    <p id="tries" class="tries"></p>
+
+    <div class="cards">
+      <article class="card"><h3>Navy &amp; sea</h3><p id="knot-sea"></p></article>
+      <article class="card"><h3>RV &amp; camp</h3><p id="knot-rv"></p></article>
+      <article class="card story">
+        <h3>Tell the grandkids</h3>
+        <p id="knot-story"></p>
+        <label for="note" class="note-label">My story or notes for this knot</label>
+        <textarea id="note" rows="3" placeholder="Type a memory, a tip, or who you showed it to…"></textarea>
+        <p id="note-saved" class="saved" aria-live="polite"></p>
+      </article>
+    </div>
+    <p class="back-today"><button id="go-today" class="linkish" hidden>&#8249; Back to today&rsquo;s knot</button></p>
+  </section>
+
+  <section id="view-knots" class="view" hidden>
+    <div id="groups"></div>
+    <details class="about">
+      <summary>About this app</summary>
+      <p>One knot a day, picked from the knots you&rsquo;re ready for. A knot is &ldquo;ready&rdquo; once you&rsquo;ve learned the knots it builds on. Tap the drawing (or Next) to go step by step: the red dashed arrow shows the next move.</p>
+      <p>Your progress and notes stay on this phone. Nothing is sent anywhere.</p>
+      <p><button id="reset" class="linkish danger">Start over (clear my progress)</button></p>
+    </details>
+  </section>
+</main>
+<div id="toast" class="toast" role="status" hidden></div>
+
+<script src="engine.js"></script>
+<script src="knots.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
