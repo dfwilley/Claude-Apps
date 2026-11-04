@@ -18,6 +18,10 @@ final class BinderController: UIViewController, WKScriptMessageHandler, WKUIDele
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        if ProcessInfo.processInfo.arguments.contains("-resetForUITest") {
+            try? FileManager.default.removeItem(at: Library.dbURL)
+            try? FileManager.default.removeItem(at: Library.previousURL)
+        }
         view.backgroundColor = UIColor(red: 20/255, green: 48/255, blue: 79/255, alpha: 1)
         let cfg = WKWebViewConfiguration()
         let dir = Bundle.main.url(forResource: "hgvc-binder", withExtension: nil)!

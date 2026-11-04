@@ -468,7 +468,10 @@
   // ---------- start ----------
   async function start() {
     const saved = await Store.load();
-    if (saved && saved.properties) S = Object.assign(H.emptyState(), saved);
+    if (saved && Array.isArray(saved.properties)) {
+      S = Object.assign(H.emptyState(), saved);
+      S.properties = saved.properties.filter(p => p && typeof p === 'object' && p.name).map(H.normalizeProperty);
+    }
     render();
     autoLoad();
     if (Store.native) { Store.on('foreground', autoLoad); Store.schedule(H.notifications(S, today())).catch(() => {}); }

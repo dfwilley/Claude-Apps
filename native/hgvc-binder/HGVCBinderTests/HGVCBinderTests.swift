@@ -19,6 +19,13 @@ final class HGVCBinderTests: XCTestCase {
         XCTAssertTrue(Vault.isSafeKey("kings-land.contract"))
     }
 
+    override func tearDown() {
+        // Leave no test data behind for the screenshot run.
+        try? FileManager.default.removeItem(at: Library.dbURL)
+        try? FileManager.default.removeItem(at: Library.previousURL)
+        super.tearDown()
+    }
+
     func testSavesAndReadsTheBinder() throws {
         try Library.writeDB("{\"schema\":1,\"properties\":[]}")
         try Library.writeDB("{\"schema\":1,\"properties\":[1]}")
@@ -36,7 +43,11 @@ final class HGVCBinderTests: XCTestCase {
     }
 
     func testKeychainHoldsFullNumbers() throws {
-        try Vault.set("test-prop.contract", "12-345678")
+        do { try Vault.set("test-prop.contract", "12-345678") } catch {
+            // Unsigned simulator builds have no Keychain access (-34018). Sideloaded, signed builds do.
+            if "\(error)".contains("-34018") { throw XCTSkip("No Keychain in an unsigned simulator build") }
+            throw error
+        }
         XCTAssertEqual(Vault.get("test-prop.contract"), "12-345678")
         try Vault.set("test-prop.contract", "")
         XCTAssertNil(Vault.get("test-prop.contract"))

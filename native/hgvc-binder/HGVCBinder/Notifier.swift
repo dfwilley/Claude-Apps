@@ -20,6 +20,8 @@ enum Notifier {
     static func schedule(_ list: [[String: Any]], done: @escaping (Bool) -> Void) {
         let items = parse(list)
         let center = UNUserNotificationCenter.current()
+        // Only ask permission once there's something to remind about.
+        guard !items.isEmpty else { center.removeAllPendingNotificationRequests(); return DispatchQueue.main.async { done(false) } }
         center.requestAuthorization(options: [.alert, .sound, .badge]) { granted, _ in
             center.removeAllPendingNotificationRequests()
             guard granted else { return DispatchQueue.main.async { done(false) } }

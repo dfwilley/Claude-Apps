@@ -6,7 +6,12 @@ final class ScreenshotTests: XCTestCase {
         let a = XCTAttachment(screenshot: app.screenshot()); a.name = name; a.lifetime = .keepAlways; add(a)
     }
     func testScreens() {
+        addUIInterruptionMonitor(withDescription: "Notifications") { alert in
+            for b in ["Allow", "OK"] where alert.buttons[b].exists { alert.buttons[b].tap(); return true }
+            return false
+        }
         let app = XCUIApplication()
+        app.launchArguments = ["-resetForUITest"]
         app.launch()
         let web = app.webViews.firstMatch
         XCTAssertTrue(web.waitForExistence(timeout: 20))
@@ -21,6 +26,7 @@ final class ScreenshotTests: XCTestCase {
         let pts = web.textFields["Points each year"]
         if pts.exists { pts.tap(); pts.typeText("10000") }
         web.buttons["Save"].tap()
+        app.tap() // lets the notification question be answered if it appears
         sleep(1); snap(app, "2-points")
         for (tab, shot) in [("Fees", "3-fees"), ("Binder", "4-binder")] {
             let b = web.buttons[tab]
