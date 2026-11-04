@@ -1,0 +1,67 @@
+name: BlueBook
+options:
+  bundleIdPrefix: com.dfwilley
+  deploymentTarget:
+    iOS: "16.0"
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+targets:
+  BlueBook:
+    type: application
+    platform: iOS
+    sources:
+      - path: BlueBook
+      - path: ../../blue-book
+        type: folder
+        buildPhase: resources
+    info:
+      path: BlueBook/Info.plist
+      properties:
+        CFBundleDisplayName: Blue Book
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSRequiresIPhoneOS: true
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
+        NSCameraUsageDescription: Blue Book uses the camera to photograph your logbook pages. The photos stay on this iPhone.
+        NSPhotoLibraryUsageDescription: Blue Book can import photos of logbook pages you've already taken. They stay on this iPhone.
+        UIFileSharingEnabled: true
+        LSSupportsOpeningDocumentsInPlace: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.dfwilley.bluebook
+        TARGETED_DEVICE_FAMILY: "1"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+  BlueBookTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [BlueBookTests]
+    dependencies:
+      - target: BlueBook
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        TARGETED_DEVICE_FAMILY: "1"
+  BlueBookUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [BlueBookUITests]
+    dependencies:
+      - target: BlueBook
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        TARGETED_DEVICE_FAMILY: "1"
+schemes:
+  BlueBook:
+    build:
+      targets:
+        BlueBook: all
+    test:
+      targets:
+        - BlueBookTests
+        - BlueBookUITests

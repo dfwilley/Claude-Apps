@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- Nothing leaves the phone: the app may only talk to itself. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' blob: data:; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' blob:; worker-src 'self' blob:; connect-src 'self' blob: data:; img-src 'self' blob: data:; style-src 'self' 'unsafe-inline'; form-action 'none'; base-uri 'self'">
+<title>Blue Book</title>
+<meta name="description" content="Turn photos of your Navy flight logbook into a searchable record of your career. Everything stays on your phone.">
+<meta name="theme-color" content="#14305e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Blue Book">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-180.png">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <img src="icon-180.png" alt="" class="logo">
+  <div>
+    <h1>Blue Book</h1>
+    <p class="sub" id="sub">Your flight record, from your logbooks</p>
+  </div>
+</header>
+
+<main id="main" tabindex="-1"></main>
+
+<nav class="tabs" aria-label="Sections">
+  <button data-tab="pages" class="on"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3h10l4 4v14H5z M15 3v4h4 M8 11h8 M8 15h8 M8 19h5"/></svg>Pages</button>
+  <button data-tab="totals"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10 M10 20V4 M16 20v-7 M22 20H2"/></svg>Totals</button>
+  <button data-tab="timeline"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h9 M7 12h12 M5 18h8 M3 3v18"/></svg>Timeline</button>
+  <button data-tab="search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21"/></svg>Search</button>
+  <button data-tab="more"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12 M7 10l5 5 5-5 M4 17v4h16v-4"/></svg>Export</button>
+</nav>
+
+<div id="sheet" class="sheet" hidden role="dialog" aria-modal="true"><div class="sheet-body" id="sheet-body"></div></div>
+<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+<input type="file" id="pick-camera" accept="image/*" capture="environment" hidden>
+<input type="file" id="pick-photos" accept="image/*" multiple hidden>
+<input type="file" id="pick-backup" accept=".zip,application/zip" hidden>
+
+<script src="vendor/tesseract.min.js"></script>
+<script src="vendor/jspdf.umd.min.js"></script>
+<script src="js/extract.js"></script>
+<script src="js/career.js"></script>
+<script src="js/files.js"></script>
+<script src="js/image.js"></script>
+<script src="js/store.js"></script>
+<script src="js/ocr.js"></script>
+<script src="js/export.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
