@@ -142,7 +142,7 @@ const KNOTS = [
     level: 2, needs: ['overhand'],
     summary: 'Makes a loop at the end of a rope that won’t slip or tighten, and still unties easily after a heavy load. \u201CThe rabbit comes up the hole, around the tree, and back down the hole.\u201D',
     sea: 'Often called the king of knots. Sailors use it to put a loop over a piling or bollard, or to tie a sheet to a sail.',
-    rv: 'Put a fixed loop over a hitch ball, a stake, or a tree for a tie-down that won’t cinch tight.',
+    rv: 'Put a fixed loop over a stake, a post, or a tree for a tie-down that won’t cinch tight.',
     story: 'Teach them the rabbit and the tree. Make up your own version of the story.',
     strands: [{
       color: 'tan',
