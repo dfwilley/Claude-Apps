@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Wire Bender</title>
+<meta name="description" content="Draw a copper wire shape and get a full-size printable template plus a step-by-step bend list.">
+<meta name="theme-color" content="#1c2f4f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Wire Bender">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-180.png">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="app" id="app">
+<header class="top">
+  <div class="brand">
+    <svg class="mark" viewBox="0 0 40 40" aria-hidden="true"><rect x="1.5" y="1.5" width="37" height="37" rx="8" fill="none" stroke="#e9d3a2" stroke-width="2"/><path d="M7 28 H15 Q18 28 18 25 V15 Q18 12 21 12 H33" fill="none" stroke="#d98a4e" stroke-width="4" stroke-linecap="round"/><circle cx="18" cy="20" r="1.8" fill="#e9d3a2"/></svg>
+    <div>
+      <h1>Wire Bender</h1>
+      <p class="sub">Draw it &middot; print it full size &middot; bend it</p>
+    </div>
+  </div>
+  <div class="file-btns">
+    <button id="btn-new" class="tbtn">New</button>
+    <button id="btn-open" class="tbtn">Open</button>
+    <button id="btn-save" class="tbtn">Save</button>
+  </div>
+</header>
+
+<main>
+  <div class="col left">
+    <section class="card">
+      <div class="row name-row">
+        <label for="name">Project name</label>
+        <input id="name" type="text" maxlength="60" placeholder="e.g. Battery ground strap">
+      </div>
+      <div class="grid3">
+        <div>
+          <label for="wire">Wire size</label>
+          <select id="wire"></select>
+          <input id="custom-dia" type="text" inputmode="decimal" placeholder="Diameter, e.g. 0.102 or 3/32" hidden>
+        </div>
+        <div>
+          <label for="radius">Inside bend radius</label>
+          <input id="radius" type="text" inputmode="decimal" value="1/8">
+          <div class="chips"><button data-r="1">1&times; wire</button><button data-r="2">2&times;</button><button data-r="3">3&times;</button></div>
+        </div>
+        <div>
+          <label for="tail">Extra on each end</label>
+          <input id="tail" type="text" inputmode="decimal" value="0">
+          <p class="hint">Optional, for gripping; trim it off after. Marks are then measured from the cut end.</p>
+        </div>
+      </div>
+      <p class="hint">Lengths in inches: type 3.5, 3 1/2, 7/8, or add mm.</p>
+    </section>
+
+    <section class="card">
+      <div class="draw-head">
+        <h2>Draw the shape</h2>
+        <select id="sample" aria-label="Load a sample shape">
+          <option value="">Samples&hellip;</option>
+        </select>
+      </div>
+      <p class="hint" id="draw-hint">Tap the grid to place the start (end A), then tap each corner in order. Drag a dot to move it. Lines are the wire's centerline.</p>
+      <div class="toolbar" role="toolbar" aria-label="Drawing tools">
+        <button id="undo" title="Undo">&#8630; Undo</button>
+        <button id="del" title="Delete the selected corner" disabled>Delete dot</button>
+        <button id="reverse" title="Swap end A and end B">A&#8644;B</button>
+        <button id="clear" title="Clear the drawing">Clear</button>
+        <span class="sep"></span>
+        <button id="zoom-out" aria-label="Zoom out">&minus;</button>
+        <button id="zoom-fit">Fit</button>
+        <button id="zoom-in" aria-label="Zoom in">+</button>
+      </div>
+      <div class="snaps">
+        <label>Snap to <select id="snap">
+          <option value="0.0625">1/16"</option>
+          <option value="0.125">1/8"</option>
+          <option value="0.25" selected>1/4"</option>
+          <option value="0.5">1/2"</option>
+          <option value="0">off</option>
+        </select></label>
+        <label class="check"><input type="checkbox" id="angle-snap" checked> Angles in 15&deg; steps</label>
+      </div>
+      <div class="board-wrap" id="board-wrap">
+        <svg id="board" xmlns="http://www.w3.org/2000/svg"></svg>
+      </div>
+      <p class="readout" id="readout" aria-live="polite">&nbsp;</p>
+    </section>
+
+    <section class="card">
+      <details id="legs-box" open>
+        <summary><h2>Exact lengths and angles</h2></summary>
+        <p class="hint">Each leg is measured along the wire's center, from corner to corner (where the straight parts would meet if the corners were sharp). Turn is the bend at the start of that leg. Type a change and press Enter.</p>
+        <div class="table-wrap"><table class="legs" id="legs"><thead><tr><th>Leg</th><th>Length</th><th>Turn before it</th><th></th></tr></thead><tbody></tbody></table></div>
+        <button id="add-leg" class="small">+ Add a leg</button>
+      </details>
+    </section>
+  </div>
+
+  <div class="col right">
+    <section class="card result">
+      <h2>Bend list</h2>
+      <div class="cut">
+        <div><span class="k">Cut a piece</span><span class="v" id="cut-len">&mdash;</span><span class="dec" id="cut-dec"></span></div>
+        <div><span class="k">Bends</span><span class="v" id="bend-count">0</span></div>
+      </div>
+      <div id="warnings"></div>
+      <ol class="steps" id="steps"></ol>
+      <div class="table-wrap"><table class="bends" id="bends">
+        <thead><tr><th>#</th><th>Mark at<br><small>from end A</small></th><th>Bend</th><th>Toward</th><th>Then straight</th></tr></thead>
+        <tbody></tbody>
+      </table></div>
+      <div class="out-btns">
+        <button id="print" class="primary">Print full-size template</button>
+        <button id="dl-svg">Download SVG</button>
+        <button id="dl-dxf">Download DXF</button>
+      </div>
+      <p class="hint" id="print-note"></p>
+    </section>
+
+    <section class="card">
+      <details>
+        <summary><h2>How to use it</h2></summary>
+        <ul class="howto">
+          <li><b>Right and left</b> mean the way the wire turns as you walk along it from end A toward end B, with the wire lying on the template, printed side up.</li>
+          <li><b>Mark at</b> is the center of each bend. Put the middle of your bending jaw or mandrel on the mark. The thin ticks on the template show where each bend starts and ends.</li>
+          <li><b>Cut length</b> follows the wire's center, so it already allows for the material that goes around each bend.</li>
+          <li><b>Copper springs back a little.</b> Bend a hair past the angle, then lay the wire on the template and adjust.</li>
+          <li><b>Printing:</b> choose <i>Actual size</i> or <i>100%</i> (not &ldquo;Fit to page&rdquo;), then check the 1-inch square with a ruler. Big shapes print on several sheets: overlap them so the 1-inch grid and dashed lines line up, and tape.</li>
+          <li><b>DXF</b> is the centerline with true arcs, in inches, for SolidWorks or a CAD drawing.</li>
+          <li>Your projects are saved on this device only. Nothing is sent anywhere.</li>
+        </ul>
+      </details>
+    </section>
+  </div>
+</main>
+
+<dialog id="open-dlg">
+  <h2>Saved projects</h2>
+  <ul id="saved-list" class="saved-list"></ul>
+  <form method="dialog"><button class="primary">Close</button></form>
+</dialog>
+</div>
+
+<div id="print-area" aria-hidden="true"></div>
+
+<script src="geom.js"></script>
+<script src="render.js"></script>
+<script src="app.js"></script>
+<script>
+  if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js');
+</script>
+</body>
+</html>
