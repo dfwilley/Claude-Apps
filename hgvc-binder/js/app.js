@@ -83,10 +83,11 @@
   function renderWelcome() {
     return `<section class="card welcome"><img src="icon-180.png" alt="" width="72" height="72"><h2>Welcome to HGVC Binder</h2>
       <p>Your Hilton Grand Vacations points, fees and papers, one tab per property.</p>
-      ${Store.native ? '<button class="btn primary" data-act="pick-folder">Choose my Dropbox data folder</button>' : ''}
-      <button class="btn ${Store.native ? '' : 'primary'}" data-act="import-file">Open a data file</button>
+      <button class="btn primary" data-act="import-file">Open a data file</button>
+      <p class="muted small">From anywhere on this ${Store.native ? 'iPhone' : 'device'}: Files, iCloud Drive, Downloads, Dropbox, or a file someone sent you by Messages, Mail or AirDrop (save it to Files first).</p>
+      ${Store.native ? '<button class="btn" data-act="pick-folder">Use a folder for automatic updates</button>' : ''}
       <button class="btn" data-act="add-property">Add a property by hand</button>
-      <p class="muted small">The data file is written by your scheduled Claude task, which reads your owner account without changing anything.</p></section>`;
+      <p class="muted small">The data file is a “Claude - HGVC Binder Data … .json” file. The monthly Claude task writes a new one after reading the owner account without changing anything.</p></section>`;
   }
 
   // ---------- one property ----------
@@ -302,7 +303,8 @@
 
   function pickFile(accept) {
     return new Promise(resolve => {
-      const i = document.createElement('input'); i.type = 'file'; i.accept = accept; i.style.display = 'none';
+      const i = document.createElement('input'); i.type = 'file'; i.style.display = 'none';
+      if (accept) i.accept = accept; else i.removeAttribute('accept');
       i.onchange = () => { resolve(i.files[0] || null); i.remove(); }; document.body.appendChild(i); i.click();
     });
   }
@@ -394,8 +396,9 @@
   function menu() {
     const dlg = $('#dlg');
     const items = [
-      Store.native ? ['pick-folder', '📁 Choose Dropbox data folder'] : null,
-      ['import-file', '⬇︎ Open a data file'],
+      ['import-file', '⬇︎ Open a data file (Files, iCloud, Dropbox, Downloads…)'],
+      Store.native ? ['pick-folder', '📁 Use a folder for automatic updates'] : null,
+      ['send-copy', '📤 Send a copy of the data to someone'],
       ['add-property', '＋ Add a property'],
       Store.native ? ['settings', '🔔 Reminder settings'] : ['ics', '📅 Add reminders to my calendar'],
       Store.native ? ['settings', null] : ['settings', '🔔 Reminder timing (for the calendar file)'],
@@ -410,7 +413,7 @@
     const dlg = $('#dlg');
     dlg.innerHTML = `<div class="form about"><h2>About HGVC Binder</h2>
       <p><b>What it does.</b> Keeps your points, fees and papers for each Hilton Grand Vacations property in one place, and reminds you before points expire and fees come due.</p>
-      <p><b>Where the data comes from.</b> A scheduled Claude task signs in with your existing browser sign-in, reads your owner account <i>read-only</i>, and writes a data file to your Dropbox. ${Store.native ? 'The app reads the newest file each time it opens.' : 'Open that file here with “Open a data file”.'} You can also type or edit anything by hand, and read PDF statements you download yourself.</p>
+      <p><b>Where the data comes from.</b> A scheduled Claude task signs in with your existing browser sign-in, reads your owner account <i>read-only</i>, and writes a data file to Dropbox. Open a data file from anywhere — Files, iCloud Drive, Downloads, Dropbox, or one sent by Messages, Mail or AirDrop. ${Store.native ? 'Or pick a folder (in any of those places) and the app reads the newest file there each time it opens.' : ''} “Send a copy of the data” shares the current points, fees and trips (no documents) so someone else can open it in their copy of the app. You can also type or edit anything by hand, and read PDF statements you download yourself.</p>
       <p><b>What it never does.</b> It never stores your HGV password, never books, changes or cancels reservations, and never makes payments.</p>
       <p><b>Limits.</b> If HGV changes its website, the scheduled task may stop finding things until it's adjusted. If HGV asks for a security code, the task stops and you sign in once yourself. The task only runs while your computer and the Claude app are on. Statement reading works best on HGV's text PDFs; scanned pictures need typing in.</p>
       <p><b>Privacy.</b> Everything stays on this device${Store.native ? '' : ' (this browser)'} — nothing is sent anywhere. Contract and member numbers show only their last 4 digits${Store.native ? '; full numbers sit in the iPhone Keychain behind Face ID' : ''}.</p>
@@ -453,7 +456,14 @@
       case 'import-pdf': importPdf(p); break;
       case 'reveal': if (Store.native) reveal(p, a.dataset.which); break;
       case 'pick-folder': try { const r = await Store.pickFolder(); if (r) { toast('Folder chosen'); autoLoad(); } } catch (err) { toast(err.message, true); } break;
-      case 'import-file': { const f = await pickFile('application/json,.json'); if (f) importData(await f.text()); break; }
+      case 'import-file': { const f = await pickFile(''); if (f) { if (f.size > 20e6) toast('That file is too big to be a data file.', true); else importData(await f.text()); } break; }
+      case 'send-copy': {
+        if (!S.properties.length) { toast('Nothing to send yet.', true); break; }
+        const copy = { app: 'HGVC Binder', schema: H.SCHEMA, asOf: (S.meta && S.meta.hgvAsOf) || today(), generated: new Date().toISOString(), source: 'Shared from HGVC Binder',
+          properties: S.properties.map(p => Object.assign({}, p, { docs: [], locked: undefined, suppress: undefined }, Object.fromEntries(['batches', 'ledger', 'reservations', 'fees'].map(k => [k, (p[k] || []).map(x => Object.assign({}, x, { source: undefined }))])))) };
+        Store.share('Claude - HGVC Binder Data ' + today() + '.json', new Blob([JSON.stringify(copy)], { type: 'application/json' }));
+        toast('Send it by Messages, Mail or AirDrop. They save it to Files, then use “Open a data file”.'); break;
+      }
       case 'ics': Store.share('HGVC Binder reminders.ics', new Blob([H.buildICS(S, today())], { type: 'text/calendar' })); toast('Open the file to add the dates to your calendar'); break;
       case 'backup': Store.share('HGVC Binder backup ' + today() + '.json', new Blob([JSON.stringify(Object.assign({}, S, { app: 'HGVC Binder', kind: 'backup', savedAt: today() }), null, 1)], { type: 'application/json' })); break;
     }

@@ -16,7 +16,7 @@ final class ScreenshotTests: XCTestCase {
         let web = app.webViews.firstMatch
         XCTAssertTrue(web.waitForExistence(timeout: 20))
         XCTAssertTrue(web.staticTexts["Welcome to HGVC Binder"].waitForExistence(timeout: 20), "screens loaded inside the app")
-        XCTAssertTrue(web.buttons["Choose my Dropbox data folder"].exists, "iPhone-only button shows, so the iPhone side is connected")
+        XCTAssertTrue(web.buttons["Use a folder for automatic updates"].exists, "iPhone-only button shows, so the iPhone side is connected")
         sleep(1); snap(app, "1-welcome")
 
         web.buttons["Add a property by hand"].tap()
