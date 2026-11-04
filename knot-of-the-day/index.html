@@ -23,7 +23,7 @@
       <p id="today-date" class="date"></p>
     </div>
   </div>
-  <div class="progress" aria-live="polite"><span id="learned-count">0</span> of <span id="total-count">10</span> learned</div>
+  <div class="progress" aria-live="polite"><span id="learned-count">0</span> of <span id="total-count">16</span> learned</div>
 </header>
 
 <nav class="tabs" role="tablist">
@@ -36,6 +36,7 @@
     <p id="lesson-badge" class="badge"></p>
     <h2 id="knot-name"></h2>
     <p id="knot-also" class="also"></p>
+    <p id="knot-use" class="use"></p>
 
     <div class="stage-wrap">
       <button id="stage" class="stage" aria-label="Next step"></button>
@@ -49,6 +50,12 @@
     </div>
 
     <p id="knot-summary" class="summary"></p>
+
+    <article class="card good">
+      <h3>What it&rsquo;s good for</h3>
+      <ul id="knot-good"></ul>
+      <p class="notfor"><strong>Don&rsquo;t use it for:</strong> <span id="knot-notfor"></span></p>
+    </article>
 
     <div class="actions">
       <button id="btn-tied" class="act">I tied it!</button>
@@ -84,6 +91,7 @@
 
 <script src="engine.js"></script>
 <script src="knots.js"></script>
+<script src="uses.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

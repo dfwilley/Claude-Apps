@@ -1,6 +1,6 @@
 // Keeps the app working offline. Bump VERSION when files change.
-const VERSION = 'knots-v1';
-const FILES = ['./', 'index.html', 'style.css', 'engine.js', 'knots.js', 'app.js', 'manifest.webmanifest', 'icon-180.png', 'icon-512.png'];
+const VERSION = 'knots-v2';
+const FILES = ['./', 'index.html', 'style.css', 'engine.js', 'knots.js', 'uses.js', 'app.js', 'manifest.webmanifest', 'icon-180.png', 'icon-512.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(VERSION).then(c => c.addAll(FILES))); self.skipWaiting(); });
 self.addEventListener('activate', e => {
   e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k.startsWith('knots-') && k !== VERSION).map(k => caches.delete(k)))));

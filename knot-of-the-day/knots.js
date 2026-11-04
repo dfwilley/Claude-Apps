@@ -13,6 +13,8 @@ const STAKE = `<rect x="-5" y="298" width="330" height="30" fill="#c9a77a"/><pat
 const CLEAT = `<defs><linearGradient id="g-cleat" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e3e6ea"/><stop offset=".5" stop-color="#a3aab4"/><stop offset="1" stop-color="#5e6670"/></linearGradient></defs>
 <rect x="134" y="138" width="52" height="44" rx="8" fill="#6b737d" stroke="#2f363f" stroke-width="2"/>
 <path d="M78 152 Q80 146 92 146 L228 146 Q240 146 242 152 L242 168 Q240 174 228 174 L92 174 Q80 174 78 168 Z" fill="url(#g-cleat)" stroke="#2f363f" stroke-width="2"/>`;
+const RAIL_LOW = `<defs><linearGradient id="g-rail2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c9ced6"/><stop offset=".45" stop-color="#8d96a3"/><stop offset="1" stop-color="#4c5561"/></linearGradient></defs>
+<rect x="-5" y="288" width="330" height="28" rx="4" fill="url(#g-rail2)" stroke="#2f363f" stroke-width="2"/>`;
 const DOCK = `<rect x="0" y="0" width="320" height="320" fill="#d9c6a5"/><path d="M0 64H320M0 128H320M0 192H320M0 256H320" stroke="#b49c74" stroke-width="3"/>`;
 
 const KNOTS = [
@@ -217,6 +219,103 @@ const KNOTS = [
       { r: [12], t: 'Wrap the end twice around the standing part, working down toward the stake (inside the loop).' },
       { r: [28], t: 'Bring the end up across the front of the wraps and tie one more half hitch above them (outside the loop).' },
       { r: [42], t: 'Snug the wraps. Slide the hitch up to tighten the line, down to loosen it.' },
+    ],
+  },
+  {
+    id: 'slip', name: 'Slip Knot', also: 'Slipped overhand',
+    level: 1, needs: ['overhand'],
+    summary: 'An overhand knot tied with a fold of rope instead of the end. It makes a loop that pulls tight, and the whole knot comes out with one tug on the tail.',
+    strands: [{
+      color: 'tan',
+      pts: [[-10, 262], [40, 245], [95, 222], [145, 198], [195, 166], [232, 122], [222, 74], [178, 52], [132, 68], [112, 112], [128, 160], [150, 212], [178, 256], [220, 262], [240, 230], [222, 190], [200, 158], [170, 128], [130, 118], [85, 112], [55, 100], [40, 75], [55, 52], [85, 50], [105, 70], [140, 95], [180, 108], [228, 158], [255, 200], [270, 250], [278, 300], [282, 335]],
+      x: 'ouoou',
+    }],
+    steps: [
+      { r: [4], t: 'Make a loop, crossing the rope over the standing part.' },
+      { r: [11], t: 'Take the rope around behind the standing part.' },
+      { r: [16], t: 'Push a fold of rope (a bight) up through the loop. Don’t pull the end all the way through.' },
+      { r: [31], t: 'Pull the bight to snug the knot. Pull the standing part to shrink the loop; tug the tail and it all comes undone.' },
+    ],
+  },
+  {
+    id: 'fisherman', name: 'Fisherman’s Knot', also: 'Angler’s knot',
+    level: 1, needs: ['overhand'],
+    strands: [
+      { color: 'tan', pts: [[-10, 170],  [60, 170],  [192, 172],  [222, 168],  [248, 143],  [252, 113],  [233, 94],  [207, 102],  [201, 128],  [214, 156],  [233, 184],  [260, 186],  [273, 166],  [263, 137],  [238, 119],  [222, 98],  [224, 76],  [243, 62],  [282, 64],  [330, 66]], x: 'ouo' },
+      { color: 'navy', pts: [[330, 107],  [260, 107],  [128, 106],  [98, 109],  [72, 134],  [68, 164],  [87, 183],  [113, 175],  [119, 149],  [106, 120],  [87, 93],  [60, 90],  [47, 112],  [57, 140],  [82, 158],  [98, 179],  [96, 202],  [77, 215],  [38, 213],  [-10, 210]] , x: 'uooououuo'},
+    ],
+    steps: [
+      { r: [2, 2], t: 'Lay the two ropes side by side, ends pointing opposite ways. With the tan end, tie an overhand knot around the blue rope.' },
+      { r: [20, 2], t: 'With the blue end, tie an overhand knot around the tan rope.' },
+      { r: [20, 20], t: 'Pull the two standing parts. The knots slide together and lock against each other.' },
+    ],
+  },
+  {
+    id: 'sheepshank', name: 'Sheepshank', also: '',
+    level: 2, needs: ['slip'],
+    strands: [{
+      color: 'tan',
+      pts: [[-10, 105], [30, 113], [62, 135], [96, 158], [100, 200], [70, 226], [34, 212], [24, 172], [40, 142], [70, 118], [110, 108], [180, 108], [245, 112], [272, 128], [275, 152], [250, 162], [160, 162], [70, 158], [45, 168], [48, 192], [75, 208], [140, 212], [210, 212], [250, 202], [280, 178], [296, 148], [286, 108], [250, 94], [220, 120], [224, 162], [258, 185], [290, 207], [330, 215]],
+      x: 'ououou',
+    }],
+    steps: [
+      { r: [[10, 22]], t: 'Fold the rope into a Z, three parts side by side. Then make a loop in the left standing part and drop it over the bend (the bight) next to it.' },
+      { r: [[0, 22]], t: 'Do the same on the right: make a loop in the standing part and drop it over that bight.' },
+      { r: [[0, 32]], t: 'Pull both ends to snug it. It only holds while the rope stays tight.' },
+    ],
+  },
+  {
+    id: 'rolling', name: 'Rolling Hitch', also: 'Magnus hitch',
+    level: 2, needs: ['clove'],
+    obj: POST,
+    behind: [[0, 5.1, 7.9],  [0, 14.1, 16.9],  [0, 23.1, 25.9],  [0, 31.1, 33.9]],
+    strands: [{
+      color: 'tan',
+      pts: [[-10, 252],  [60, 251],  [110, 250],  [160, 249],  [190, 246],  [206, 236],  [178, 200],  [140, 150],  [119, 130],  [136, 128],  [155, 160],  [175, 200],  [194, 240],  [200, 262],  [208, 270],  [180, 230],  [145, 185],  [119, 164],  [128, 162],  [142, 190],  [158, 225],  [172, 260],  [186, 290],  [207, 300],  [180, 240],  [150, 140],  [119, 62],  [138, 60],  [160, 85],  [185, 118],  [200, 140],  [208, 150],  [180, 130],  [145, 110],  [119, 102],  [145, 100],  [175, 100],  [208, 102],  [250, 104],  [330, 106]],
+      x: 'oou',
+    }],
+    steps: [
+      { r: [3], t: 'Take the end around the post.' },
+      { r: [9], t: 'Cross over the standing part and go around again.' },
+      { r: [18], t: 'Cross over the standing part a second time, right beside the first, and go around.' },
+      { r: [27], t: 'Make one more turn on the far side, above the others…' },
+      { r: [35], t: '…and tuck the end under that last turn.' },
+      { r: [39], t: 'Snug it up. Pull the standing part toward the side with the two turns and it grips.' },
+    ],
+  },
+  {
+    id: 'constrictor', name: 'Constrictor Knot', also: '',
+    level: 2, needs: ['clove'],
+    obj: POST,
+    behind: [[0, 5.1, 7.9],  [0, 13.1, 15.9]],
+    strands: [{
+      color: 'tan',
+      pts: [[-10, 202],  [60, 201],  [110, 200],  [160, 199],  [192, 196],  [207, 186],  [180, 150],  [140, 118],  [119, 106],  [136, 112],  [160, 160],  [185, 200],  [198, 226],  [208, 236],  [182, 236],  [145, 232],  [119, 228],  [128, 214],  [142, 190],  [160, 162],  [185, 132],  [215, 116],  [260, 110],  [330, 106]],
+      x: 'ouu',
+    }],
+    steps: [
+      { r: [3], t: 'Take the end around the post.' },
+      { r: [9], t: 'Cross over the standing part (making an X) and go around again.' },
+      { r: [16], t: 'Tuck the end under the standing part and under the X, so the two ends cross underneath it.' },
+      { r: [23], t: 'Pull both ends hard. It bites down and won’t let go.' },
+    ],
+  },
+  {
+    id: 'trucker', name: 'Trucker\u2019s Hitch', also: '',
+    level: 3, needs: ['slip', 'twohalf'],
+    obj: RAIL_LOW,
+    behind: [[0, 36.6, 38.4]],
+    strands: [{
+      color: 'tan',
+      pts: [[97, -10], [97, 52], [93, 85], [92, 120], [102, 153], [130, 164], [155, 149], [162, 121], [147, 97], [118, 89], [84, 83], [53, 82], [36, 101], [46, 122], [71, 126], [95, 125], [120, 120], [138, 104], [156, 83], [172, 61], [192, 46], [216, 43], [229, 59], [226, 82], [208, 101], [184, 108], [162, 111], [146, 116], [126, 132], [90, 150], [62, 160], [42, 186], [46, 215], [70, 258], [110, 284], [160, 298], [172, 322], [186, 330], [195, 302], [197, 280], [198, 240], [198, 200], [198, 160], [198, 125], [198, 90], [198, 55], [200, 25], [214, 8], [240, 6], [262, 22], [266, 60], [262, 100], [258, 133], [261, 160], [253, 183], [218, 190], [178, 191], [160, 203], [176, 217], [213, 219], [236, 209], [240, 185], [246, 163], [278, 165], [283, 205], [258, 237], [218, 243], [178, 245], [160, 257], [176, 271], [213, 273], [236, 263], [240, 239], [244, 219]],
+      x: 'ouoouuouououou',
+    }],
+    steps: [
+      { r: [3], t: 'With the line tied to the anchor above, tie a slip knot partway down the line. Its loop is your pulley.' },
+      { r: [30], t: 'Take the end down and around the rail or tie-down point.' },
+      { r: [39], t: 'Bring the end back up and pass it through the loop.' },
+      { r: [50], t: 'Pull the end down hard to tighten the line. Then tie it off with two half hitches around the line below the loop.' },
+      { r: [73], t: 'Done: the line stays tight. To release, undo the half hitches, then tug the slip knot\u2019s tail.' },
     ],
   },
 ];

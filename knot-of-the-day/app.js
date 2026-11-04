@@ -10,6 +10,8 @@
   try { const raw = localStorage.getItem(KEY); if (raw) state = Object.assign(state, JSON.parse(raw)); } catch (e) { /* storage unavailable: run without saving */ }
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { } };
 
+  const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+
   // ---------- dates ----------
   const now = () => new Date();
   const dayKey = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -49,18 +51,24 @@
     const k = current, steps = k.steps;
     const next = withArrow && steps[step + 1] ? steps[step + 1].r : null;
     stage.innerHTML = KnotEngine.render(prep(k), reveal, next);
-    shown = reveal.slice();
+    shown = reveal.map(v => Array.isArray(v) ? v.slice() : v);
   }
 
+  const asRange = v => Array.isArray(v) ? v.slice() : [0, v];
   function animateTo(target) {
     cancelAnimationFrame(animFrame);
-    const from = shown ? shown.slice() : target.map(() => 0);
+    const to = target.map(asRange);
+    const from = shown ? shown.map(asRange) : to.map(() => [0, 0]);
     const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (reduce) { draw(target, true); return; }
     const t0 = performance.now(), dur = 750;
     const tick = t => {
       const p = Math.min(1, (t - t0) / dur), e = p < .5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
-      const r = target.map((v, i) => from[i] + (v - from[i]) * e);
+      // a stretch that starts empty grows from its first point, not from the rope's start
+      const r = to.map((v, i) => {
+        const f = from[i][1] > from[i][0] ? from[i] : [v[0], v[0]];
+        return [f[0] + (v[0] - f[0]) * e, f[1] + (v[1] - f[1]) * e];
+      });
       if (p < 1) { draw(r, false); animFrame = requestAnimationFrame(tick); } else draw(target, true);
     };
     animFrame = requestAnimationFrame(tick);
@@ -94,6 +102,9 @@
     $('knot-also').textContent = k.also ? `Also called: ${k.also}` : '';
     $('knot-also').hidden = !k.also;
     $('knot-summary').textContent = k.summary;
+    $('knot-use').textContent = k.use ? `Best for: ${k.use.charAt(0).toLowerCase()}${k.use.slice(1)}` : '';
+    $('knot-good').innerHTML = (k.good || []).map(g => `<li>${esc(g)}</li>`).join('');
+    $('knot-notfor').textContent = k.notFor || '';
     $('knot-sea').textContent = k.sea;
     $('knot-rv').textContent = k.rv;
     $('knot-story').textContent = k.story;
@@ -139,7 +150,7 @@
           const thumb = KnotEngine.render(prep(k), k.steps[k.steps.length - 1].r, null);
           const sub = key === 'locked' ? 'After: ' + k.needs.filter(id => !isLearned(id)).map(id => byId[id].name).join(', ')
             : key === 'learned' ? 'Tap to review' : (state.tries[k.id] ? `Tied ${state.tries[k.id]}×` : 'New');
-          return `<li><button class="knot-row" data-id="${k.id}"><span class="thumb">${thumb}</span><span class="row-text"><b>${k.name}${k.id === today.id ? ' <em class="tag">Today</em>' : ''}</b><small>${sub}</small></span><span class="chev">›</span></button></li>`;
+          return `<li><button class="knot-row" data-id="${k.id}"><span class="thumb">${thumb}</span><span class="row-text"><b>${k.name}${k.id === today.id ? ' <em class="tag">Today</em>' : ''}</b><small class="purpose">${esc(k.use || '')}</small><small>${sub}</small></span><span class="chev">›</span></button></li>`;
         }).join('') + '</ul></section>';
     }).join('');
   }

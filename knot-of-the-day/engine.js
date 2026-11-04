@@ -131,42 +131,46 @@ const KnotEngine = (() => {
       `</g>`;
   }
 
-  // reveal: array of u values (one per strand); next: optional array for the arrow.
+  // reveal: one entry per strand: a number u (rope laid from its start to u)
+  // or [a, b] (only the stretch from a to b is laid). next: same, for the arrow.
+  const rng = v => Array.isArray(v) ? v : [0, v];
   function render(prep, reveal, next, opts = {}) {
     const { knot, S, cr } = prep;
+    const R = reveal.map(rng), N = next ? next.map(rng) : null;
+    const shown = (si, u) => u >= R[si][0] - 1e-6 && u <= R[si][1] + 1e-6 && R[si][1] > R[si][0];
     let out = '';
     out += knot.bg || '';
-    S.forEach((s, i) => { if (reveal[i] > 0) out += rope(slice(s, 0, reveal[i]), knot.strands[i].color, 'round'); });
+    S.forEach((s, i) => { if (R[i][1] > R[i][0]) out += rope(slice(s, R[i][0], R[i][1]), knot.strands[i].color, 'round'); });
     if (knot.obj) {
       out += knot.obj;
       S.forEach((s, i) => {
-        if (reveal[i] <= 0) return;
-        // front pieces = revealed rope minus behind ranges
+        const [a0, b0] = R[i];
+        if (b0 <= a0) return;
         const cuts = (knot.behind || []).filter(r => r[0] === i).map(r => [r[1], r[2]]).sort((a, b) => a[0] - b[0]);
-        let u = 0;
+        let u = a0;
         const pieces = [];
-        cuts.forEach(([a, b]) => { if (a > u) pieces.push([u, Math.min(a, reveal[i])]); u = Math.max(u, b); });
-        pieces.push([u, reveal[i]]);
+        cuts.forEach(([a, b]) => { if (a > u) pieces.push([u, Math.min(a, b0)]); u = Math.max(u, b); });
+        pieces.push([u, b0]);
         pieces.forEach(([a, b]) => { if (b > a) out += rope(slice(s, a, b), knot.strands[i].color, 'butt'); });
-        const tail = slice(s, Math.max(0, reveal[i] - 0.15), reveal[i]);
-        if (!inRanges(knot.behind, i, reveal[i])) out += rope(tail, knot.strands[i].color, 'round');
+        if (!inRanges(knot.behind, i, b0)) out += rope(slice(s, Math.max(a0, b0 - 0.15), b0), knot.strands[i].color, 'round');
+        if (a0 > 0 && !inRanges(knot.behind, i, a0)) out += rope(slice(s, a0, Math.min(b0, a0 + 0.15)), knot.strands[i].color, 'round');
       });
     }
     cr.forEach(c => {
-      if (c.over.u > reveal[c.over.strand] || c.under.u > reveal[c.under.strand]) return;
+      if (!shown(c.over.strand, c.over.u) || !shown(c.under.strand, c.under.u)) return;
       if (inRanges(knot.behind, c.over.strand, c.over.u)) return;
-      const s = S[c.over.strand];
-      const maxS = slice(s, 0, reveal[c.over.strand]).slice(-1)[0].s;
-      const piece = sliceS(s, Math.max(0, c.over.s - 15), Math.min(maxS, c.over.s + 15));
+      const s = S[c.over.strand], [a0, b0] = R[c.over.strand];
+      const vis = slice(s, a0, b0), minS = vis[0].s, maxS = vis[vis.length - 1].s;
+      const piece = sliceS(s, Math.max(minS, c.over.s - 15), Math.min(maxS, c.over.s + 15));
       out += rope(piece, knot.strands[c.over.strand].color, 'butt');
-      // keep the working end rounded if it sits inside this overlay
+      // keep rope ends rounded if they sit inside this overlay
       if (maxS < c.over.s + 15) out += rope(sliceS(s, maxS - 1, maxS), knot.strands[c.over.strand].color, 'round');
+      if (minS > c.over.s - 15 && a0 > 0) out += rope(sliceS(s, minS, minS + 1), knot.strands[c.over.strand].color, 'round');
     });
-    if (next) S.forEach((s, i) => {
-      if (!(next[i] > reveal[i])) return;
-      const p = slice(s, reveal[i], next[i]);
-      if (p.length < 2) return;
-      out += `<path d="${d(p)}" fill="none" stroke="#c0392b" stroke-width="3.2" stroke-dasharray="7 6" stroke-linecap="round" marker-end="url(#kd-arrow)" opacity=".9"/>`;
+    const arrow = p => p.length < 2 ? '' : `<path d="${d(p)}" fill="none" stroke="#c0392b" stroke-width="3.2" stroke-dasharray="7 6" stroke-linecap="round" marker-end="url(#kd-arrow)" opacity=".9"/>`;
+    if (N) S.forEach((s, i) => {
+      if (N[i][1] > R[i][1]) out += arrow(slice(s, R[i][1], N[i][1]));
+      if (N[i][0] < R[i][0]) out += arrow(slice(s, N[i][0], R[i][0]).reverse());
     });
     if (opts.debug) cr.forEach(c => {
       out += `<circle cx="${c.x}" cy="${c.y}" r="3" fill="red"/><text x="${c.x + 5}" y="${c.y - 5}" font-size="10" fill="red">${c.label}</text>`;
