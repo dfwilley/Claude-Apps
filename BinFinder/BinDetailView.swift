@@ -64,7 +64,15 @@ struct BinDetailView: View {
             // Label line
             Section {
                 LabeledContent("Label", value: bin.code)
-                LabeledContent("Location", value: bin.location.trimmed.isEmpty ? "None" : bin.location)
+                if bin.location.trimmed.isEmpty {
+                    LabeledContent("Location", value: "None")
+                } else {
+                    NavigationLink(value: Route.place(bin.location)) { LabeledContent("Location", value: BinPlaces.tidy(bin.location)) }
+                }
+                Toggle("Pack for trips", isOn: Binding(get: { store.bin(binID)?.trip ?? false }, set: { store.setTrip($0, for: binID) }))
+                    .accessibilityIdentifier("packForTrips")
+            } footer: {
+                Text("“Pack for trips” puts this bin on the trip checklist.")
             }
 
             // Items
@@ -136,7 +144,7 @@ struct BinDetailView: View {
         }
         .confirmationDialog("Delete “\(bin.displayName)”?", isPresented: $confirmDelete, titleVisibility: .visible) {
             Button("Delete bin and its photos", role: .destructive) {
-                router.path.removeAll { $0 == binID }
+                router.path.removeAll { $0 == .bin(binID) }
                 store.delete(binID)
             }
         } message: {

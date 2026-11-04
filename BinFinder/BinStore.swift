@@ -4,10 +4,13 @@ import UIKit
 /// Keeps every bin in bins.json and photos as JPEG files, all inside the app's own folder on the phone.
 final class BinStore: ObservableObject {
     @Published private(set) var bins: [Bin] = []
+    /// Trip checklist marks (see TripList.keys). Kept until "Start a new trip".
+    @Published private(set) var tripChecked: Set<String> = []
 
     let root: URL
     var photosDir: URL { root.appendingPathComponent("Photos", isDirectory: true) }
     var dataFile: URL { root.appendingPathComponent("bins.json") }
+    var tripFile: URL { root.appendingPathComponent("trip.json") }
     private let thumbCache = NSCache<NSString, UIImage>()
 
     static func documents() -> URL {
@@ -33,6 +36,7 @@ final class BinStore: ObservableObject {
         guard let data = try? Data(contentsOf: dataFile),
               let list = try? Self.decoder.decode([Bin].self, from: data) else { bins = []; return }
         bins = list
+        if let d = try? Data(contentsOf: tripFile), let keys = try? JSONDecoder().decode([String].self, from: d) { tripChecked = Set(keys) }
     }
 
     private func save() {
@@ -43,8 +47,39 @@ final class BinStore: ObservableObject {
 
     func bin(_ id: UUID) -> Bin? { bins.first { $0.id == id } }
 
-    var locations: [String] {
-        Array(Set(bins.map { $0.location.trimmed }.filter { !$0.isEmpty })).sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
+    /// Every place, including places that contain other places ("Hangar", "Hangar › Shelf 2").
+    var locations: [String] { BinPlaces.all(bins) }
+
+    /// Renames or moves a place; every bin inside it follows. Returns how many bins moved.
+    @discardableResult
+    func renamePlace(_ from: String, to: String) -> Int {
+        let t = BinPlaces.tidy(to)
+        guard !t.isEmpty else { return 0 }
+        var n = 0
+        for var b in bins where BinPlaces.isUnder(b.location, from) {
+            b.location = BinPlaces.rename(b.location, from: from, to: t); upsert(b); n += 1
+        }
+        return n
+    }
+
+    // MARK: Trip checklist
+
+    var tripBins: [Bin] { bins.filter(\.trip) }
+
+    func setTrip(_ on: Bool, for id: UUID) {
+        guard var b = bin(id), b.trip != on else { return }
+        b.trip = on; upsert(b)
+    }
+
+    func setChecked(_ keys: [String], _ on: Bool) {
+        for k in keys { if on { tripChecked.insert(k) } else { tripChecked.remove(k) } }
+        saveTrip()
+    }
+
+    func startNewTrip() { tripChecked = []; saveTrip() }
+
+    private func saveTrip() {
+        if let d = try? JSONEncoder().encode(tripChecked.sorted()) { try? d.write(to: tripFile, options: .atomic) }
     }
 
     func nextCode(for location: String) -> String { BinCodes.next(for: location, existing: bins) }
@@ -53,6 +88,7 @@ final class BinStore: ObservableObject {
         var b = bin
         b.updated = Date()
         b.items = b.items.map(\.trimmed).filter { !$0.isEmpty }
+        b.location = BinPlaces.tidy(b.location)
         if b.code.trimmed.isEmpty { b.code = nextCode(for: b.location) }
         if let i = bins.firstIndex(where: { $0.id == b.id }) { bins[i] = b } else { bins.append(b) }
         save()
@@ -179,5 +215,5 @@ final class BinStore: ObservableObject {
 
 /// Which bin the app is showing; set by tapping a bin or scanning its QR label.
 final class Router: ObservableObject {
-    @Published var path: [UUID] = []
+    @Published var path: [Route] = []
 }

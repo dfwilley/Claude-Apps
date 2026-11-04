@@ -6,16 +6,18 @@ enum DemoData {
         let samples: [(String, String, String, [String], String, UIColor, String)] = [
             ("Electrical spares", "Garage", "G-01", ["Spare fuses (ATC 5–30 A)", "Zip ties", "Electrical tape", "Heat-shrink tubing", "Butt connectors"], "bolt.fill", .systemOrange, "FUSES"),
             ("Drill and bits", "Garage", "G-02", ["Cordless drill", "Drill bit index", "Countersink cage", "Step bits"], "wrench.and.screwdriver.fill", .systemBlue, "DRILL BITS"),
-            ("Rivet supplies", "Hangar", "H-01", ["AN470 rivets", "Cleco clamps", "Rivet gun", "Bucking bars"], "hammer.fill", .systemGray, "RIVETS"),
-            ("Oil and filters", "Hangar", "H-02", ["Aeroshell 15W-50", "Oil filters", "Safety wire", "Funnel"], "drop.fill", .systemBrown, "AEROSHELL"),
-            ("Sewer and water", "RV Rear Bay", "RR-01", ["Sewer hose", "Water pressure regulator", "Fresh water hose", "Gloves"], "drop.triangle.fill", .systemTeal, "WATER"),
-            ("Leveling blocks", "RV Rear Bay", "RR-02", ["Leveling blocks", "Wheel chocks", "Tire pressure gauge"], "square.stack.3d.up.fill", .systemYellow, "LEVELERS"),
+            ("Rivet supplies", "Hangar › Shelf 1", "HS-01", ["AN470 rivets", "Cleco clamps", "Rivet gun", "Bucking bars"], "hammer.fill", .systemGray, "RIVETS"),
+            ("Oil and filters", "Hangar › Shelf 2", "HS-02", ["Aeroshell 15W-50", "Oil filters", "Safety wire", "Funnel"], "drop.fill", .systemBrown, "AEROSHELL"),
+            ("Sewer and water", "RV › Rear bay", "RR-01", ["Sewer hose", "Water pressure regulator", "Fresh water hose", "Gloves"], "drop.triangle.fill", .systemTeal, "WATER"),
+            ("Leveling blocks", "RV › Rear bay", "RR-02", ["Leveling blocks", "Wheel chocks", "Tire pressure gauge"], "square.stack.3d.up.fill", .systemYellow, "LEVELERS"),
         ]
         for s in samples {
-            let b = Bin(name: s.0, location: s.1, code: s.2, items: s.3)
+            let b = Bin(name: s.0, location: s.1, code: s.2, items: s.3, trip: s.1.hasPrefix("RV"))
             store.upsert(b)
             store.addPhoto(image(symbol: s.4, color: s.5, label: s.6), to: b.id, analyze: true)
         }
+        // One thing already packed, to show the checklist part-way done.
+        if let sewer = store.bins.first(where: { $0.code == "RR-01" }) { store.setChecked(["\(sewer.id.uuidString)|Sewer hose"], true) }
     }
 
     static func image(symbol: String, color: UIColor, label: String) -> UIImage {

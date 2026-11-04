@@ -65,12 +65,12 @@ struct BinEditView: View {
                     }
                 }
 
-                Section("Bin") {
+                Section {
                     TextField("Name, like Electrical spares", text: $bin.name)
                         .textInputAutocapitalization(.sentences)
                         .accessibilityIdentifier("binName")
                     HStack {
-                        TextField("Location, like Garage or RV front bay", text: $bin.location)
+                        TextField("Location, like Hangar / Shelf 2", text: $bin.location)
                             .textInputAutocapitalization(.words)
                             .onChange(of: bin.location) { loc in if isNew && !codeTouched { bin.code = store.nextCode(for: loc) } }
                         if !store.locations.isEmpty {
@@ -88,6 +88,11 @@ struct BinEditView: View {
                             .textInputAutocapitalization(.characters)
                             .autocorrectionDisabled()
                     }
+                    Toggle("Pack for trips", isOn: $bin.trip)
+                } header: {
+                    Text("Bin")
+                } footer: {
+                    Text("For a place inside a place, use / or ›, like Hangar / Shelf 2 or RV / Front bay / Left.")
                 }
 
                 Section {
@@ -136,7 +141,8 @@ struct BinEditView: View {
         // Start from the stored copy so photos and words read in the background aren't lost.
         var b = store.bin(bin.id) ?? bin
         b.name = bin.name.trimmed
-        b.location = bin.location.trimmed
+        b.location = BinPlaces.tidy(bin.location)
+        b.trip = bin.trip
         b.code = bin.code.trimmed.isEmpty ? store.nextCode(for: bin.location) : bin.code.trimmed
         b.notes = bin.notes
         b.items = Self.parseItems(itemsText)

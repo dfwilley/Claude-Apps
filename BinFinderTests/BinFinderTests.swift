@@ -113,6 +113,66 @@ final class BinFinderTests: XCTestCase {
         XCTAssertTrue(words.contains("fuses"), "found: \(words)")
     }
 
+    func testSpokenSearches() {
+        XCTAssertEqual(BinSearch.terms("Where's my spare fuses?"), ["spare", "fus"])
+        XCTAssertEqual(BinSearch.search("where did I put the drill bits", in: sample).first?.bin.code, "G-02")
+        XCTAssertEqual(BinSearch.search("Where's the sewer hose.", in: sample).first?.bin.code, "RR-01")
+    }
+
+    func testPlacesInsidePlaces() {
+        XCTAssertEqual(BinPlaces.parts("Hangar > Shelf 2 /  Left"), ["Hangar", "Shelf 2", "Left"])
+        XCTAssertEqual(BinPlaces.tidy(" RV/front bay "), "RV › front bay")
+        XCTAssertTrue(BinPlaces.isUnder("Hangar › Shelf 2", "hangar"))
+        XCTAssertFalse(BinPlaces.isUnder("Hangar Annex", "Hangar"))
+        XCTAssertFalse(BinPlaces.isUnder("Hangar", "Hangar › Shelf 2"))
+        XCTAssertEqual(BinCodes.prefix(for: "Hangar › Shelf 2"), "HS")
+        XCTAssertEqual(BinCodes.prefix(for: "RV / Rear bay"), "RR")
+        let nested = ["Hangar › Shelf 1", "Hangar › Shelf 2 › Left", "Hangar › Shelf 2", "Garage", ""].map { Bin(location: $0) }
+        XCTAssertEqual(BinPlaces.all(nested), ["Garage", "Hangar", "Hangar › Shelf 1", "Hangar › Shelf 2", "Hangar › Shelf 2 › Left"])
+        XCTAssertEqual(BinPlaces.children(of: "", in: nested).map { "\($0.name) \($0.count)" }, ["Garage 1", "Hangar 3"])
+        XCTAssertEqual(BinPlaces.children(of: "Hangar", in: nested).map { "\($0.place) \($0.count)" }, ["Hangar › Shelf 1 1", "Hangar › Shelf 2 2"])
+        XCTAssertEqual(BinPlaces.below("Hangar › Shelf 2 › Left", "Hangar"), "Shelf 2 › Left")
+        XCTAssertEqual(BinPlaces.rename("RV Rear Bay › Left", from: "RV Rear Bay", to: "RV › Rear bay"), "RV › Rear bay › Left")
+        XCTAssertEqual(BinPlaces.rename("Garage", from: "RV Rear Bay", to: "RV › Rear bay"), "Garage")
+        XCTAssertEqual(BinSearch.search("shelf 2", in: [Bin(name: "Oil", location: "Hangar › Shelf 2", code: "HS-01")]).first?.reasons, ["Location: Hangar › Shelf 2"])
+    }
+
+    func testRenamePlaceMovesEveryBinInside() {
+        let s = tempStore()
+        s.upsert(Bin(name: "A", location: "RV Rear Bay"))
+        s.upsert(Bin(name: "B", location: "RV Rear Bay / Left"))
+        s.upsert(Bin(name: "C", location: "Garage"))
+        XCTAssertEqual(s.renamePlace("RV Rear Bay", to: "RV / Rear bay"), 2)
+        XCTAssertEqual(Set(s.bins.map(\.location)), ["RV › Rear bay", "RV › Rear bay › Left", "Garage"])
+    }
+
+    func testTripChecklistSavesAndResets() throws {
+        let s = tempStore()
+        s.upsert(Bin(name: "Sewer", location: "RV", items: ["Sewer hose", "Gloves"], trip: true))
+        s.upsert(Bin(name: "Blocks", location: "RV"))
+        let blocks = try XCTUnwrap(s.bins.first { $0.name == "Blocks" })
+        s.setTrip(true, for: blocks.id)
+        let sewer = try XCTUnwrap(s.bins.first { $0.name == "Sewer" })
+        XCTAssertEqual(TripList.keys(sewer), ["\(sewer.id.uuidString)|Sewer hose", "\(sewer.id.uuidString)|Gloves"])
+        s.setChecked(["\(sewer.id.uuidString)|Gloves", blocks.id.uuidString], true)
+        let reopened = BinStore(root: s.root)
+        let p = TripList.progress(reopened.bins, checked: reopened.tripChecked)
+        XCTAssertEqual(p.done, 2); XCTAssertEqual(p.total, 3)
+        reopened.startNewTrip()
+        XCTAssertEqual(TripList.progress(BinStore(root: s.root).bins, checked: BinStore(root: s.root).tripChecked).done, 0)
+    }
+
+    func testTripFlagSurvivesBackupAndOldFiles() throws {
+        let a = tempStore()
+        a.upsert(Bin(name: "Trip", trip: true))
+        let b = tempStore()
+        try b.restore(from: try a.makeBackup())
+        XCTAssertEqual(b.bins.first?.trip, true)
+        let old = #"[{"id":"6F9619FF-8B86-D011-B42D-00C04FC964FF","name":"Old"}]"#.data(using: .utf8)!
+        let bins = try JSONDecoder().decode([Bin].self, from: old)
+        XCTAssertEqual(bins.first?.trip, false)
+    }
+
     func testItemParsing() {
         XCTAssertEqual(BinEditView.parseItems("zip ties, tape\n\n fuses ;wire"), ["zip ties", "tape", "fuses", "wire"])
     }

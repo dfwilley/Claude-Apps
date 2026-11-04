@@ -6,7 +6,7 @@ options:
 settings:
   base:
     SWIFT_VERSION: "5.0"
-    MARKETING_VERSION: "1.0"
+    MARKETING_VERSION: "1.1"
     CURRENT_PROJECT_VERSION: "1"
 targets:
   BinFinder:
@@ -24,6 +24,8 @@ targets:
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
         NSCameraUsageDescription: Bin Finder uses the camera to photograph what's inside each bin.
         NSPhotoLibraryAddUsageDescription: Bin Finder can save photos you choose.
+        NSMicrophoneUsageDescription: Bin Finder listens when you tap the microphone, so you can say what you're looking for.
+        NSSpeechRecognitionUsageDescription: Bin Finder turns what you say into a search, on the phone when possible.
         UIFileSharingEnabled: true
         LSSupportsOpeningDocumentsInPlace: true
         CFBundleURLTypes:
