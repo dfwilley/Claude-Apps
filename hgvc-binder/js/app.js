@@ -162,7 +162,7 @@
       <p>Your Hilton Grand Vacations points, fees and papers, one tab per property.</p>
       <button class="btn primary" data-act="import-file">Open a data file</button>
       <p class="muted small">From anywhere on this ${Store.native ? 'iPhone' : 'device'}: Files, iCloud Drive, Downloads, Dropbox, or a file someone sent you by Messages, Mail or AirDrop (save it to Files first).</p>
-      ${Store.native ? '<button class="btn" data-act="pick-folder">Use a folder for automatic updates</button>' : ''}
+      ${Store.folderCapable ? '<button class="btn" data-act="pick-folder">Use a folder for automatic updates</button>' : ''}
       <button class="btn" data-act="add-property">Add a property by hand</button>
       <p class="muted small">The data file is a “Claude - HGVC Binder Data … .json” file. The monthly Claude task writes a new one after reading the owner account without changing anything.</p></section>`;
   }
@@ -291,7 +291,7 @@
     $('#arrange-btn').classList.toggle('on', arranging);
     $('#arrange-btn').setAttribute('aria-pressed', arranging);
     const main = $('#main');
-    main.innerHTML = tab === 'all' ? renderAll() : renderProperty(prop(tab));
+    main.innerHTML = folderBar() + (tab === 'all' ? renderAll() : renderProperty(prop(tab)));
     const n = $('#notes'); if (n) n.addEventListener('change', () => { prop(tab).notes = n.value; commit(); });
   }
 
@@ -434,16 +434,24 @@
     commit(how === 'auto' ? null : r.changes.join(' · '));
   }
 
-  async function autoLoad() {
-    if (!Store.native) return;
+  let folderTap = null; // name of a remembered folder waiting for one tap before the browser will open it
+  async function autoLoad(fromTap) {
+    if (!Store.folderCapable) return;
     try {
       const st = await Store.folderStatus(); if (!st || !st.chosen) return;
-      const found = await Store.loadFolderData(); if (!found) return;
+      let found;
+      try { found = await Store.loadFolderData(fromTap); }
+      catch (e) { if (e.needsTap) { if (folderTap !== st.name) { folderTap = st.name; render(); } return; } throw e; }
+      if (folderTap) { folderTap = null; render(); }
+      if (!found) return fromTap ? toast('No “HGVC Binder Data” file in that folder yet.', true) : undefined;
       const v = H.validateDataFile(found.json); if (!v.ok) return toast(v.problems[0], true);
       const asOf = v.data.asOf || v.data.generated;
       if (S.meta && S.meta.hgvAsOf && asOf && asOf <= S.meta.hgvAsOf && S.meta.dataFile === found.name) return;
-      const r = H.mergeData(S, v.data); S = r.state; S.meta.dataFile = found.name; commit();
+      const r = H.mergeData(S, v.data); S = r.state; S.meta.dataFile = found.name; commit(fromTap ? 'Loaded ' + found.name : null);
     } catch (e) { toast(e.message, true); }
+  }
+  function folderBar() {
+    return folderTap ? `<div class="alert soon folder-bar"><span>📁 Tap to load the newest data from <b>${esc(folderTap)}</b>. Your browser asks once per visit.</span> <button class="btn small primary" data-act="folder-load">Load newest</button></div>` : '';
   }
 
   async function reveal(p, which) {
@@ -479,7 +487,7 @@
     const dlg = $('#dlg');
     const items = [
       ['import-file', '⬇︎ Open a data file (Files, iCloud, Dropbox, Downloads…)'],
-      Store.native ? ['pick-folder', '📁 Use a folder for automatic updates'] : null,
+      Store.folderCapable ? ['pick-folder', '📁 Use a folder for automatic updates'] : null,
       ['send-copy', '📤 Send a copy of the data to someone'],
       ['add-property', '＋ Add a property'],
       Store.native ? ['settings', '🔔 Reminder settings'] : ['ics', '📅 Add reminders to my calendar'],
@@ -495,7 +503,7 @@
     const dlg = $('#dlg');
     dlg.innerHTML = `<div class="form about"><h2>About HGVC Binder</h2>
       <p><b>What it does.</b> Keeps your points, fees and papers for each Hilton Grand Vacations property in one place, and reminds you before points expire and fees come due.</p>
-      <p><b>Where the data comes from.</b> A scheduled Claude task signs in with your existing browser sign-in, reads your owner account <i>read-only</i>, and writes a data file to Dropbox. Open a data file from anywhere — Files, iCloud Drive, Downloads, Dropbox, or one sent by Messages, Mail or AirDrop. ${Store.native ? 'Or pick a folder (in any of those places) and the app reads the newest file there each time it opens.' : ''} “Send a copy of the data” shares the current points, fees and trips (no documents) so someone else can open it in their copy of the app. You can also type or edit anything by hand, and read PDF statements you download yourself.</p>
+      <p><b>Where the data comes from.</b> A scheduled Claude task signs in with your existing browser sign-in, reads your owner account <i>read-only</i>, and writes a data file to Dropbox. Open a data file from anywhere — Files, iCloud Drive, Downloads, Dropbox, or one sent by Messages, Mail or AirDrop. ${Store.folderCapable ? 'Or pick a folder (in any of those places) and the app reads the newest file there each time it opens.' : 'On iPhone Safari the browser can’t reach a folder by itself, so open each new data file once; the app keeps it after that.'} “Send a copy of the data” shares the current points, fees and trips (no documents) so someone else can open it in their copy of the app. You can also type or edit anything by hand, and read PDF statements you download yourself.</p>
       <p><b>What it never does.</b> It never stores your HGV password, never books, changes or cancels reservations, and never makes payments.</p>
       <p><b>Limits.</b> If HGV changes its website, the scheduled task may stop finding things until it's adjusted. If HGV asks for a security code, the task stops and you sign in once yourself. The task only runs while your computer and the Claude app are on. Statement reading works best on HGV's text PDFs; scanned pictures need typing in.</p>
       <p><b>Privacy.</b> Everything stays on this device${Store.native ? '' : ' (this browser)'} — nothing is sent anywhere. Contract and member numbers show only their last 4 digits${Store.native ? '; full numbers sit in the iPhone Keychain behind Face ID' : ''}.</p>
@@ -556,7 +564,8 @@
       case 'open-doc': Store.openDoc(p.docs.find(x => x.id === id)).catch(err => toast(err.message, true)); break;
       case 'import-pdf': importPdf(p); break;
       case 'reveal': if (Store.native) reveal(p, a.dataset.which); break;
-      case 'pick-folder': try { const r = await Store.pickFolder(); if (r) { toast('Folder chosen'); autoLoad(); } } catch (err) { toast(err.message, true); } break;
+      case 'pick-folder': try { const r = await Store.pickFolder(); if (r) { toast('Folder chosen'); autoLoad(true); } } catch (err) { if (err.name !== 'AbortError') toast(err.message, true); } break;
+      case 'folder-load': autoLoad(true); break;
       case 'import-file': { const f = await pickFile(''); if (f) { if (f.size > 20e6) toast('That file is too big to be a data file.', true); else importData(await f.text()); } break; }
       case 'send-copy': {
         if (!S.properties.length) { toast('Nothing to send yet.', true); break; }
@@ -584,6 +593,7 @@
       S.properties = saved.properties.filter(p => p && typeof p === 'object' && p.name).map(H.normalizeProperty);
     }
     render();
+    Store.keep();
     autoLoad();
     if (Store.native) { Store.on('foreground', autoLoad); Store.schedule(H.notifications(S, today())).catch(() => {}); }
     else if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});

@@ -25,35 +25,55 @@
   function idb() {
     if (dbp) return dbp;
     dbp = new Promise((resolve, reject) => {
-      const r = indexedDB.open('hgvc-binder-docs', 1);
-      r.onupgradeneeded = () => r.result.createObjectStore('docs');
+      const r = indexedDB.open('hgvc-binder-docs', 2);
+      r.onupgradeneeded = () => { const db = r.result; if (!db.objectStoreNames.contains('docs')) db.createObjectStore('docs'); if (!db.objectStoreNames.contains('kv')) db.createObjectStore('kv'); };
       r.onsuccess = () => resolve(r.result); r.onerror = () => reject(r.error);
     });
     return dbp;
   }
-  function idbDo(mode, fn) {
+  function idbDo(mode, fn, store) {
     return idb().then(db => new Promise((resolve, reject) => {
-      const tx = db.transaction('docs', mode); const st = tx.objectStore('docs'); const req = fn(st);
+      const tx = db.transaction(store || 'docs', mode); const st = tx.objectStore(store || 'docs'); const req = fn(st);
       tx.oncomplete = () => resolve(req && req.result); tx.onerror = () => reject(tx.error);
     }));
   }
   function b64(blob) { return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1]); r.onerror = rej; r.readAsDataURL(blob); }); }
   function fromB64(s, type) { const bin = atob(s); const a = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i); return new Blob([a], { type: type || 'application/octet-stream' }); }
 
+  const kvGet = k => idbDo('readonly', st => st.get(k), 'kv').catch(() => null);
+  const kvSet = (k, v) => idbDo('readwrite', st => st.put(v, k), 'kv');
+  const parse = raw => { try { return raw ? JSON.parse(raw) : null; } catch (e) { return null; } };
+
+  // ---- a data folder the browser remembers (Chrome / Edge / the Claude app's browser; not iPhone Safari) ----
+  const webFolder = !native && typeof window.showDirectoryPicker === 'function';
+  const DATA_NAME = 'HGVC Binder Data';
+  const stamp = n => n.split(DATA_NAME).pop();
+
   const Store = {
     native,
+    webFolder,
+    folderCapable: native || webFolder,
     on,
+    // The binder is kept in two places in the browser, so clearing one doesn't lose it.
     async load() {
-      try {
-        const raw = native ? await call('readDB') : localStorage.getItem(KEY);
-        return raw ? JSON.parse(raw) : null;
-      } catch (e) { console.error(e); return null; }
+      if (native) { try { return parse(await call('readDB')); } catch (e) { console.error(e); return null; } }
+      const a = parse(localStorage.getItem(KEY));
+      const b = parse(await kvGet('state'));
+      const t = x => (x && x.meta && x.meta.savedAt) || '';
+      if (a && b) return t(b) > t(a) ? b : a;
+      return a || b;
     },
     async save(state) {
+      state.meta = Object.assign({}, state.meta, { savedAt: new Date().toISOString() });
       const json = JSON.stringify(state);
       if (native) return call('writeDB', { json });
-      try { localStorage.setItem(KEY, json); } catch (e) { throw new Error('This browser is out of room for the binder. Remove a large document or export a backup.'); }
+      let ok = false;
+      try { localStorage.setItem(KEY, json); ok = true; } catch (e) { /* fall through to IndexedDB */ }
+      try { await kvSet('state', json); ok = true; } catch (e) { /* ignore */ }
+      if (!ok) throw new Error('This browser is out of room for the binder. Remove a large document or export a backup.');
     },
+    // Ask the browser not to clear the binder when it tidies up storage.
+    async keep() { try { if (!native && navigator.storage && navigator.storage.persist && !(await navigator.storage.persisted())) await navigator.storage.persist(); } catch (e) { /* not supported */ } },
     async putDoc(id, blob) {
       if (native) return call('putDoc', { docId: id, base64: await b64(blob) });
       return idbDo('readwrite', st => st.put(blob, id));
@@ -77,9 +97,42 @@
     secretGet(key) { return call('secretGet', { key }); },
     secretSet(key, value) { return call('secretSet', { key, value }); },
     schedule(list) { return native ? call('schedule', { list }) : Promise.resolve(false); },
-    pickFolder() { return call('pickFolder'); },
-    folderStatus() { return native ? call('folderStatus') : Promise.resolve(null); },
-    loadFolderData() { return call('loadFolderData'); },
+    async pickFolder() {
+      if (native) return call('pickFolder');
+      if (!webFolder) throw new Error('This browser can\'t remember a folder. Use Open a data file instead.');
+      const h = await window.showDirectoryPicker({ id: 'hgvc-binder', mode: 'read' });
+      await kvSet('folder', h);
+      try { localStorage.setItem(KEY + '-folder', h.name); sessionStorage.removeItem(KEY + '-folder-trying'); } catch (e) { /* ignore */ }
+      return true;
+    },
+    async folderStatus() {
+      if (native) return call('folderStatus');
+      if (!webFolder) return null;
+      let name = null; try { name = localStorage.getItem(KEY + '-folder'); } catch (e) { /* ignore */ }
+      if (!name) return { chosen: false };
+      // Safety catch: if reading the remembered folder ever failed hard last time, don't try again on its own.
+      try { if (sessionStorage.getItem(KEY + '-folder-trying')) return { chosen: false, broken: true }; sessionStorage.setItem(KEY + '-folder-trying', '1'); } catch (e) { /* ignore */ }
+      const h = await kvGet('folder');
+      try { sessionStorage.removeItem(KEY + '-folder-trying'); } catch (e) { /* ignore */ }
+      if (!h) return { chosen: false };
+      let permission = 'prompt'; try { permission = await h.queryPermission({ mode: 'read' }); } catch (e) { /* ignore */ }
+      return { chosen: true, name: h.name, permission };
+    },
+    // askPermission: only from a tap (browsers need a click before they'll re-open a folder).
+    async loadFolderData(askPermission) {
+      if (native) return call('loadFolderData');
+      const h = await kvGet('folder'); if (!h) return null;
+      let perm = await h.queryPermission({ mode: 'read' });
+      if (perm !== 'granted' && askPermission) perm = await h.requestPermission({ mode: 'read' });
+      if (perm !== 'granted') { const e = new Error('needs-permission'); e.needsTap = true; throw e; }
+      let best = null;
+      for await (const [name, entry] of h.entries()) {
+        if (entry.kind !== 'file' || !name.includes(DATA_NAME) || !/\.json$/i.test(name)) continue;
+        if (!best || stamp(name) > stamp(best.name)) best = { name, entry };
+      }
+      if (!best) return null;
+      return { name: best.name, json: await (await best.entry.getFile()).text() };
+    },
     async pdfText(blob) {
       if (native) return call('pdfText', { base64: await b64(blob) });
       const pdfjs = await import(new URL('vendor/pdf.min.mjs', document.baseURI).href);
