@@ -126,6 +126,15 @@ test('merging an update replaces owner-site items but keeps hand-entered ones an
   assert.strictEqual(st.meta.hgvAsOf, '2026-11-05');
 });
 
+test('keeps and shows the last download time', () => {
+  const d = sample(); d.downloaded = '2026-11-04T13:30:00-07:00'; d.generated = '2026-11-04T20:30:16Z';
+  const st = H.mergeData(H.emptyState(), H.validateDataFile(d).data).state;
+  assert.strictEqual(st.meta.downloaded, '2026-11-04T13:30:00-07:00');
+  assert.ok(/^November 4, 2026 at \d{1,2}:30 (AM|PM)$/.test(H.stampText(st.meta.downloaded)));
+  assert.strictEqual(H.stampText('2027-01-01'), 'January 1, 2027');
+  assert.strictEqual(H.stampText(''), '');
+});
+
 test('reads a typical HGV statement', () => {
   const text = `HAWAII SAMPLE MEMBERS ASSOCIATION
 STATEMENT

@@ -1,5 +1,5 @@
 // Keeps HGVC Binder working without a connection. Only the app's own files are cached — never your data.
-const CACHE = 'hgvc-binder-v1';
+const CACHE = 'hgvc-binder-v2';
 const FILES = ['./', 'index.html', 'style.css', 'js/core.js', 'js/store.js', 'js/app.js', 'icon.svg', 'icon-180.png', 'icon-512.png', 'manifest.webmanifest'];
 self.addEventListener('install', e => e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).then(() => self.skipWaiting())));
 self.addEventListener('activate', e => e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())));

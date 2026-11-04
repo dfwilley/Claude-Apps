@@ -57,6 +57,7 @@ final class HGVCBinderTests: XCTestCase {
         let names = ["Claude - HGVC Binder Data 2026-11-03 0600.json", "notes.txt", "HGVC Binder Data 2026-11-04 0600.json", "Claude - HGVC Binder Data 2026-12-02 0447.json", "Hangar Log Data 2026-12-05.json"]
         XCTAssertEqual(DataFolder.newest(in: names), "Claude - HGVC Binder Data 2026-12-02 0447.json")
         XCTAssertNil(DataFolder.newest(in: ["other.json"]))
+        XCTAssertEqual(DataFolder.newest(in: names + ["HGVC Binder Data.json"]), "HGVC Binder Data.json")
     }
 
     func testReadsReminderList() {

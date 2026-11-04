@@ -1,11 +1,12 @@
 # HGVC Binder data file
 
-The scheduled Claude task writes `Claude - HGVC Binder Data YYYY-MM-DD HHMM.json` to your Dropbox folder. The app loads the newest one.
+The scheduled Claude task writes `HGVC Binder Data.json` to your iCloud Drive "HGVC Binder" folder (and a copy to Dropbox), overwriting it each run.
+The app reads that file (older dated files, `Claude - HGVC Binder Data YYYY-MM-DD HHMM.json`, are used only if it's missing) and shows `downloaded` at the top as "Last download".
 It must never contain a password, a full contract/member/reservation number (last 4 digits only), card numbers, or a Hilton Honors member number (the Honors points balance and tier are fine).
 
 ```json
 {
-  "app": "HGVC Binder", "schema": 1, "asOf": "YYYY-MM-DD", "generated": "ISO time", "source": "HGV owner site, read-only (Claude)",
+  "app": "HGVC Binder", "schema": 1, "asOf": "YYYY-MM-DD", "generated": "ISO time (UTC)", "downloaded": "YYYY-MM-DDTHH:MM:SS-07:00 (Arizona time the owner site was read)", "source": "HGV owner site, read-only (Claude)",
   "notes": ["anything the task couldn't read"],
   "honors": { "balance": 0, "tier": "Diamond", "asOf": "YYYY-MM-DD" },
   "properties": [{

@@ -42,7 +42,7 @@
     $('#tabs').innerHTML = items.map(t => `<button role="tab" class="tab ${t.id === tab ? 'on' : ''}" aria-selected="${t.id === tab}" data-tab="${esc(t.id)}">${esc(t.name)}</button>`).join('')
       + `<button class="tab add" data-act="add-property" aria-label="Add a property">＋</button>`;
     const m = S.meta || {};
-    $('#sync').innerHTML = m.hgvAsOf ? `Owner site data from ${esc(H.longDate(m.hgvAsOf))}` : (S.properties.length ? 'Entered by hand' : '');
+    $('#sync').innerHTML = m.downloaded ? `Last download: ${esc(H.stampText(m.downloaded))}` : m.hgvAsOf ? `Owner site data from ${esc(H.longDate(m.hgvAsOf))}` : (S.properties.length ? 'Entered by hand' : '');
   }
 
   // ---------- screens are made of blocks you can move and resize ----------
@@ -164,7 +164,7 @@
       <p class="muted small">From anywhere on this ${Store.native ? 'iPhone' : 'device'}: Files, iCloud Drive, Downloads, Dropbox, or a file someone sent you by Messages, Mail or AirDrop (save it to Files first).</p>
       ${Store.native ? '<button class="btn" data-act="pick-folder">Use a folder for automatic updates</button>' : ''}
       <button class="btn" data-act="add-property">Add a property by hand</button>
-      <p class="muted small">The data file is a “Claude - HGVC Binder Data … .json” file. The monthly Claude task writes a new one after reading the owner account without changing anything.</p></section>`;
+      <p class="muted small">The data file is “HGVC Binder Data.json” in your iCloud Drive HGVC Binder folder. The monthly Claude task updates it after reading the owner account without changing anything.</p></section>`;
   }
 
   // ---------- one property ----------
@@ -441,7 +441,9 @@
       const found = await Store.loadFolderData(); if (!found) return;
       const v = H.validateDataFile(found.json); if (!v.ok) return toast(v.problems[0], true);
       const asOf = v.data.asOf || v.data.generated;
-      if (S.meta && S.meta.hgvAsOf && asOf && asOf <= S.meta.hgvAsOf && S.meta.dataFile === found.name) return;
+      // The task now overwrites one file ("HGVC Binder Data.json"), so a new download is told apart by its time stamp.
+      const stamp = v.data.downloaded || v.data.generated;
+      if (S.meta && S.meta.dataFile === found.name && (stamp ? stamp === (S.meta.downloaded || S.meta.generated) : (S.meta.hgvAsOf && asOf && asOf <= S.meta.hgvAsOf))) return;
       const r = H.mergeData(S, v.data); S = r.state; S.meta.dataFile = found.name; commit();
     } catch (e) { toast(e.message, true); }
   }
@@ -562,7 +564,7 @@
         if (!S.properties.length) { toast('Nothing to send yet.', true); break; }
         const copy = { app: 'HGVC Binder', schema: H.SCHEMA, asOf: (S.meta && S.meta.hgvAsOf) || today(), generated: new Date().toISOString(), source: 'Shared from HGVC Binder', honors: S.honors || undefined,
           properties: S.properties.map(p => Object.assign({}, p, { docs: [], locked: undefined, suppress: undefined }, Object.fromEntries(['batches', 'ledger', 'reservations', 'fees'].map(k => [k, (p[k] || []).map(x => Object.assign({}, x, { source: undefined }))])))) };
-        Store.share('Claude - HGVC Binder Data ' + today() + '.json', new Blob([JSON.stringify(copy)], { type: 'application/json' }));
+        Store.share('HGVC Binder Data.json', new Blob([JSON.stringify(copy)], { type: 'application/json' }));
         toast('Send it by Messages, Mail or AirDrop. They save it to Files, then use “Open a data file”.'); break;
       }
       case 'ics': Store.share('HGVC Binder reminders.ics', new Blob([H.buildICS(S, today())], { type: 'text/calendar' })); toast('Open the file to add the dates to your calendar'); break;
