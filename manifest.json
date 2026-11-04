@@ -1,0 +1,53 @@
+[
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "CB833DA5-BA4E-42BE-B82D-C1E0C39A3C02",
+        "deviceName" : "iPhone 16 Pro",
+        "exportedFileName" : "507C291E-39B9-4EB0-9D31-E74D4CB5AEF4.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "5-export_0_DD960571-7099-4D81-AC52-B988FA3A449E.png",
+        "timestamp" : 1793811785.389
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "CB833DA5-BA4E-42BE-B82D-C1E0C39A3C02",
+        "deviceName" : "iPhone 16 Pro",
+        "exportedFileName" : "6C859212-ECF0-4BBE-9C2E-926DCA502F5F.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "4-search_0_CDF8010E-477D-492D-9314-AD7E26C4CA7E.png",
+        "timestamp" : 1793811781.353
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "CB833DA5-BA4E-42BE-B82D-C1E0C39A3C02",
+        "deviceName" : "iPhone 16 Pro",
+        "exportedFileName" : "54BA02B8-EFC3-4340-B155-751FF387DCA4.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "3-timeline_0_A56DFE96-5811-49C5-81EE-C0AEBDB8FB7E.png",
+        "timestamp" : 1793811778.714
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "CB833DA5-BA4E-42BE-B82D-C1E0C39A3C02",
+        "deviceName" : "iPhone 16 Pro",
+        "exportedFileName" : "EDC435EB-2350-4E7D-AE87-F233B8F93B33.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "2-totals_0_E0AE0E78-4D64-4E44-A49F-D4BA52742BE9.png",
+        "timestamp" : 1793811776.136
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "CB833DA5-BA4E-42BE-B82D-C1E0C39A3C02",
+        "deviceName" : "iPhone 16 Pro",
+        "exportedFileName" : "27F25746-6C90-4693-AD88-88545C84F355.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "1-pages_0_2EF578BB-335B-4E63-B15A-CE99B7716A46.png",
+        "timestamp" : 1793811773.153
+      }
+    ],
+    "testIdentifier" : "ScreenshotTests/testScreens()",
+    "testIdentifierURL" : "test://com.apple.xcode/BlueBook/BlueBookUITests/ScreenshotTests/testScreens"
+  }
+]
