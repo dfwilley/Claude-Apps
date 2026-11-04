@@ -3,6 +3,14 @@ import UIKit
 @testable import BlueBook
 
 final class BlueBookTests: XCTestCase {
+    override func setUp() {
+        Library.rootOverride = FileManager.default.temporaryDirectory.appendingPathComponent("bluebook-tests-\(UUID().uuidString)")
+    }
+    override func tearDown() {
+        if let d = Library.rootOverride { try? FileManager.default.removeItem(at: d) }
+        Library.rootOverride = nil
+    }
+
     func testScreensAreInsideTheApp() throws {
         let dir = try XCTUnwrap(Bundle.main.url(forResource: "blue-book", withExtension: nil))
         for f in ["index.html", "style.css", "js/app.js", "js/extract.js", "js/career.js", "js/files.js", "js/export.js", "js/store.js", "vendor/jspdf.umd.min.js"] {

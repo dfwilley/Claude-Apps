@@ -6,8 +6,10 @@ import UIKit
 /// Documents/BlueBook/bluebook.previous.json — the version before the last save, just in case
 /// Documents/BlueBook/photos/<id>.jpg — the straightened logbook page photos
 enum Library {
+    /// Tests point this at a scratch folder so they never touch the real logbook.
+    static var rootOverride: URL?
     static var root: URL {
-        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let docs = rootOverride ?? FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         let dir = docs.appendingPathComponent("BlueBook", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir.appendingPathComponent("photos"), withIntermediateDirectories: true)
         return dir

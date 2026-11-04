@@ -624,7 +624,14 @@
   (async function start() {
     try { db = await S.loadDB(); } catch (e) { toast('Could not open your data: ' + e.message, true); }
     if (!db) db = emptyDB();
-    db.settings = Object.assign(emptyDB().settings, db.settings || {}); db.deployments = db.deployments || [];
+    // Guard against a damaged or partial file: keep only well-formed records.
+    if (typeof db !== 'object' || Array.isArray(db)) db = emptyDB();
+    const obj = v => v && typeof v === 'object' && !Array.isArray(v);
+    db.pages = Array.isArray(db.pages) ? db.pages.filter(obj) : [];
+    db.flights = Array.isArray(db.flights) ? db.flights.filter(obj) : [];
+    db.deployments = Array.isArray(db.deployments) ? db.deployments.filter(obj) : [];
+    db.settings = Object.assign(emptyDB().settings, obj(db.settings) ? db.settings : {});
+    if (!obj(db.settings.template) || !Array.isArray(db.settings.template.columns) || !db.settings.template.columns.length) db.settings.template = X.defaultTemplate();
     S.persist();
     render();
     if (!S.isNative && 'serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
