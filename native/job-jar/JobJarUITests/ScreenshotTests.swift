@@ -88,9 +88,9 @@ final class ScreenshotTests: XCTestCase {
         if money.waitForExistence(timeout: 3) { money.coordinate(withNormalizedOffset: CGVector(dx: 0.93, dy: 0.5)).tap(); sleep(1) }
         if app.buttons["coin-nickel"].waitForExistence(timeout: 3) { app.buttons["coin-nickel"].tap() }
         // turn checking off again so chores pay right away
-        let approval = app.switches["needsApproval"]
-        if !approval.isHittable { app.swipeUp(); sleep(1) }
-        if approval.waitForExistence(timeout: 3) { approval.coordinate(withNormalizedOffset: CGVector(dx: 0.93, dy: 0.5)).tap() }
+        let approvalAgain = app.switches["needsApproval"]
+        if !approvalAgain.isHittable { app.swipeUp(); sleep(1) }
+        if approvalAgain.waitForExistence(timeout: 3) { approvalAgain.coordinate(withNormalizedOffset: CGVector(dx: 0.93, dy: 0.5)).tap() }
         app.swipeDown(); app.swipeDown(); sleep(1)
         snap(app, "16-money-settings")
         app.buttons["gu-chores"].tap(); sleep(1)
