@@ -82,14 +82,14 @@ final class CoreTests: XCTestCase {
         // A backup made by the web app (no log ids, fractional stars, missing fields)
         let json = """
         {"version":1,"kids":[{"id":"k1","name":"Cy","avatar":"🐸","color":"#34C47C","stars":3.4}],
-         "chores":[{"id":"c1","pic":"🛏️","name":"Make bed","stars":9,"days":[],"kids":[]}],
+         "chores":[{"id":"c1","pic":"🛏️","name":"Make bed","stars":99,"days":[],"kids":[]}],
          "done":{"2026-11-05":{"k1":{"c1":"done"}}},
          "log":[{"t":"2026-11-05T14:00:00.000Z","kid":"k1","kind":"chore","text":"Make bed","pic":"🛏️","delta":1,"day":"2026-11-05"}],
          "settings":{"pin":"1234"},"setupDone":true}
         """
         let d = try JSONDecoder().decode(AppData.self, from: Data(json.utf8))
         XCTAssertEqual(d.kids.first?.stars, 3)
-        XCTAssertEqual(d.chores.first?.stars, 5)
+        XCTAssertEqual(d.chores.first?.stars, maxPay) // capped at 20
         XCTAssertEqual(d.chores.first?.days, allDays)
         XCTAssertEqual(d.rewards.count, 4)
         XCTAssertEqual(d.settings.pin, "1234")

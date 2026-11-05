@@ -82,7 +82,7 @@ final class ScreenshotTests: XCTestCase {
         if app.buttons["approve"].firstMatch.waitForExistence(timeout: 3) { app.buttons["approve"].firstMatch.tap(); sleep(1) }
         snap(app, "15-checked")
 
-        // Money mode: nickels, and Make bed pays 5 of them (25¢)
+        // Money mode: nickels, and Brush teeth pays 5 of them (25¢)
         app.buttons["gu-settings"].tap(); sleep(1)
         let money = app.switches["moneyMode"]
         if money.waitForExistence(timeout: 3) { money.coordinate(withNormalizedOffset: CGVector(dx: 0.93, dy: 0.5)).tap(); sleep(1) }
@@ -94,7 +94,7 @@ final class ScreenshotTests: XCTestCase {
         app.swipeDown(); app.swipeDown(); sleep(1)
         snap(app, "16-money-settings")
         app.buttons["gu-chores"].tap(); sleep(1)
-        app.staticTexts["Make bed"].firstMatch.tap(); sleep(1)
+        app.staticTexts["Brush teeth"].firstMatch.tap(); sleep(1)
         let inc = app.buttons["Increment"].firstMatch
         if inc.waitForExistence(timeout: 3) { for _ in 0..<4 { inc.tap() } }
         sleep(1)
@@ -104,7 +104,7 @@ final class ScreenshotTests: XCTestCase {
         snap(app, "18-home-money")
         app.buttons["kid-Ben"].tap(); sleep(1)
         snap(app, "19-ben-money")
-        app.descendants(matching: .any)["chore-Make bed"].tap(); usleep(400_000)
+        app.descendants(matching: .any)["chore-Brush teeth"].tap(); usleep(400_000)
         snap(app, "20-earned-25c")
         sleep(3)
         app.buttons["home"].tap(); sleep(1)
