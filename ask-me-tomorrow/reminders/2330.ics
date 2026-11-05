@@ -1,0 +1,21 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Ask Me Tomorrow//EN
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+BEGIN:VEVENT
+UID:ask-me-tomorrow-daily-2330@dfwilley.github.io
+DTSTAMP:20261030T000000Z
+DTSTART:20261101T233000
+DURATION:PT15M
+RRULE:FREQ=DAILY
+SUMMARY:Ask Me Tomorrow: today's story
+DESCRIPTION:Open Ask Me Tomorrow and answer today's question.\nhttps://dfwilley.github.io/Ask-Me-Tomorrow/
+URL:https://dfwilley.github.io/Ask-Me-Tomorrow/
+BEGIN:VALARM
+TRIGGER:PT0M
+ACTION:DISPLAY
+DESCRIPTION:Time for today's story
+END:VALARM
+END:VEVENT
+END:VCALENDAR

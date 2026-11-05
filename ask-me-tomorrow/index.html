@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ask Me Tomorrow</title>
+<meta name="description" content="One question a day about your life. Answer out loud; it becomes a memoir for your family.">
+<meta name="theme-color" content="#f6f1e7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1b1916" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Ask Me">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main id="app">
+
+  <!-- TODAY -->
+  <section id="v-today" class="view" aria-labelledby="todayDate">
+    <header class="top">
+      <p class="eyebrow" id="todayDate"></p>
+      <p class="sub" id="todayCount"></p>
+    </header>
+
+    <article class="qcard" id="qcard">
+      <p class="chapter" id="qChapter"></p>
+      <h1 class="question" id="qText"></h1>
+      <p class="hint" id="qHint">Take your time. Tell it the way you'd tell it at the kitchen table.</p>
+    </article>
+
+    <!-- ask -->
+    <div class="stage" id="st-ask">
+      <button class="rec" id="btnRec" aria-label="Start recording your answer"><span class="dot"></span></button>
+      <p class="reclabel">Tap to start talking</p>
+      <div class="row">
+        <button class="ghost" id="btnLater">Ask me later</button>
+        <button class="ghost" id="btnNever">Not for me</button>
+      </div>
+    </div>
+
+    <!-- recording -->
+    <div class="stage" id="st-rec" hidden>
+      <p class="timer" id="recTime" aria-live="off">0:00</p>
+      <div class="meter" aria-hidden="true"><div id="meterBar"></div></div>
+      <p class="live" id="liveText" hidden></p>
+      <div class="row big">
+        <button class="secondary" id="btnPause">Pause</button>
+        <button class="primary stop" id="btnStop">Done talking</button>
+      </div>
+      <p class="sub" id="recState">Recording…</p>
+    </div>
+
+    <!-- review -->
+    <div class="stage" id="st-review" hidden>
+      <p class="sub">Listen back if you like, then save it.</p>
+      <audio id="reviewAudio" controls preload="metadata"></audio>
+      <label class="fl" for="reviewText">Written version <span class="opt">(optional — type or fix anything)</span></label>
+      <textarea id="reviewText" rows="5" placeholder="Leave blank if you only want the recording."></textarea>
+      <div class="row big">
+        <button class="secondary" id="btnRedo">Record again</button>
+        <button class="primary" id="btnSave">Save this story</button>
+      </div>
+    </div>
+
+    <!-- done -->
+    <div class="stage" id="st-done" hidden>
+      <p class="done-mark" aria-hidden="true">✓</p>
+      <h2 class="done-title">That's today's story.</h2>
+      <p class="sub">Tomorrow's question will be waiting for you.</p>
+      <div class="row big">
+        <button class="secondary" id="btnListen">Listen back</button>
+        <button class="primary" id="btnAnother">I have time for another</button>
+      </div>
+    </div>
+
+    <!-- all answered -->
+    <div class="stage" id="st-empty" hidden>
+      <h2 class="done-title">You've answered every question.</h2>
+      <p class="sub">Add your own on the Questions page, or answer one again from your Memoir.</p>
+    </div>
+
+    <p class="err" id="micErr" role="alert" hidden></p>
+  </section>
+
+  <!-- MEMOIR -->
+  <section id="v-memoir" class="view" hidden aria-labelledby="bookTitle">
+    <header class="top">
+      <p class="eyebrow">Your memoir</p>
+      <h1 class="title" id="bookTitle"></h1>
+      <p class="sub" id="bookStats"></p>
+    </header>
+    <div id="memoirList"></div>
+  </section>
+
+  <!-- QUESTIONS -->
+  <section id="v-questions" class="view" hidden aria-labelledby="qhead">
+    <header class="top">
+      <p class="eyebrow">Questions</p>
+      <h1 class="title" id="qhead">Every question</h1>
+      <p class="sub">Tap one to answer it now. Your own questions are asked first.</p>
+    </header>
+    <form class="card addq" id="addQ">
+      <label class="fl" for="newQ">Add your own question</label>
+      <textarea id="newQ" rows="2" placeholder="For example: Tell me about the day you bought the RV."></textarea>
+      <div class="row">
+        <select id="newQChapter" aria-label="Chapter"></select>
+        <button class="primary" type="submit">Add</button>
+      </div>
+      <p class="sub">Family can suggest questions too. Type theirs in here.</p>
+    </form>
+    <div id="qList"></div>
+  </section>
+
+  <!-- BOOK / SETTINGS -->
+  <section id="v-book" class="view" hidden aria-labelledby="sethead">
+    <header class="top">
+      <p class="eyebrow">Book and settings</p>
+      <h1 class="title" id="sethead">Your book</h1>
+    </header>
+
+    <div class="card">
+      <label class="fl" for="setTitle">Book title</label>
+      <input id="setTitle" type="text" autocomplete="off">
+      <label class="fl" for="setAuthor">Storyteller</label>
+      <input id="setAuthor" type="text" autocomplete="off">
+      <label class="fl" for="setDedication">Dedication</label>
+      <textarea id="setDedication" rows="2"></textarea>
+    </div>
+
+    <div class="card">
+      <h2 class="h2">Share the memoir</h2>
+      <p class="sub">Makes one file with every story — the recordings and the written versions — sorted into chapters. It opens in any web browser on a phone or computer, and prints nicely without the players.</p>
+      <button class="primary wide" id="btnBook">Make the memoir book</button>
+    </div>
+
+    <div class="card">
+      <h2 class="h2">Daily reminder</h2>
+      <p class="sub">Adds a repeating event to your iPhone Calendar that reminds you each day. Tap <b>Add All</b> when the Calendar asks.</p>
+      <div class="row">
+        <label class="fl inline" for="setTime">Time</label>
+        <input id="setTime" type="time" value="19:00" step="1800">
+        <button class="secondary" id="btnRemind">Add to Calendar</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 class="h2">Back up your stories</h2>
+      <p class="sub">Your stories are stored only on this phone, in this app. Back up now and then (save the file to iCloud Drive or Dropbox) so nothing is lost if the phone is replaced.</p>
+      <div class="row">
+        <button class="primary" id="btnBackup">Back up everything</button>
+        <label class="secondary filebtn">Restore from a backup<input type="file" id="fileRestore" accept=".json,application/json"></label>
+      </div>
+      <p class="sub" id="lastBackup"></p>
+      <p class="sub" id="storeInfo"></p>
+    </div>
+
+    <div class="card">
+      <h2 class="h2">Live written version <span class="opt">(experimental)</span></h2>
+      <label class="check"><input type="checkbox" id="setTranscript"> Type out what I say while I'm recording</label>
+      <p class="sub">Uses the phone's own speech recognition. It may not work on every phone, and you can always type or fix the written version yourself.</p>
+    </div>
+
+    <div class="card">
+      <h2 class="h2">Install on your Home Screen</h2>
+      <p class="sub">In Safari, tap the Share button, then <b>Add to Home Screen</b>. It then opens like a regular app, and iOS is much less likely to clear its storage.</p>
+    </div>
+
+    <p class="sub foot">Ask Me Tomorrow keeps everything on this phone. Nothing is uploaded anywhere.</p>
+  </section>
+
+</main>
+
+<nav class="tabs" aria-label="Sections">
+  <button data-v="today" aria-current="page"><span aria-hidden="true">☀︎</span>Today</button>
+  <button data-v="memoir"><span aria-hidden="true">❖</span>Memoir</button>
+  <button data-v="questions"><span aria-hidden="true">?</span>Questions</button>
+  <button data-v="book"><span aria-hidden="true">✎</span>Book</button>
+</nav>
+
+<!-- Share sheet for files we build -->
+<dialog id="dlg">
+  <form method="dialog">
+    <h2 class="h2" id="dlgTitle"></h2>
+    <p class="sub" id="dlgText"></p>
+    <div class="col">
+      <button class="primary" id="dlgShare" value="share">Share or save…</button>
+      <a class="secondary btnlink" id="dlgDownload" download>Download</a>
+      <button class="ghost" value="close">Close</button>
+    </div>
+  </form>
+</dialog>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="questions.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
