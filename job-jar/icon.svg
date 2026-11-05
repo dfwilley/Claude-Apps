@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#4FB3F6"/>
+      <stop offset="1" stop-color="#6A5AE0"/>
+    </linearGradient>
+    <linearGradient id="glass" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.35"/>
+      <stop offset="0.5" stop-color="#FFFFFF" stop-opacity="0.08"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0.28"/>
+    </linearGradient>
+    <linearGradient id="lid" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FF6B6B"/>
+      <stop offset="1" stop-color="#E0444E"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFE45C"/>
+      <stop offset="1" stop-color="#FFB000"/>
+    </linearGradient>
+    <path id="star" d="M0,-100 L29,-40 L95,-31 L47,15 L59,81 L0,50 L-59,81 L-47,15 L-95,-31 L-29,-40 Z"/>
+    <clipPath id="jarInside">
+      <path d="M300,330 Q300,300 330,300 L694,300 Q724,300 724,330 L724,330 Q790,380 790,470 L790,800 Q790,870 720,870 L304,870 Q234,870 234,800 L234,470 Q234,380 300,330 Z"/>
+    </clipPath>
+  </defs>
+  <rect width="1024" height="1024" fill="url(#bg)"/>
+  <!-- soft sparkles in the sky -->
+  <g fill="#FFFFFF" opacity="0.85">
+    <path d="M150,180 l12,30 30,12 -30,12 -12,30 -12,-30 -30,-12 30,-12z"/>
+    <path d="M880,250 l9,22 22,9 -22,9 -9,22 -9,-22 -22,-9 22,-9z"/>
+    <path d="M860,600 l7,17 17,7 -17,7 -7,17 -7,-17 -17,-7 17,-7z"/>
+    <path d="M140,640 l7,17 17,7 -17,7 -7,17 -7,-17 -17,-7 17,-7z"/>
+  </g>
+  <!-- stars inside the jar -->
+  <g clip-path="url(#jarInside)" stroke="#E08A00" stroke-width="10" stroke-linejoin="round" fill="url(#gold)">
+    <use href="#star" transform="translate(330,820) rotate(-12) scale(1.05)"/>
+    <use href="#star" transform="translate(520,830) rotate(8) scale(1.1)"/>
+    <use href="#star" transform="translate(705,815) rotate(20) scale(1.05)"/>
+    <use href="#star" transform="translate(420,700) rotate(15) scale(1.0)"/>
+    <use href="#star" transform="translate(615,690) rotate(-14) scale(1.05)"/>
+    <use href="#star" transform="translate(520,575) rotate(4) scale(0.95)"/>
+  </g>
+  <!-- jar glass -->
+  <path d="M300,330 Q300,300 330,300 L694,300 Q724,300 724,330 L724,330 Q790,380 790,470 L790,800 Q790,870 720,870 L304,870 Q234,870 234,800 L234,470 Q234,380 300,330 Z"
+        fill="url(#glass)" stroke="#FFFFFF" stroke-width="16" stroke-linejoin="round"/>
+  <!-- glass shine -->
+  <path d="M285,480 Q285,420 320,390" fill="none" stroke="#FFFFFF" stroke-width="22" stroke-linecap="round" opacity="0.9"/>
+  <path d="M285,540 L285,700" fill="none" stroke="#FFFFFF" stroke-width="22" stroke-linecap="round" opacity="0.6"/>
+  <!-- lid -->
+  <rect x="286" y="236" width="452" height="92" rx="30" fill="url(#lid)" stroke="#B8323C" stroke-width="10"/>
+  <rect x="316" y="256" width="392" height="18" rx="9" fill="#FFFFFF" opacity="0.35"/>
+  <!-- star popping out -->
+  <g stroke="#E08A00" stroke-width="10" stroke-linejoin="round" fill="url(#gold)">
+    <use href="#star" transform="translate(512,150) rotate(-8) scale(1.15)"/>
+  </g>
+  <circle cx="490" cy="140" r="9" fill="#5A3A00"/>
+  <circle cx="540" cy="136" r="9" fill="#5A3A00"/>
+  <path d="M492,172 Q516,192 540,170" fill="none" stroke="#5A3A00" stroke-width="8" stroke-linecap="round"/>
+</svg>
