@@ -24,6 +24,44 @@ let rewardPics: [(String, String)] = [
 let avatars = ["🦊", "🐻", "🐼", "🐯", "🦁", "🐸", "🐵", "🐰", "🦄", "🐲", "🐙", "🦖", "🐧", "🦋", "🐝", "🐬", "🦉", "🐢"]
 let kidColors = ["#FF8A3D", "#3DA5FF", "#34C47C", "#B36BFF", "#FF5C8A", "#F2B800", "#20B8B0", "#8A6CFF"]
 
+/// Money mode: every star becomes one coin of the family's chosen kind. d = size in millimeters, to draw coins to scale.
+struct CoinKind {
+    let key: String, cents: Int, name: String, plural: String, d: Double, face: String, edge: String
+}
+let coins: [CoinKind] = [
+    CoinKind(key: "penny", cents: 1, name: "penny", plural: "pennies", d: 19.05, face: "#D9894A", edge: "#9C5A2A"),
+    CoinKind(key: "nickel", cents: 5, name: "nickel", plural: "nickels", d: 21.21, face: "#C9CDD3", edge: "#8C9199"),
+    CoinKind(key: "dime", cents: 10, name: "dime", plural: "dimes", d: 17.91, face: "#D5D9DE", edge: "#9298A1"),
+    CoinKind(key: "quarter", cents: 25, name: "quarter", plural: "quarters", d: 24.26, face: "#CDD1D7", edge: "#8A9099"),
+    CoinKind(key: "half", cents: 50, name: "half dollar", plural: "half dollars", d: 30.61, face: "#D2D6DB", edge: "#8E949C"),
+    CoinKind(key: "dollar", cents: 100, name: "dollar coin", plural: "dollar coins", d: 26.49, face: "#E7C25A", edge: "#A9832A"),
+]
+func coinKind(_ key: String) -> CoinKind { coins.first { $0.key == key } ?? coins[1] }
+let maxPay = 20 // most stars or coins one chore can earn
+
+/// 25 -> "25¢", 135 -> "$1.35"
+func money(_ cents: Int) -> String {
+    let c = abs(cents)
+    let t = c < 100 ? "\(c)¢" : String(format: "$%d.%02d", c / 100, c % 100)
+    return (cents < 0 ? "−" : "") + t
+}
+/// For reading out loud: 135 -> "1 dollar and 35 cents"
+func moneyWords(_ cents: Int) -> String {
+    let c = abs(cents), dol = c / 100, ct = c % 100
+    var parts: [String] = []
+    if dol > 0 { parts.append("\(dol) " + (dol == 1 ? "dollar" : "dollars")) }
+    if ct > 0 || dol == 0 { parts.append("\(ct) " + (ct == 1 ? "cent" : "cents")) }
+    return parts.joined(separator: " and ")
+}
+
+/// A kid's own picture, saved as a small "data:image/...;base64," text so backups work in the web app too.
+func validPhoto(_ p: String) -> Bool {
+    guard p.count < 400_000, let comma = p.firstIndex(of: ",") else { return false }
+    let head = p[..<comma]
+    guard ["data:image/jpeg;base64", "data:image/png;base64", "data:image/webp;base64", "data:image/gif;base64"].contains(String(head)) else { return false }
+    return p[p.index(after: comma)...].allSatisfy { $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "+" || $0 == "/" || $0 == "=") }
+}
+
 let keepDays = 90
 let keepLog = 500
 
@@ -71,9 +109,10 @@ struct Kid: Codable, Identifiable, Equatable {
     var avatar: String
     var color: String
     var stars: Int
+    var photo: String = ""
 
-    init(id: String = newId("k"), name: String, avatar: String, color: String, stars: Int = 0) {
-        self.id = id; self.name = name; self.avatar = avatar; self.color = color; self.stars = stars
+    init(id: String = newId("k"), name: String, avatar: String, color: String, stars: Int = 0, photo: String = "") {
+        self.id = id; self.name = name; self.avatar = avatar; self.color = color; self.stars = stars; self.photo = photo
     }
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -83,6 +122,8 @@ struct Kid: Codable, Identifiable, Equatable {
         color = (try? c.decode(String.self, forKey: .color)) ?? kidColors[0]
         let s = (try? c.decode(Double.self, forKey: .stars)) ?? 0
         stars = max(0, Int(s.rounded()))
+        let ph = (try? c.decode(String.self, forKey: .photo)) ?? ""
+        photo = validPhoto(ph) ? ph : ""
     }
 }
 
@@ -102,7 +143,7 @@ struct Chore: Codable, Identifiable, Equatable {
         id = (try? c.decode(String.self, forKey: .id)) ?? newId("c")
         pic = (try? c.decode(String.self, forKey: .pic)) ?? "⭐"
         name = (try? c.decode(String.self, forKey: .name)) ?? "Chore"
-        stars = min(5, max(1, (try? c.decode(Int.self, forKey: .stars)) ?? 1))
+        stars = min(maxPay, max(1, (try? c.decode(Int.self, forKey: .stars)) ?? 1))
         let d = ((try? c.decode([Int].self, forKey: .days)) ?? []).filter { (0...6).contains($0) }
         days = d.isEmpty ? allDays : d
         kids = (try? c.decode([String].self, forKey: .kids)) ?? []
@@ -158,6 +199,8 @@ struct Settings: Codable, Equatable {
     var needsApproval = false
     var sound = true
     var speak = true
+    var money = false
+    var coin = "nickel"
 
     init() {}
     init(from decoder: Decoder) throws {
@@ -166,7 +209,20 @@ struct Settings: Codable, Equatable {
         needsApproval = (try? c.decode(Bool.self, forKey: .needsApproval)) ?? false
         sound = (try? c.decode(Bool.self, forKey: .sound)) ?? true
         speak = (try? c.decode(Bool.self, forKey: .speak)) ?? true
+        money = (try? c.decode(Bool.self, forKey: .money)) ?? false
+        let k = (try? c.decode(String.self, forKey: .coin)) ?? "nickel"
+        coin = coins.contains { $0.key == k } ? k : "nickel"
     }
+
+    var coinKind: CoinKind { JobJar.coinKind(coin) }
+    /// "3 stars" or, in money mode, "15¢"
+    func amountText(_ n: Int) -> String { money ? JobJar.money(n * coinKind.cents) : starWord(n) }
+    /// "⭐ 3" or "15¢"
+    func amountShort(_ n: Int) -> String { money ? JobJar.money(n * coinKind.cents) : "⭐ \(n)" }
+    /// For reading out loud
+    func amountSpeech(_ n: Int) -> String { money ? moneyWords(n * coinKind.cents) : starWord(n) }
+    /// "5 nickels"
+    func coinCount(_ n: Int) -> String { "\(n) " + (n == 1 ? coinKind.name : coinKind.plural) }
 }
 
 enum ChoreStatus: String { case todo = "", waiting, done }

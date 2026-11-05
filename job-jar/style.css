@@ -216,3 +216,25 @@ h1, h2, h3 { margin: 0; }
   .tabs, .round, .grownup-btn, .say { display: none !important; }
   body { background: #fff; }
 }
+
+/* ---------- Money mode ---------- */
+.pay { display: inline-flex; flex-direction: column; align-items: center; gap: 2px; letter-spacing: 0; }
+.pay b { font-size: 20px; font-weight: 900; color: var(--ink); }
+.stack { display: block; overflow: visible; }
+.coin { vertical-align: middle; }
+.pill .coin, .kid-tile .coin, .jar-strip .coin { margin-top: -3px; }
+.prize .cost { font-weight: 900; font-size: 20px; }
+.pay-preview { display: flex; justify-content: center; padding: 12px; background: var(--card); border-radius: 16px; margin-top: 10px; }
+.coin-pick { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; }
+.coin-pick button { background: var(--card); border-radius: 16px; padding: 10px 6px; border: 3px solid transparent; display: flex; flex-direction: column; align-items: center; gap: 2px; box-shadow: var(--shadow); }
+.coin-pick button.on { border-color: var(--purple); }
+.coin-pick small { color: var(--soft); font-weight: 700; }
+.week td .coin { display: inline-block; }
+
+/* ---------- Kid pictures ---------- */
+.ava { border-radius: 50%; object-fit: cover; vertical-align: middle; box-shadow: 0 0 0 3px var(--card); }
+.kid-tile .ava { border: 5px solid var(--kid); box-shadow: none; }
+.emo { line-height: 1; vertical-align: middle; }
+.kid-head .face { line-height: 1; padding: 0; }
+.photo-row { display: flex; align-items: center; gap: 14px; margin: 6px 0 10px; }
+.photo-btn { display: block; text-align: center; margin: 6px 0 12px; cursor: pointer; }

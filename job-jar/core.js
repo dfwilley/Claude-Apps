@@ -27,6 +27,18 @@
     ["🧩", "Puzzle with a grown-up"], ["⛺", "Living room campout"], ["🦕", "Museum trip"], ["🍩", "Donut breakfast"], ["✈️", "Visit Granddad's airplane"],
   ];
   const AVATARS = ["🦊", "🐻", "🐼", "🐯", "🦁", "🐸", "🐵", "🐰", "🦄", "🐲", "🐙", "🦖", "🐧", "🦋", "🐝", "🐬", "🦉", "🐢"];
+  // Money mode: every star becomes one coin of the family's chosen kind.
+  // d = coin size in millimeters (to draw them to scale), face/edge = drawing colors.
+  const COINS = {
+    penny: { cents: 1, name: "penny", plural: "pennies", d: 19.05, face: "#D9894A", edge: "#9C5A2A" },
+    nickel: { cents: 5, name: "nickel", plural: "nickels", d: 21.21, face: "#C9CDD3", edge: "#8C9199" },
+    dime: { cents: 10, name: "dime", plural: "dimes", d: 17.91, face: "#D5D9DE", edge: "#9298A1" },
+    quarter: { cents: 25, name: "quarter", plural: "quarters", d: 24.26, face: "#CDD1D7", edge: "#8A9099" },
+    half: { cents: 50, name: "half dollar", plural: "half dollars", d: 30.61, face: "#D2D6DB", edge: "#8E949C" },
+    dollar: { cents: 100, name: "dollar coin", plural: "dollar coins", d: 26.49, face: "#E7C25A", edge: "#A9832A" },
+  };
+  const COIN_KEYS = Object.keys(COINS);
+  const MAX_PAY = 20; // most stars or coins one chore can earn
   const COLORS = ["#FF8A3D", "#3DA5FF", "#34C47C", "#B36BFF", "#FF5C8A", "#F2B800", "#20B8B0", "#8A6CFF"];
 
   let counter = 0;
@@ -64,7 +76,7 @@
       ],
       done: {}, // { "YYYY-MM-DD": { kidId: { choreId: "done" | "waiting" } } }
       log: [], // newest first: { t, kid, kind, text, pic, delta }
-      settings: { pin: "", needsApproval: false, sound: true, speak: true },
+      settings: { pin: "", needsApproval: false, sound: true, speak: true, money: false, coin: "nickel" },
       setupDone: false,
     };
   }
@@ -75,13 +87,16 @@
     if (!s || typeof s !== "object") return d;
     const out = Object.assign({}, d, s);
     out.settings = Object.assign({}, d.settings, s.settings || {});
+    out.settings.money = !!out.settings.money;
+    if (!COINS[out.settings.coin]) out.settings.coin = "nickel";
     out.kids = (Array.isArray(s.kids) ? s.kids : []).map((k, i) => ({
       id: k.id || newId("k"), name: String(k.name || "Kid"), avatar: k.avatar || AVATARS[i % AVATARS.length],
       color: k.color || COLORS[i % COLORS.length], stars: Math.max(0, Math.round(Number(k.stars) || 0)),
+      photo: validPhoto(k.photo) ? k.photo : "",
     }));
     out.chores = (Array.isArray(s.chores) ? s.chores : d.chores).map((c) => ({
       id: c.id || newId("c"), pic: c.pic || "⭐", name: String(c.name || "Chore"),
-      stars: clamp(Math.round(Number(c.stars) || 1), 1, 5),
+      stars: clamp(Math.round(Number(c.stars) || 1), 1, MAX_PAY),
       days: Array.isArray(c.days) && c.days.length ? c.days.filter((x) => x >= 0 && x <= 6) : ALL_DAYS.slice(),
       kids: Array.isArray(c.kids) ? c.kids : [],
     }));
@@ -258,8 +273,35 @@
 
   function validPin(p) { return /^\d{4}$/.test(String(p || "")); }
 
+  /** A kid's own picture, saved as a small JPEG/PNG "data:" address. */
+  function validPhoto(p) { return typeof p === "string" && /^data:image\/(jpeg|png|webp|gif);base64,[A-Za-z0-9+/=]+$/.test(p) && p.length < 400000; }
+
+  function coinOf(s) { return COINS[(s.settings && s.settings.coin) || "nickel"] || COINS.nickel; }
+
+  /** 25 -> "25¢", 135 -> "$1.35", 100 -> "$1.00" */
+  function money(cents) {
+    const neg = cents < 0, c = Math.abs(Math.round(cents));
+    const t = c < 100 ? c + "¢" : "$" + Math.floor(c / 100) + "." + String(c % 100).padStart(2, "0");
+    return (neg ? "−" : "") + t;
+  }
+  /** Words for reading out loud: 25 -> "25 cents", 135 -> "1 dollar and 35 cents" */
+  function moneyWords(cents) {
+    const c = Math.abs(Math.round(cents)), dol = Math.floor(c / 100), ct = c % 100;
+    const parts = [];
+    if (dol) parts.push(dol + (dol === 1 ? " dollar" : " dollars"));
+    if (ct || !dol) parts.push(ct + (ct === 1 ? " cent" : " cents"));
+    return parts.join(" and ");
+  }
+  /** How an amount of stars shows on screen: "3 stars" or, in money mode, "15¢". */
+  function amountText(s, n) { return s.settings.money ? money(n * coinOf(s).cents) : starWord(n); }
+  function amountShort(s, n) { return s.settings.money ? money(n * coinOf(s).cents) : "⭐ " + n; }
+  function amountSpeech(s, n) { return s.settings.money ? moneyWords(n * coinOf(s).cents) : starWord(n); }
+  /** "5 nickels" */
+  function coinCount(s, n) { const c = coinOf(s); return n + " " + (n === 1 ? c.name : c.plural); }
+
   return {
-    ALL_DAYS, DAY_LETTERS, DAY_NAMES, CHORE_PICS, REWARD_PICS, AVATARS, COLORS, KEEP_DAYS,
+    ALL_DAYS, DAY_LETTERS, DAY_NAMES, CHORE_PICS, REWARD_PICS, AVATARS, COLORS, KEEP_DAYS, COINS, COIN_KEYS, MAX_PAY,
+    validPhoto, coinOf, money, moneyWords, amountText, amountShort, amountSpeech, coinCount,
     newId, dayKey, parseDay, addDays, weekStart, defaultState, normalize, kidById, choreById, rewardById,
     isDue, statusOf, choresFor, progress, markDone, undo, waitingList, approve, reject,
     canAfford, starsNeeded, redeem, adjust, weekChart, prune, removeKid, starWord, validPin,

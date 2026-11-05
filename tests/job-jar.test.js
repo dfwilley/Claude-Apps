@@ -103,7 +103,7 @@ assert(s.log.every((e) => e.kid !== "b"));
 // Loading older or hand-edited saves
 const n = J.normalize({ kids: [{ name: "Cy", stars: "3.4" }], chores: [{ name: "X", stars: 9, days: [] }], settings: { pin: "1234" } });
 assert.equal(n.kids[0].stars, 3); assert(n.kids[0].id); assert(n.kids[0].avatar);
-assert.equal(n.chores[0].stars, 5); assert.deepEqual(n.chores[0].days, J.ALL_DAYS);
+assert.equal(n.chores[0].stars, 9); assert.deepEqual(n.chores[0].days, J.ALL_DAYS);
 assert.equal(n.rewards.length, 4); assert.equal(n.settings.pin, "1234"); assert.equal(n.settings.sound, true);
 assert.equal(J.normalize(null).chores.length, 6);
 assert.equal(J.normalize(JSON.parse(JSON.stringify(s))).kids[0].name, "Ava");
@@ -112,5 +112,32 @@ assert.equal(J.normalize(JSON.parse(JSON.stringify(s))).kids[0].name, "Ava");
 assert.equal(J.starWord(1), "1 star"); assert.equal(J.starWord(3), "3 stars");
 assert(J.validPin("0420")); assert(!J.validPin("123")); assert(!J.validPin("12a4"));
 assert.notEqual(J.newId("k"), J.newId("k"));
+
+// Money mode
+const m = J.defaultState();
+assert.equal(m.settings.money, false); assert.equal(m.settings.coin, "nickel");
+assert.equal(J.amountText(m, 3), "3 stars");
+m.settings.money = true;
+assert.equal(J.amountText(m, 5), "25¢"); assert.equal(J.amountShort(m, 5), "25¢");
+assert.equal(J.amountSpeech(m, 5), "25 cents"); assert.equal(J.coinCount(m, 5), "5 nickels"); assert.equal(J.coinCount(m, 1), "1 nickel");
+m.settings.coin = "quarter";
+assert.equal(J.amountText(m, 6), "$1.50"); assert.equal(J.amountSpeech(m, 6), "1 dollar and 50 cents");
+m.settings.coin = "penny"; assert.equal(J.coinCount(m, 2), "2 pennies"); assert.equal(J.amountText(m, 1), "1¢");
+m.settings.coin = "dollar"; assert.equal(J.amountText(m, 2), "$2.00"); assert.equal(J.amountSpeech(m, 2), "2 dollars");
+assert.equal(J.money(0), "0¢"); assert.equal(J.money(-35), "−35¢"); assert.equal(J.money(1005), "$10.05");
+assert.equal(J.moneyWords(0), "0 cents"); assert.equal(J.moneyWords(101), "1 dollar and 1 cent");
+assert.equal(J.normalize({ settings: { money: 1, coin: "doubloon" } }).settings.coin, "nickel");
+assert.equal(J.normalize({ settings: { money: 1 } }).settings.money, true);
+assert.equal(J.normalize({ chores: [{ name: "Big job", stars: 15 }] }).chores[0].stars, 15, "money jobs can pay up to 20 coins");
+assert.equal(J.normalize({ chores: [{ name: "Huge", stars: 99 }] }).chores[0].stars, 20);
+// Coin sizes are in real proportion: a dime is the smallest, the half dollar the biggest
+assert(J.COINS.dime.d < J.COINS.penny.d && J.COINS.penny.d < J.COINS.nickel.d && J.COINS.quarter.d < J.COINS.half.d);
+
+// Photo avatars
+const png = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+assert(J.validPhoto(png));
+assert(!J.validPhoto("javascript:alert(1)")); assert(!J.validPhoto("data:text/html;base64,PGI+")); assert(!J.validPhoto('data:image/png;base64,AA"onerror="x'));
+assert.equal(J.normalize({ kids: [{ name: "Pat", photo: png }] }).kids[0].photo, png);
+assert.equal(J.normalize({ kids: [{ name: "Pat", photo: "http://example.com/x.png" }] }).kids[0].photo, "");
 
 console.log("Job Jar tests passed");

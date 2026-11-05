@@ -26,6 +26,69 @@
   const esc = (t) => String(t).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const kid = () => J.kidById(S, view.kidId);
   const stars = (n) => "⭐".repeat(Math.max(0, n));
+  const isMoney = () => !!S.settings.money;
+  const amt = (n) => J.amountText(S, n); // "3 stars" or "15¢"
+  const amtShort = (n) => J.amountShort(S, n); // "⭐ 3" or "15¢"
+  const amtSay = (n) => J.amountSpeech(S, n); // for reading out loud
+
+  // ---------- coins ----------
+  // One coin seen from above (used as a small icon).
+  function coinFace(key, px) {
+    const c = J.COINS[key] || J.coinOf(S);
+    const label = c.cents >= 100 ? "$1" : c.cents + "¢";
+    return `<svg class="coin" width="${px}" height="${px}" viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="18" fill="${c.face}" stroke="${c.edge}" stroke-width="3"/><circle cx="20" cy="20" r="13" fill="none" stroke="${c.edge}" stroke-width="1" opacity=".6"/><text x="20" y="24.5" text-anchor="middle" font-size="${label.length > 2 ? 11 : 13}" font-weight="900" font-family="system-ui,sans-serif" fill="${c.edge}">${label}</text></svg>`;
+  }
+  // A stack of n coins, 10 to a stack, drawn to scale (a nickel is bigger than a dime).
+  function coinStack(n, key, scale) {
+    const c = J.COINS[key] || J.coinOf(S);
+    const k = scale || 1;
+    const rx = c.d * 0.82 * k, ry = rx * 0.36, t = 5 * k, per = 10, gap = 4 * k;
+    const cols = Math.max(1, Math.ceil(n / per)), tallest = Math.min(n, per);
+    const W = cols * (rx * 2) + (cols - 1) * gap + 4, H = (tallest - 1) * t + ry * 2 + t + 4;
+    const label = c.cents >= 100 ? "$1" : c.cents + "¢";
+    let out = "";
+    for (let col = 0; col < cols; col++) {
+      const count = Math.min(per, n - col * per), cx = 2 + rx + col * (rx * 2 + gap);
+      for (let i = 0; i < count; i++) {
+        const cy = H - 2 - ry - t - i * t;
+        out += `<ellipse cx="${cx}" cy="${cy + t}" rx="${rx}" ry="${ry}" fill="${c.edge}"/><rect x="${cx - rx}" y="${cy}" width="${rx * 2}" height="${t}" fill="${c.edge}"/>` +
+          `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="${c.face}" stroke="${c.edge}" stroke-width="${1.2 * k}"/>`;
+        if (i === count - 1) out += `<text x="${cx}" y="${cy + ry * 0.45}" text-anchor="middle" font-size="${Math.round(ry * 1.15)}" font-weight="900" font-family="system-ui,sans-serif" fill="${c.edge}">${label}</text>`;
+      }
+    }
+    return `<svg class="stack" width="${W.toFixed(0)}" height="${H.toFixed(0)}" viewBox="0 0 ${W.toFixed(1)} ${H.toFixed(1)}" role="img" aria-label="${esc(J.coinCount(S, n))}">${out}</svg>`;
+  }
+  /** What a chore pays: a coin stack plus "25¢", or a row of stars. */
+  function payHTML(n, scale) {
+    return isMoney() ? `<span class="pay">${coinStack(n, null, scale)}<b>${J.money(n * J.coinOf(S).cents)}</b></span>` : stars(n);
+  }
+  /** A kid's jar total for headers and tiles. */
+  function balanceHTML(k) { return isMoney() ? `${coinFace(null, 26)} ${J.money(k.stars * J.coinOf(S).cents)}` : `⭐ ${k.stars}`; }
+
+  // ---------- kid pictures ----------
+  function avatarHTML(k, px) {
+    return k.photo ? `<img class="ava" src="${k.photo}" alt="" style="width:${px}px;height:${px}px">` : `<span class="emo" style="font-size:${Math.round(px * 0.9)}px">${k.avatar}</span>`;
+  }
+  /** Shrinks a chosen picture to a 256-pixel square (cropped to the middle) so it saves quickly. */
+  function readPhoto(file) {
+    return new Promise((resolve, reject) => {
+      if (!file || !/^image\//.test(file.type || "image/")) return reject(new Error("not a picture"));
+      const url = URL.createObjectURL(file), img = new Image();
+      img.onload = () => {
+        const size = 256, side = Math.min(img.naturalWidth, img.naturalHeight);
+        const cv = document.createElement("canvas"); cv.width = cv.height = size;
+        const ctx = cv.getContext("2d");
+        ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, size, size);
+        ctx.drawImage(img, (img.naturalWidth - side) / 2, (img.naturalHeight - side) / 2, side, side, 0, 0, size, size);
+        URL.revokeObjectURL(url);
+        const data = cv.toDataURL("image/jpeg", 0.82);
+        J.validPhoto(data) ? resolve(data) : reject(new Error("bad picture"));
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("can't open")); };
+      img.src = url;
+    });
+  }
+  const photoButton = (target) => `<label class="btn photo-btn">📷 Use a photo or picture file<input type="file" accept="image/*" data-photo="${target}" hidden></label>`;
   function fmtWhen(iso) {
     const d = new Date(iso);
     const k = J.dayKey(d), tk = J.dayKey(today), yk = J.dayKey(J.addDays(today, -1));
@@ -169,9 +232,9 @@
     const tiles = S.kids.map((k) => {
       const p = J.progress(S, k.id, today);
       const pct = p.total ? Math.round((p.finished / p.total) * 100) : 0;
-      return `<button class="kid-tile" data-act="pick-kid" data-id="${k.id}"${kidStyle(k)} aria-label="${esc(k.name)}, ${J.starWord(k.stars)}">
-        <div class="face">${k.avatar}</div><div class="name">${esc(k.name)}</div>
-        <div class="stars">⭐ ${k.stars}</div>
+      return `<button class="kid-tile" data-act="pick-kid" data-id="${k.id}"${kidStyle(k)} aria-label="${esc(k.name)}, ${esc(amt(k.stars))}">
+        <div class="face">${avatarHTML(k, 96)}</div><div class="name">${esc(k.name)}</div>
+        <div class="stars">${balanceHTML(k)}</div>
         <div class="bar" aria-hidden="true"><i style="width:${pct}%"></i></div>
       </button>`;
     }).join("");
@@ -192,36 +255,37 @@
       body = (p.allDone ? `<div class="alldone">🎉 All done today! 🎉</div>` : "") + (list.length ? `<div class="chores">${list.map(({ chore, status }) => `
         <div class="chore ${status}" role="button" tabindex="0" data-act="chore" data-id="${chore.id}" aria-label="${esc(chore.name)}${status === "done" ? ", done" : status === "waiting" ? ", waiting for a grown-up" : ""}">
           <button class="say" data-act="say" data-text="${esc(chore.name)}" aria-label="Say it">🔊</button>
-          <div class="pic">${chore.pic}</div><div class="label">${esc(chore.name)}</div><div class="pips">${stars(chore.stars)}</div>
+          <div class="pic">${chore.pic}</div><div class="label">${esc(chore.name)}</div><div class="pips">${payHTML(chore.stars)}</div>
           ${status ? `<div class="mark" aria-hidden="true">${status === "done" ? "✓" : "⏳"}</div>` : ""}
         </div>`).join("")}</div>` : `<div class="empty"><span class="big">🌈</span>No chores today. Enjoy!</div>`);
     } else if (view.kidTab === "prizes") {
-      body = `<div class="jar-strip"><img src="icon.svg" alt=""><div><div class="n">⭐ ${k.stars}</div><div class="t">${k.stars === 1 ? "star" : "stars"} in ${esc(k.name)}'s jar</div></div></div>` +
+      body = `<div class="jar-strip"><img src="icon.svg" alt=""><div><div class="n">${balanceHTML(k)}</div><div class="t">${isMoney() ? "in" : k.stars === 1 ? "star in" : "stars in"} ${esc(k.name)}'s jar</div></div></div>` +
         (S.rewards.length ? `<div class="prizes">${S.rewards.map((r) => {
           const ready = k.stars >= r.cost;
-          const showDots = r.cost <= 20;
+          const showDots = r.cost <= 20 && !isMoney();
           return `<div class="prize ${ready ? "ready" : ""}">
             <div class="pic">${r.pic}</div><div class="label">${esc(r.name)}</div>
             ${showDots ? `<div class="need" aria-hidden="true">${Array.from({ length: r.cost }, (_, i) => `<span class="${i < k.stars ? "" : "off"}">⭐</span>`).join("")}</div>`
               : `<div class="meter" aria-hidden="true"><i style="width:${Math.min(100, Math.round((k.stars / r.cost) * 100))}%"></i></div>`}
-            <div class="count">${ready ? "You have enough!" : `${Math.min(k.stars, r.cost)} of ${r.cost} ⭐`}</div>
-            ${ready ? `<button class="get" data-act="get" data-id="${r.id}">Get it!</button>` : `<button class="say" style="position:static;margin-top:8px" data-act="say" data-text="${esc(r.name)}. ${J.starWord(r.cost - k.stars)} to go." aria-label="Say it">🔊</button>`}
+            <div class="cost">${isMoney() ? "Costs " + J.money(r.cost * J.coinOf(S).cents) : ""}</div>
+            <div class="count">${ready ? "You have enough!" : isMoney() ? `${J.money(Math.min(k.stars, r.cost) * J.coinOf(S).cents)} of ${J.money(r.cost * J.coinOf(S).cents)}` : `${Math.min(k.stars, r.cost)} of ${r.cost} ⭐`}</div>
+            ${ready ? `<button class="get" data-act="get" data-id="${r.id}">Get it!</button>` : `<button class="say" style="position:static;margin-top:8px" data-act="say" data-text="${esc(r.name)}. ${esc(amtSay(r.cost - k.stars))} to go." aria-label="Say it">🔊</button>`}
           </div>`;
         }).join("")}</div>` : `<div class="empty"><span class="big">🎁</span>No rewards yet. Ask a grown-up to add some!</div>`);
     } else {
       const wk = J.weekChart(S, k.id, today);
       const tk = J.dayKey(today);
-      const icon = { done: "⭐", waiting: "⏳", "": "○", off: "", future: "" };
+      const icon = { done: isMoney() ? coinFace(null, 28) : "⭐", waiting: "⏳", "": "○", off: "", future: "" };
       body = wk.rows.length ? `<div class="week"><table>
         <thead><tr><th></th>${wk.days.map((d, i) => `<th class="${d === tk ? "today" : ""}" title="${J.DAY_NAMES[i]}">${J.DAY_LETTERS[i]}</th>`).join("")}</tr></thead>
         <tbody>${wk.rows.map((r) => `<tr><td class="pic" title="${esc(r.chore.name)}">${r.chore.pic}<small>${esc(r.chore.name)}</small></td>${r.cells.map((c, i) => `<td class="${c === "off" ? "off" : ""} ${c === "" ? "miss" : ""} ${wk.days[i] === tk ? "today" : ""}">${icon[c]}</td>`).join("")}</tr>`).join("")}</tbody>
-        <tfoot><tr><td class="pic"><small>Stars</small></td>${wk.earned.map((n) => `<td>${n || ""}</td>`).join("")}</tr></tfoot>
-      </table></div><div class="week-total">This week: ⭐ ${wk.total}</div>` : `<div class="empty"><span class="big">📅</span>No chores yet.</div>`;
+        <tfoot><tr><td class="pic"><small>${isMoney() ? "Earned" : "Stars"}</small></td>${wk.earned.map((n) => `<td>${n ? (isMoney() ? J.money(n * J.coinOf(S).cents) : n) : ""}</td>`).join("")}</tr></tfoot>
+      </table></div><div class="week-total">This week: ${isMoney() ? J.money(wk.total * J.coinOf(S).cents) : "⭐ " + wk.total}</div>` : `<div class="empty"><span class="big">📅</span>No chores yet.</div>`;
     }
     $app.innerHTML = `<div${kidStyle(k)}>
       <header class="top kid-head"><button class="round" data-act="home" aria-label="Home">🏠</button>
-        <span class="face">${k.avatar}</span><span class="name">${esc(k.name)}</span>
-        <span class="pill" aria-label="${J.starWord(k.stars)}">⭐ ${k.stars}</span></header>
+        <button class="face" data-act="my-pic" aria-label="Change my picture">${avatarHTML(k, 56)}</button><span class="name">${esc(k.name)}</span>
+        <span class="pill" aria-label="${esc(amt(k.stars))}">${balanceHTML(k)}</span></header>
       <div class="wrap">${body}</div>
       <nav class="tabs">
         <button class="tab ${view.kidTab === "today" ? "on" : ""}" data-act="kid-tab" data-tab="today"><b>✅</b>Today</button>
@@ -240,37 +304,43 @@
     if (t === "check") {
       body = waiting.length ? `<div class="list">${waiting.map((w) => {
         const k = J.kidById(S, w.kidId);
-        return `<div class="row"><span class="pic">${w.chore.pic}</span><div class="main"><b>${esc(w.chore.name)}</b><small>${k.avatar} ${esc(k.name)} · ${w.day === J.dayKey(today) ? "today" : esc(J.parseDay(w.day).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" }))}</small></div>
+        return `<div class="row"><span class="pic">${w.chore.pic}</span><div class="main"><b>${esc(w.chore.name)}</b><small>${avatarHTML(k, 20)} ${esc(k.name)} · ${w.day === J.dayKey(today) ? "today" : esc(J.parseDay(w.day).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" }))}</small></div>
           <button class="btn" data-act="reject" data-kid="${w.kidId}" data-chore="${w.chore.id}" data-day="${w.day}" aria-label="Not done">✗</button>
-          <button class="btn good" data-act="approve" data-kid="${w.kidId}" data-chore="${w.chore.id}" data-day="${w.day}">✓ ${stars(w.chore.stars)}</button></div>`;
+          <button class="btn good" data-act="approve" data-kid="${w.kidId}" data-chore="${w.chore.id}" data-day="${w.day}">✓ ${isMoney() ? esc(amt(w.chore.stars)) : stars(w.chore.stars)}</button></div>`;
       }).join("")}</div><button class="add" data-act="approve-all">✓ OK all of them</button>` : `<div class="empty"><span class="big">👍</span>Nothing waiting to be checked.</div>`;
       body += `<p class="note">“Grown-up checks chores first” is ${S.settings.needsApproval ? "on" : "off"} (Settings). When it's on, a chore turns yellow ⏳ until you OK it here, then the stars go in the jar.</p>`;
     } else if (t === "kids") {
-      body = (S.kids.length ? `<div class="list">${S.kids.map((k) => `<button class="row" data-act="edit-kid" data-id="${k.id}"><span class="pic">${k.avatar}</span>
-          <div class="main"><b style="color:${esc(k.color)}">${esc(k.name)}</b><small>${J.choresFor(S, k.id, today).length} chores today</small></div><span class="end">⭐ ${k.stars} ›</span></button>`).join("")}</div>`
+      body = (S.kids.length ? `<div class="list">${S.kids.map((k) => `<button class="row" data-act="edit-kid" data-id="${k.id}"><span class="pic">${avatarHTML(k, 40)}</span>
+          <div class="main"><b style="color:${esc(k.color)}">${esc(k.name)}</b><small>${J.choresFor(S, k.id, today).length} chores today</small></div><span class="end">${esc(amtShort(k.stars))} ›</span></button>`).join("")}</div>`
         : `<p class="note">Add each child who will use The Job Jar! on this device. Each gets their own picture, chores and star jar.</p>`) +
         `<button class="add" data-act="edit-kid">+ Add a kid</button>`;
     } else if (t === "chores") {
       body = `<div class="list">${S.chores.map((c) => `<button class="row" data-act="edit-chore" data-id="${c.id}"><span class="pic">${c.pic}</span>
-          <div class="main"><b>${esc(c.name)}</b><small>${daysText(c.days)} · ${whoText(c.kids)}</small></div><span class="end">${stars(c.stars)} ›</span></button>`).join("")}</div>
+          <div class="main"><b>${esc(c.name)}</b><small>${daysText(c.days)} · ${whoText(c.kids)}</small></div><span class="end">${isMoney() ? esc(amt(c.stars)) : stars(c.stars)} ›</span></button>`).join("")}</div>
         <button class="add" data-act="edit-chore">+ Add a chore</button>
         <p class="note">Pick a picture for each chore so kids who can't read yet know what it is. They can also tap 🔊 to hear it.</p>`;
     } else if (t === "rewards") {
       body = `<div class="list">${S.rewards.map((r) => `<button class="row" data-act="edit-reward" data-id="${r.id}"><span class="pic">${r.pic}</span>
-          <div class="main"><b>${esc(r.name)}</b></div><span class="end">⭐ ${r.cost} ›</span></button>`).join("")}</div>
+          <div class="main"><b>${esc(r.name)}</b></div><span class="end">${esc(amtShort(r.cost))} ›</span></button>`).join("")}</div>
         <button class="add" data-act="edit-reward">+ Add a reward</button>
-        <p class="note">When a kid has enough stars, a “Get it!” button appears. A grown-up enters the PIN to OK it, and the stars come out of the jar.</p>`;
+        <p class="note">When a kid has enough ${isMoney() ? "money" : "stars"}, a “Get it!” button appears. A grown-up enters the PIN to OK it, and the ${isMoney() ? "price" : "stars"} come out of the jar.</p>`;
     } else if (t === "history") {
       const list = S.log.filter((e) => !view.histKid || e.kid === view.histKid).slice(0, 150);
-      body = `<div class="seg" style="margin-bottom:12px"><button class="${!view.histKid ? "on" : ""}" data-act="hist-kid" data-id="">Everyone</button>${S.kids.map((k) => `<button class="${view.histKid === k.id ? "on" : ""}" data-act="hist-kid" data-id="${k.id}">${k.avatar} ${esc(k.name)}</button>`).join("")}</div>` +
+      body = `<div class="seg" style="margin-bottom:12px"><button class="${!view.histKid ? "on" : ""}" data-act="hist-kid" data-id="">Everyone</button>${S.kids.map((k) => `<button class="${view.histKid === k.id ? "on" : ""}" data-act="hist-kid" data-id="${k.id}">${avatarHTML(k, 22)} ${esc(k.name)}</button>`).join("")}</div>` +
         (list.length ? `<div class="list">${list.map((e) => { const k = J.kidById(S, e.kid); return `<div class="row"><span class="pic">${e.pic || "⭐"}</span>
-          <div class="main"><b>${esc(e.text)}</b><small>${k ? k.avatar + " " + esc(k.name) + " · " : ""}${esc(fmtWhen(e.t))}</small></div>
-          <span class="end ${e.delta > 0 ? "plus" : e.delta < 0 ? "minus" : ""}">${e.delta > 0 ? "+" : ""}${e.delta} ⭐</span></div>`; }).join("")}</div>` : `<div class="empty">Nothing yet.</div>`);
+          <div class="main"><b>${esc(e.text)}</b><small>${k ? avatarHTML(k, 18) + " " + esc(k.name) + " · " : ""}${esc(fmtWhen(e.t))}</small></div>
+          <span class="end ${e.delta > 0 ? "plus" : e.delta < 0 ? "minus" : ""}">${isMoney() ? (e.delta > 0 ? "+" : "") + esc(J.money(e.delta * J.coinOf(S).cents)) : (e.delta > 0 ? "+" : "") + e.delta + " ⭐"}</span></div>`; }).join("")}</div>` : `<div class="empty">Nothing yet.</div>`);
     } else {
       body = `<div class="section">Grown-up PIN</div><div class="list">
           <button class="row" data-act="change-pin"><span class="pic">🔒</span><div class="main"><b>${J.validPin(S.settings.pin) ? "Change the PIN" : "Set a PIN"}</b><small>${J.validPin(S.settings.pin) ? "Needed to open Grown-ups and to OK rewards" : "No PIN: anyone can open Grown-ups"}</small></div><span class="end">›</span></button>
           ${J.validPin(S.settings.pin) ? `<button class="row" data-act="remove-pin"><span class="pic">🔓</span><div class="main"><b>Remove the PIN</b></div></button>` : ""}
         </div>
+        <div class="section">Stars or money</div><div class="list">
+          ${toggle("money", "Pay in money instead of stars", "Each star becomes one coin. Kids see coin stacks and dollars and cents")}
+        </div>
+        ${isMoney() ? `<p class="note">Pick the one coin your family uses. Then set how many of them each chore pays in Chores.</p>
+          <div class="coin-pick">${J.COIN_KEYS.map((key) => { const c = J.COINS[key]; return `<button class="${S.settings.coin === key ? "on" : ""}" data-act="coin" data-key="${key}">${coinFace(key, 44)}<b>${c.name[0].toUpperCase() + c.name.slice(1)}</b><small>${J.money(c.cents)}</small></button>`; }).join("")}</div>
+          <p class="note">Changing the coin changes what's already in each jar too (10 nickels become 10 dimes).</p>` : ""}
         <div class="section">How it works</div><div class="list">
           ${toggle("needsApproval", "Grown-up checks chores first", "Stars go in the jar after you OK each chore")}
           ${toggle("sound", "Sounds", "A happy chime when a star is earned")}
@@ -316,15 +386,20 @@
     const used = S.kids.map((x) => x.avatar);
     draft = k ? Object.assign({}, k) : { id: null, name: "", avatar: J.AVATARS.find((a) => !used.includes(a)) || J.AVATARS[0], color: J.COLORS[S.kids.length % J.COLORS.length], give: 1 };
     draft.give = 1;
+    draft.photo = draft.photo || "";
     drawSheet = () => {
       openSheet(`<div class="sheet-head"><h2>${k ? "Edit " + esc(k.name) : "Add a kid"}</h2><button class="btn" data-act="close">Cancel</button></div>
         <label class="field" for="nm">Name</label><input class="text" id="nm" value="${esc(draft.name)}" maxlength="20" autocomplete="off" placeholder="First name">
-        <span class="field">Picture (so they can find their own chart)</span>${picGrid(J.AVATARS, draft.avatar, "d-avatar")}
+        <span class="field">Picture (so they can find their own chart)</span>
+        ${draft.photo ? `<div class="photo-row"><img class="ava" src="${draft.photo}" alt="" style="width:72px;height:72px"><button class="btn" data-act="d-nophoto">Remove photo</button></div>` : ""}
+        ${photoButton("draft")}
+        ${picGrid(J.AVATARS, draft.photo ? "" : draft.avatar, "d-avatar")}
         <span class="field">Color</span><div class="colors">${J.COLORS.map((c) => `<button class="${c === draft.color ? "on" : ""}" style="background:${c}" data-act="d-color" data-c="${c}" aria-label="Color ${c}"></button>`).join("")}</div>
-        ${k ? `<span class="field">Stars in the jar: ⭐ ${k.stars}</span>
-          <div class="stepper"><button data-act="d-give" data-n="-1" aria-label="Less">−</button><output>${draft.give}</output><button data-act="d-give" data-n="1" aria-label="More">+</button></div>
+        ${k ? `<span class="field">${isMoney() ? "Money in the jar: " + J.money(k.stars * J.coinOf(S).cents) + " (" + esc(J.coinCount(S, k.stars)) + ")" : "Stars in the jar: ⭐ " + k.stars}</span>
+          <div class="stepper"><button data-act="d-give" data-n="-1" aria-label="Less">−</button><output>${isMoney() ? esc(J.coinCount(S, draft.give)) : draft.give}</output><button data-act="d-give" data-n="1" aria-label="More">+</button></div>
           <input class="text" id="why" placeholder="Why? (optional, e.g. Helped Grandma)" maxlength="40" style="margin-top:10px">
-          <div class="actions"><button class="btn good grow" data-act="give" data-sign="1">Give ${J.starWord(draft.give)}</button><button class="btn grow" data-act="give" data-sign="-1">Take away ${draft.give}</button></div>` : ""}
+          <div class="actions"><button class="btn good grow" data-act="give" data-sign="1">Give ${esc(amt(draft.give))}</button><button class="btn grow" data-act="give" data-sign="-1">Take away ${isMoney() ? esc(amt(draft.give)) : draft.give}</button></div>
+          ${isMoney() && k.stars > 0 ? `<div class="actions"><button class="btn grow" data-act="payout">💵 I paid ${esc(k.name)} ${J.money(k.stars * J.coinOf(S).cents)} (empty the jar)</button></div>` : ""}` : ""}
         <div class="actions">${k ? `<button class="btn danger" data-act="del-kid">Remove</button>` : ""}<button class="btn primary grow" data-act="save-kid">Save</button></div>`);
     };
     drawSheet();
@@ -337,10 +412,13 @@
       openSheet(`<div class="sheet-head"><h2>${c ? "Edit chore" : "Add a chore"}</h2><button class="btn" data-act="close">Cancel</button></div>
         <span class="field">Picture</span>${picGrid(J.CHORE_PICS, draft.pic, "d-pic")}
         <label class="field" for="nm">Name (read out loud when a kid taps 🔊)</label><input class="text" id="nm" value="${esc(draft.name)}" maxlength="30" autocomplete="off" placeholder="Make bed">
-        <span class="field">Stars it earns</span><div class="seg">${[1, 2, 3, 4, 5].map((n) => `<button class="${draft.stars === n ? "on" : ""}" data-act="d-stars" data-n="${n}">${stars(n)}</button>`).join("")}</div>
+        ${isMoney() ? `<span class="field">How much it pays (${esc(J.coinOf(S).plural)})</span>
+          <div class="stepper"><button data-act="d-pay" data-n="-1" aria-label="One coin less">−</button><output>${esc(J.coinCount(S, draft.stars))}</output><button data-act="d-pay" data-n="1" aria-label="One coin more">+</button></div>
+          <div class="pay-preview">${payHTML(draft.stars, 1.3)}</div>`
+        : `<span class="field">Stars it earns</span><div class="seg">${[1, 2, 3, 4, 5].concat(draft.stars > 5 ? [draft.stars] : []).map((n) => `<button class="${draft.stars === n ? "on" : ""}" data-act="d-stars" data-n="${n}">${n > 5 ? "⭐ " + n : stars(n)}</button>`).join("")}</div>`}
         <span class="field">Which days</span><div class="seg">${J.ALL_DAYS.map((d) => `<button class="${draft.days.includes(d) ? "on" : ""}" data-act="d-day" data-d="${d}" aria-label="${J.DAY_NAMES[d]}">${J.DAY_NAMES[d].slice(0, 3)}</button>`).join("")}
           <button data-act="d-everyday">Every day</button></div>
-        <span class="field">Who does it</span><div class="seg"><button class="${!draft.kids.length ? "on" : ""}" data-act="d-kid" data-id="">Everyone</button>${S.kids.map((k) => `<button class="${draft.kids.includes(k.id) ? "on" : ""}" data-act="d-kid" data-id="${k.id}">${k.avatar} ${esc(k.name)}</button>`).join("")}</div>
+        <span class="field">Who does it</span><div class="seg"><button class="${!draft.kids.length ? "on" : ""}" data-act="d-kid" data-id="">Everyone</button>${S.kids.map((k) => `<button class="${draft.kids.includes(k.id) ? "on" : ""}" data-act="d-kid" data-id="${k.id}">${avatarHTML(k, 22)} ${esc(k.name)}</button>`).join("")}</div>
         <div class="actions">${c ? `<button class="btn danger" data-act="del-chore">Delete</button>` : ""}<button class="btn primary grow" data-act="save-chore">Save</button></div>`);
     };
     drawSheet();
@@ -354,8 +432,9 @@
         <span class="field">Picture</span>${picGrid(J.REWARD_PICS, draft.pic, "d-pic")}
         <label class="field" for="nm">Name</label><input class="text" id="nm" value="${esc(draft.name)}" maxlength="30" autocomplete="off" placeholder="Ice cream trip">
         <span class="field">Stars it costs</span>
-        <div class="stepper"><button data-act="d-cost" data-n="-5" aria-label="5 less">−5</button><button data-act="d-cost" data-n="-1" aria-label="Less">−</button><output>⭐ ${draft.cost}</output><button data-act="d-cost" data-n="1" aria-label="More">+</button><button data-act="d-cost" data-n="5" aria-label="5 more">+5</button></div>
-        <p class="note">Tip: a small treat at 5 to 10 stars keeps young kids excited; save bigger trips for 20 or more.</p>
+        <div class="stepper"><button data-act="d-cost" data-n="-5" aria-label="5 less">−5</button><button data-act="d-cost" data-n="-1" aria-label="Less">−</button><output>${esc(amtShort(draft.cost))}</output><button data-act="d-cost" data-n="1" aria-label="More">+</button><button data-act="d-cost" data-n="5" aria-label="5 more">+5</button></div>
+        ${isMoney() ? `<p class="note">${esc(J.coinCount(S, draft.cost))}.</p>` : ""}
+        <p class="note">Tip: a small treat that takes a few days to earn keeps young kids excited; save bigger trips for a week or two of chores.</p>
         <div class="actions">${r ? `<button class="btn danger" data-act="del-reward">Delete</button>` : ""}<button class="btn primary grow" data-act="save-reward">Save</button></div>`);
     };
     drawSheet();
@@ -409,11 +488,11 @@
       const p = J.progress(S, k.id, today);
       if (p.allDone) {
         setTimeout(fanfare, 250);
-        celebrate("🏆", "All done today!", got ? "+" + J.starWord(got) : "", true);
+        celebrate("🏆", "All done today!", got ? "+" + amt(got) : "", true);
         say("Great job " + k.name + "! All your chores are done!");
       } else if (got) {
-        celebrate(c.pic, "Great job!", "+" + J.starWord(got));
-        say(c.name + ". Great job! " + J.starWord(got) + "!");
+        celebrate(c.pic, "Great job!", "+" + amt(got));
+        say(c.name + ". Great job! " + amtSay(got) + "!");
       } else {
         celebrate("⏳", "Nice work!", "A grown-up will check it");
         say("Nice work! A grown-up will check it.");
@@ -427,7 +506,7 @@
       grownUp("Grown-up: OK " + r.name + " for " + k.name + "?", () => {
         if (J.redeem(S, k.id, r.id)) {
           save(); render(); fanfare();
-          celebrate(r.pic, r.name + "!", "−" + J.starWord(r.cost), true);
+          celebrate(r.pic, r.name + "!", "−" + amt(r.cost), true);
           say("Hooray! " + r.name + "!");
         }
       });
@@ -440,7 +519,26 @@
     "edit-kid"(d) { editKid(d.id); },
     "edit-chore"(d) { editChore(d.id); },
     "edit-reward"(d) { editReward(d.id); },
-    "d-avatar"(d) { keepName(); draft.avatar = d.pic; drawSheet(); },
+    "d-avatar"(d) { keepName(); draft.avatar = d.pic; draft.photo = ""; drawSheet(); },
+    "d-nophoto"() { keepName(); draft.photo = ""; drawSheet(); },
+    "d-pay"(d) { keepName(); draft.stars = Math.max(1, Math.min(J.MAX_PAY, draft.stars + Number(d.n))); drawSheet(); },
+    coin(d) { S.settings.coin = d.key; save(); render(); },
+    payout() {
+      const k = J.kidById(S, draft.id);
+      if (!k || !confirm("Mark " + J.money(k.stars * J.coinOf(S).cents) + " as paid to " + k.name + "? This empties the jar.")) return;
+      J.adjust(S, k.id, -k.stars, "Paid out"); save(); render(); editKid(k.id);
+    },
+    "my-pic"() {
+      const k = kid();
+      if (!k) return;
+      openSheet(`<div class="sheet-head"><h2>Pick your picture</h2><button class="btn" data-act="close">Done</button></div>
+        <div class="photo-row">${avatarHTML(k, 88)}${k.photo ? `<button class="btn" data-act="my-nophoto">Remove photo</button>` : ""}</div>
+        ${photoButton("self")}
+        <span class="field">Or pick an animal</span>${picGrid(J.AVATARS, k.photo ? "" : k.avatar, "my-avatar")}`);
+      say("Pick your picture!");
+    },
+    "my-avatar"(d) { const k = kid(); k.avatar = d.pic; k.photo = ""; save(); closeSheet(); render(); },
+    "my-nophoto"() { const k = kid(); k.photo = ""; save(); closeSheet(); render(); },
     "d-color"(d) { keepName(); draft.color = d.c; drawSheet(); },
     "d-give"(d) { keepName(); draft.give = Math.max(1, Math.min(50, draft.give + Number(d.n))); drawSheet(); },
     give(d) {
@@ -454,8 +552,8 @@
       keepName();
       const name = draft.name.trim();
       if (!name) { const n = document.getElementById("nm"); n.focus(); n.placeholder = "Type a name first"; return; }
-      if (draft.id) Object.assign(J.kidById(S, draft.id), { name, avatar: draft.avatar, color: draft.color });
-      else S.kids.push({ id: J.newId("k"), name, avatar: draft.avatar, color: draft.color, stars: 0 });
+      if (draft.id) Object.assign(J.kidById(S, draft.id), { name, avatar: draft.avatar, color: draft.color, photo: draft.photo || "" });
+      else S.kids.push({ id: J.newId("k"), name, avatar: draft.avatar, color: draft.color, stars: 0, photo: draft.photo || "" });
       save(); closeSheet(); render();
     },
     "del-kid"() {
@@ -545,10 +643,20 @@
     if (pinHandler && e.key === "Backspace") pinHandler("back");
   });
   document.addEventListener("change", (e) => {
+    const target = e.target.dataset && e.target.dataset.photo;
+    if (target) {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      readPhoto(file).then((data) => {
+        if (target === "self") { const k = kid(); if (k) { k.photo = data; save(); closeSheet(); render(); say("Looking good!"); } }
+        else if (draft) { keepName(); draft.photo = data; drawSheet(); }
+      }).catch(() => alert("That picture couldn't be opened. Try a photo, or a JPEG or PNG file."));
+      return;
+    }
     const k = e.target.dataset && e.target.dataset.set;
     if (!k) return;
     S.settings[k] = e.target.checked; save();
-    if (k === "needsApproval") render();
+    if (k === "needsApproval" || k === "money") render();
   });
 
   // A new day starts a fresh chart, even if the app was left open overnight.

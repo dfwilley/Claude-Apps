@@ -1,4 +1,5 @@
 import XCTest
+import UIKit
 @testable import JobJar
 
 /// Same checks as tests/job-jar.test.js for the web app.
@@ -98,6 +99,42 @@ final class CoreTests: XCTestCase {
         // and round-trips
         let again = try JSONDecoder().decode(AppData.self, from: JSONEncoder().encode(d))
         XCTAssertEqual(again, d)
+    }
+
+    func testMoney() {
+        var s = Settings()
+        XCTAssertFalse(s.money); XCTAssertEqual(s.coin, "nickel")
+        XCTAssertEqual(s.amountText(3), "3 stars")
+        s.money = true
+        XCTAssertEqual(s.amountText(5), "25¢"); XCTAssertEqual(s.amountSpeech(5), "25 cents")
+        XCTAssertEqual(s.coinCount(5), "5 nickels"); XCTAssertEqual(s.coinCount(1), "1 nickel")
+        s.coin = "quarter"
+        XCTAssertEqual(s.amountText(6), "$1.50"); XCTAssertEqual(s.amountSpeech(6), "1 dollar and 50 cents")
+        s.coin = "penny"; XCTAssertEqual(s.coinCount(2), "2 pennies")
+        s.coin = "dollar"; XCTAssertEqual(s.amountText(2), "$2.00"); XCTAssertEqual(s.amountSpeech(2), "2 dollars")
+        XCTAssertEqual(money(0), "0¢"); XCTAssertEqual(money(-35), "−35¢"); XCTAssertEqual(money(1005), "$10.05")
+        XCTAssertEqual(moneyWords(101), "1 dollar and 1 cent")
+        XCTAssertLessThan(coinKind("dime").d, coinKind("penny").d)
+        XCTAssertLessThan(coinKind("quarter").d, coinKind("half").d)
+        let d = try? JSONDecoder().decode(AppData.self, from: Data(#"{"settings":{"money":true,"coin":"doubloon"},"chores":[{"name":"Big","stars":15},{"name":"Huge","stars":99}]}"#.utf8))
+        XCTAssertEqual(d?.settings.money, true); XCTAssertEqual(d?.settings.coin, "nickel")
+        XCTAssertEqual(d?.chores.map(\.stars), [15, 20])
+    }
+
+    func testPhotos() {
+        let png = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+        XCTAssertTrue(validPhoto(png))
+        XCTAssertFalse(validPhoto("javascript:alert(1)"))
+        XCTAssertFalse(validPhoto("data:text/html;base64,PGI+"))
+        XCTAssertFalse(validPhoto("data:image/png;base64,AA\"onerror=\"x"))
+        XCTAssertNotNil(imageFromPhoto(png))
+        let big = UIGraphicsImageRenderer(size: CGSize(width: 600, height: 400)).image { c in UIColor.systemTeal.setFill(); c.fill(CGRect(x: 0, y: 0, width: 600, height: 400)) }
+        let s = photoString(from: big.pngData()!)
+        XCTAssertNotNil(s)
+        XCTAssertEqual(imageFromPhoto(s!)?.size, CGSize(width: 256, height: 256))
+        let d = try? JSONDecoder().decode(AppData.self, from: Data(#"{"kids":[{"name":"Pat","photo":"http://example.com/x.png"},{"name":"Sam","photo":"\#(png)"}]}"#.utf8))
+        XCTAssertEqual(d?.kids[0].photo, "")
+        XCTAssertEqual(d?.kids[1].photo, png)
     }
 
     func testHelpers() {

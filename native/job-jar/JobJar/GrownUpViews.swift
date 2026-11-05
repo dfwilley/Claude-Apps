@@ -127,12 +127,12 @@ struct GrownUpView: View {
                     Text(w.chore.pic).font(.system(size: 34))
                     VStack(alignment: .leading) {
                         Text(w.chore.name).font(.headline)
-                        Text("\(k?.avatar ?? "") \(k?.name ?? "") · \(w.day == dayKey(store.today) ? "today" : longDay(w.day))").font(.subheadline).foregroundStyle(.secondary)
+                        Text("\(k?.photo.isEmpty == false ? "" : k?.avatar ?? "") \(k?.name ?? "") · \(w.day == dayKey(store.today) ? "today" : longDay(w.day))").font(.subheadline).foregroundStyle(.secondary)
                     }
                     Spacer()
                     Button { store.data.reject(w.kidId, w.chore.id, w.day) } label: { Image(systemName: "xmark").font(.headline).padding(10) }
                         .buttonStyle(.bordered).accessibilityLabel("Not done")
-                    Button { store.data.approve(w.kidId, w.chore.id, w.day); store.ding() } label: { Text("✓ " + String(repeating: "⭐", count: w.chore.stars)).font(.headline) }
+                    Button { store.data.approve(w.kidId, w.chore.id, w.day); store.ding() } label: { Text("✓ " + (store.data.settings.money ? store.data.settings.amountText(w.chore.stars) : String(repeating: "⭐", count: w.chore.stars))).font(.headline) }
                         .buttonStyle(.borderedProminent).tint(Theme.green).accessibilityIdentifier("approve")
                 }
             }
@@ -152,13 +152,13 @@ struct GrownUpView: View {
             ForEach(store.data.kids) { k in
                 Button { editKid = KidDraftID(id: k.id) } label: {
                     HStack(spacing: 12) {
-                        Text(k.avatar).font(.system(size: 34))
+                        KidAvatar(kid: k, size: 40)
                         VStack(alignment: .leading) {
                             Text(k.name).font(.headline).foregroundStyle(Color(hex: k.color))
                             Text("\(store.data.choresFor(k.id, store.today).count) chores today").font(.subheadline).foregroundStyle(.secondary)
                         }
                         Spacer()
-                        Text("⭐ \(k.stars)").bold().foregroundStyle(.secondary)
+                        Text(store.data.settings.amountShort(k.stars)).bold().foregroundStyle(.secondary)
                     }
                 }
                 .foregroundStyle(.primary)
@@ -181,7 +181,7 @@ struct GrownUpView: View {
                             Text("\(daysText(c.days)) · \(whoText(c.kids))").font(.subheadline).foregroundStyle(.secondary)
                         }
                         Spacer()
-                        Text(String(repeating: "⭐", count: c.stars)).font(.caption)
+                        Text(store.data.settings.money ? store.data.settings.amountText(c.stars) : c.stars <= 5 ? String(repeating: "⭐", count: c.stars) : "⭐ \(c.stars)").font(store.data.settings.money ? .subheadline.bold() : .caption)
                     }
                 }
                 .foregroundStyle(.primary)
@@ -201,14 +201,14 @@ struct GrownUpView: View {
                         Text(r.pic).font(.system(size: 34))
                         Text(r.name).font(.headline)
                         Spacer()
-                        Text("⭐ \(r.cost)").bold().foregroundStyle(.secondary)
+                        Text(store.data.settings.amountShort(r.cost)).bold().foregroundStyle(.secondary)
                     }
                 }
                 .foregroundStyle(.primary)
             }
             Button { editReward = RewardDraft(nil) } label: { Label("Add a reward", systemImage: "plus.circle.fill").bold() }
         } footer: {
-            Text("When a kid has enough stars, a “Get it!” button appears. A grown-up enters the PIN to OK it, and the stars come out of the jar.")
+            Text(store.data.settings.money ? "When a kid has enough money, a “Get it!” button appears. A grown-up enters the PIN to OK it, and the price comes out of the jar." : "When a kid has enough stars, a “Get it!” button appears. A grown-up enters the PIN to OK it, and the stars come out of the jar.")
         }
     }
 
@@ -231,13 +231,14 @@ struct GrownUpView: View {
                         Text("\(k.map { "\($0.avatar) \($0.name) · " } ?? "")\(when(e.t))").font(.subheadline).foregroundStyle(.secondary)
                     }
                     Spacer()
-                    Text("\(e.delta > 0 ? "+" : "")\(e.delta) ⭐").bold().foregroundStyle(e.delta > 0 ? Theme.green : e.delta < 0 ? Theme.red : .secondary)
+                    Text("\(e.delta > 0 ? "+" : "")" + (store.data.settings.money ? money(e.delta * store.data.settings.coinKind.cents) : "\(e.delta) ⭐")).bold().foregroundStyle(e.delta > 0 ? Theme.green : e.delta < 0 ? Theme.red : .secondary)
                 }
             }
         }
     }
 
     @ViewBuilder private var settingsTab: some View {
+        MoneySettings()
         Section("Grown-up PIN") {
             Button {
                 ui.gate = Gate(mode: .set, title: "Pick a new 4-number PIN") { pin in store.data.settings.pin = pin }
@@ -346,6 +347,8 @@ struct KidEditor: View {
     @State private var name = ""
     @State private var avatar = avatars[0]
     @State private var color = kidColors[0]
+    @State private var photo = ""
+    @State private var confirmPayout = false
     @State private var give = 1
     @State private var why = ""
     @State private var confirmRemove = false
@@ -358,7 +361,14 @@ struct KidEditor: View {
                     TextField("First name", text: $name).font(.title3).textInputAutocapitalization(.words).accessibilityIdentifier("kidName")
                 }
                 Section("Picture (so they can find their own chart)") {
-                    PicGrid(pics: avatars.map { ($0, "") }, selected: $avatar)
+                    if let img = imageFromPhoto(photo) {
+                        HStack(spacing: 14) {
+                            Image(uiImage: img).resizable().scaledToFill().frame(width: 72, height: 72).clipShape(Circle())
+                            Button("Remove photo") { photo = "" }.buttonStyle(.bordered)
+                        }
+                    }
+                    PhotoImportButtons { s in photo = s }
+                    PicGrid(pics: avatars.map { ($0, "") }, selected: Binding(get: { photo.isEmpty ? avatar : "" }, set: { avatar = $0; photo = "" }))
                 }
                 Section("Color") {
                     HStack(spacing: 10) {
@@ -374,17 +384,22 @@ struct KidEditor: View {
                     .padding(.vertical, 6)
                 }
                 if let kid {
+                    let s = store.data.settings
                     Section {
-                        Stepper("\(starWord(give))", value: $give, in: 1...50).font(.headline)
+                        Stepper(s.money ? "\(s.coinCount(give)) (\(s.amountText(give)))" : starWord(give), value: $give, in: 1...50).font(.headline)
                         TextField("Why? (optional, e.g. Helped Grandma)", text: $why)
                         HStack {
-                            Button("Give \(starWord(give))") { store.data.adjust(kid.id, give, reason: why.trimmingCharacters(in: .whitespaces)); store.ding(); why = "" }
+                            Button("Give \(s.amountText(give))") { store.data.adjust(kid.id, give, reason: why.trimmingCharacters(in: .whitespaces)); store.ding(); why = "" }
                                 .buttonStyle(.borderedProminent).tint(Theme.green)
                             Spacer()
-                            Button("Take away \(give)") { store.data.adjust(kid.id, -give, reason: why.trimmingCharacters(in: .whitespaces)); why = "" }
+                            Button("Take away \(s.money ? s.amountText(give) : "\(give)")") { store.data.adjust(kid.id, -give, reason: why.trimmingCharacters(in: .whitespaces)); why = "" }
                                 .buttonStyle(.bordered)
                         }
-                    } header: { Text("Stars in the jar: ⭐ \(kid.stars)") }
+                        if s.money && kid.stars > 0 {
+                            Button("💵 I paid \(kid.name) \(s.amountText(kid.stars)) (empty the jar)") { confirmPayout = true }
+                                .accessibilityIdentifier("payout")
+                        }
+                    } header: { Text(s.money ? "Money in the jar: \(s.amountText(kid.stars)) (\(s.coinCount(kid.stars)))" : "Stars in the jar: ⭐ \(kid.stars)") }
                     Section {
                         Button("Remove \(kid.name)", role: .destructive) { confirmRemove = true }
                     }
@@ -401,9 +416,12 @@ struct KidEditor: View {
             .confirmationDialog("Remove \(kid?.name ?? "") and their stars and history? This can't be undone.", isPresented: $confirmRemove, titleVisibility: .visible) {
                 Button("Remove", role: .destructive) { if let id = kidId { store.data.removeKid(id) }; dismiss() }
             }
+            .confirmationDialog("Mark \(store.data.settings.amountText(kid?.stars ?? 0)) as paid to \(kid?.name ?? "")? This empties the jar.", isPresented: $confirmPayout, titleVisibility: .visible) {
+                Button("Yes, I paid it") { if let k = kid { store.data.adjust(k.id, -k.stars, reason: "Paid out") } }
+            }
         }
         .onAppear {
-            if let k = store.data.kid(kidId) { name = k.name; avatar = k.avatar; color = k.color }
+            if let k = store.data.kid(kidId) { name = k.name; avatar = k.avatar; color = k.color; photo = k.photo }
             else {
                 let used = Set(store.data.kids.map(\.avatar))
                 avatar = avatars.first { !used.contains($0) } ?? avatars[0]
@@ -416,9 +434,9 @@ struct KidEditor: View {
         let n = name.trimmingCharacters(in: .whitespaces)
         guard !n.isEmpty else { return }
         if let id = kidId, let i = store.data.kids.firstIndex(where: { $0.id == id }) {
-            store.data.kids[i].name = n; store.data.kids[i].avatar = avatar; store.data.kids[i].color = color
+            store.data.kids[i].name = n; store.data.kids[i].avatar = avatar; store.data.kids[i].color = color; store.data.kids[i].photo = photo
         } else {
-            store.data.kids.append(Kid(name: n, avatar: avatar, color: color))
+            store.data.kids.append(Kid(name: n, avatar: avatar, color: color, photo: photo))
         }
         dismiss()
     }
@@ -453,11 +471,19 @@ struct ChoreEditor: View {
                 Section("Name (read out loud when a kid taps the speaker)") {
                     TextField("Make bed", text: $draft.chore.name).font(.title3)
                 }
-                Section("Stars it earns") {
-                    Picker("Stars", selection: $draft.chore.stars) {
-                        ForEach(1...5, id: \.self) { n in Text(String(repeating: "⭐", count: n)).tag(n) }
+                if store.data.settings.money {
+                    Section("How much it pays (\(store.data.settings.coinKind.plural))") {
+                        Stepper(store.data.settings.coinCount(draft.chore.stars), value: $draft.chore.stars, in: 1...maxPay).font(.title3.bold())
+                            .accessibilityIdentifier("payStepper")
+                        HStack { Spacer(); PayView(n: draft.chore.stars, scale: 1.3); Spacer() }.padding(.vertical, 6)
                     }
-                    .pickerStyle(.inline).labelsHidden()
+                } else {
+                    Section("Stars it earns") {
+                        Picker("Stars", selection: $draft.chore.stars) {
+                            ForEach(Array(Set([1, 2, 3, 4, 5, draft.chore.stars])).sorted(), id: \.self) { n in Text(n <= 5 ? String(repeating: "⭐", count: n) : "⭐ \(n)").tag(n) }
+                        }
+                        .pickerStyle(.inline).labelsHidden()
+                    }
                 }
                 Section {
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 52), spacing: 6)], spacing: 6) {
@@ -544,14 +570,14 @@ struct RewardEditor: View {
                 }
                 Section("Name") { TextField("Ice cream trip", text: $draft.reward.name).font(.title3) }
                 Section {
-                    Stepper("⭐ \(draft.reward.cost)", value: $draft.reward.cost, in: 1...500).font(.title3.bold())
+                    Stepper(store.data.settings.money ? "\(store.data.settings.amountText(draft.reward.cost)) (\(store.data.settings.coinCount(draft.reward.cost)))" : "⭐ \(draft.reward.cost)", value: $draft.reward.cost, in: 1...500).font(.title3.bold())
                     HStack {
                         Button("−5") { draft.reward.cost = max(1, draft.reward.cost - 5) }.buttonStyle(.bordered)
                         Spacer()
                         Button("+5") { draft.reward.cost = min(500, draft.reward.cost + 5) }.buttonStyle(.bordered)
                     }
                 } header: { Text("Stars it costs") } footer: {
-                    Text("Tip: a small treat at 5 to 10 stars keeps young kids excited; save bigger trips for 20 or more.")
+                    Text("Tip: a small treat that takes a few days to earn keeps young kids excited; save bigger trips for a week or two of chores.")
                 }
                 if !draft.isNew {
                     Section { Button("Delete this reward", role: .destructive) { confirmDelete = true } }

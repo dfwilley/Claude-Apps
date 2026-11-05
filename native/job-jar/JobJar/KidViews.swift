@@ -56,9 +56,9 @@ struct KidTile: View {
             store.say("Hi \(kid.name)!")
         } label: {
             VStack(spacing: 6) {
-                Text(kid.avatar).font(.system(size: 80))
+                KidAvatar(kid: kid, size: 90)
                 Text(kid.name).font(.system(size: 26, weight: .black, design: .rounded)).lineLimit(1).minimumScaleFactor(0.6)
-                Text("⭐ \(kid.stars)").font(.title3.weight(.heavy))
+                BalanceView(stars: kid.stars).font(.title3.weight(.heavy))
                 ProgressView(value: Double(p.finished), total: Double(max(p.total, 1))).tint(Theme.green).scaleEffect(x: 1, y: 2.2).padding(.horizontal, 10).padding(.top, 6)
             }
             .foregroundStyle(.primary)
@@ -69,7 +69,7 @@ struct KidTile: View {
             .shadow(color: .black.opacity(0.07), radius: 8, y: 4)
         }
         .buttonStyle(Squish())
-        .accessibilityLabel("\(kid.name), \(starWord(kid.stars))")
+        .accessibilityLabel("\(kid.name), \(store.data.settings.amountText(kid.stars))")
         .accessibilityIdentifier("kid-\(kid.name)")
     }
 }
@@ -87,6 +87,7 @@ struct KidView: View {
     @EnvironmentObject var ui: UIState
     let kidId: String
     @State private var tab: KidTab = .today
+    @State private var picking = false
 
     var body: some View {
         if let kid = store.data.kid(kidId) {
@@ -97,12 +98,13 @@ struct KidView: View {
                         Image(systemName: "house.fill").font(.title2).frame(width: 56, height: 56).background(Theme.card, in: Circle())
                     }
                     .accessibilityLabel("Home").accessibilityIdentifier("home")
-                    Text(kid.avatar).font(.system(size: 48))
+                    Button { picking = true } label: { KidAvatar(kid: kid, size: 54) }
+                        .accessibilityLabel("Change my picture").accessibilityIdentifier("myPicture")
                     Text(kid.name).font(.system(size: 28, weight: .black, design: .rounded)).foregroundStyle(color).lineLimit(1).minimumScaleFactor(0.6)
                     Spacer()
-                    Text("⭐ \(kid.stars)").font(.title2.weight(.black)).padding(.horizontal, 14).padding(.vertical, 8)
+                    BalanceView(stars: kid.stars).font(.title2.weight(.black)).padding(.horizontal, 14).padding(.vertical, 8)
                         .background(Theme.goldSoft, in: Capsule())
-                        .accessibilityLabel(starWord(kid.stars)).accessibilityIdentifier("starCount")
+                        .accessibilityIdentifier("starCount")
                 }
                 .padding(.horizontal, 16).padding(.vertical, 10)
 
@@ -127,6 +129,7 @@ struct KidView: View {
                 .padding(.horizontal, 12).padding(.top, 10).padding(.bottom, 6)
                 .background(.ultraThinMaterial)
             }
+            .sheet(isPresented: $picking) { MyPictureSheet(kidId: kidId).environmentObject(store) }
         }
     }
 
@@ -188,11 +191,11 @@ struct TodayGrid: View {
         store.ding()
         if store.data.progress(kid.id, store.today).allDone {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { store.fanfare() }
-            ui.celebrate("🏆", "All done today!", got > 0 ? "+\(starWord(got))" : "", big: true)
+            ui.celebrate("🏆", "All done today!", got > 0 ? "+" + store.data.settings.amountText(got) : "", big: true)
             store.say("Great job \(kid.name)! All your chores are done!")
         } else if got > 0 {
-            ui.celebrate(c.pic, "Great job!", "+\(starWord(got))")
-            store.say("\(c.name). Great job! \(starWord(got))!")
+            ui.celebrate(c.pic, "Great job!", "+" + store.data.settings.amountText(got))
+            store.say("\(c.name). Great job! \(store.data.settings.amountSpeech(got))!")
         } else {
             ui.celebrate("⏳", "Nice work!", "A grown-up will check it")
             store.say("Nice work! A grown-up will check it.")
@@ -211,7 +214,7 @@ struct ChoreCard: View {
             VStack(spacing: 6) {
                 Text(chore.pic).font(.system(size: 80)).opacity(status == .done ? 0.8 : 1)
                 Text(chore.name).font(.system(size: 20, weight: .heavy, design: .rounded)).multilineTextAlignment(.center).lineLimit(2).minimumScaleFactor(0.7)
-                Text(starsText(chore.stars)).font(.title3)
+                PayView(n: chore.stars)
             }
             .padding(.horizontal, 8).padding(.vertical, 18)
             .frame(maxWidth: .infinity, minHeight: 200)
@@ -280,8 +283,8 @@ struct PrizesGrid: View {
             HStack(spacing: 14) {
                 Image("Logo").resizable().frame(width: 64, height: 64).clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                 VStack(alignment: .leading) {
-                    Text("⭐ \(kid.stars)").font(.system(size: 38, weight: .black, design: .rounded))
-                    Text("\(kid.stars == 1 ? "star" : "stars") in \(kid.name)'s jar").font(.headline).foregroundStyle(.secondary)
+                    BalanceView(stars: kid.stars, size: 34).font(.system(size: 38, weight: .black, design: .rounded))
+                    Text("\(store.data.settings.money ? "in" : kid.stars == 1 ? "star in" : "stars in") \(kid.name)'s jar").font(.headline).foregroundStyle(.secondary)
                 }
                 Spacer()
             }
@@ -301,7 +304,9 @@ struct PrizesGrid: View {
         VStack(spacing: 8) {
             Text(r.pic).font(.system(size: 72))
             Text(r.name).font(.system(size: 20, weight: .heavy, design: .rounded)).multilineTextAlignment(.center)
-            if r.cost <= 20 {
+            let s = store.data.settings
+            if s.money { Text("Costs " + s.amountText(r.cost)).font(.title3.weight(.black)) }
+            if r.cost <= 20 && !s.money {
                 LazyVGrid(columns: Array(repeating: GridItem(.fixed(20), spacing: 2), count: 8), spacing: 2) {
                     ForEach(0..<r.cost, id: \.self) { i in
                         Text("⭐").font(.system(size: 17)).grayscale(i < kid.stars ? 0 : 1).opacity(i < kid.stars ? 1 : 0.3)
@@ -312,7 +317,7 @@ struct PrizesGrid: View {
             } else {
                 ProgressView(value: Double(min(kid.stars, r.cost)), total: Double(r.cost)).tint(Theme.gold).scaleEffect(x: 1, y: 3)
             }
-            Text(ready ? "You have enough!" : "\(min(kid.stars, r.cost)) of \(r.cost) ⭐").font(.headline).foregroundStyle(.secondary)
+            Text(ready ? "You have enough!" : s.money ? "\(s.amountText(min(kid.stars, r.cost))) of \(s.amountText(r.cost))" : "\(min(kid.stars, r.cost)) of \(r.cost) ⭐").font(.headline).foregroundStyle(.secondary)
             if ready {
                 Button { get(r) } label: {
                     Text("Get it!").font(.title2.weight(.black)).foregroundStyle(Color(hex: "#3A2400")).padding(.horizontal, 26).padding(.vertical, 12)
@@ -320,7 +325,7 @@ struct PrizesGrid: View {
                 }
                 .accessibilityIdentifier("get-\(r.name)")
             } else {
-                Button { store.say("\(r.name). \(starWord(r.cost - kid.stars)) to go.") } label: {
+                Button { store.say("\(r.name). \(s.amountSpeech(r.cost - kid.stars)) to go.") } label: {
                     Image(systemName: "speaker.wave.2.fill").font(.title3).frame(width: 46, height: 46).background(Theme.bg, in: Circle())
                 }
                 .accessibilityLabel("Say \(r.name)")
@@ -338,7 +343,7 @@ struct PrizesGrid: View {
         ui.askGrownUp(store, "Grown-up: OK \(r.name) for \(kid.name)?") {
             if store.data.redeem(kidId, r.id) {
                 store.fanfare()
-                ui.celebrate(r.pic, r.name + "!", "−" + starWord(r.cost), big: true)
+                ui.celebrate(r.pic, r.name + "!", "−" + store.data.settings.amountText(r.cost), big: true)
                 store.say("Hooray! \(r.name)!")
             }
         }
@@ -380,23 +385,26 @@ struct WeekGrid: View {
                         }
                     }
                     GridRow {
-                        Text("Stars").font(.subheadline.bold()).foregroundStyle(.secondary).frame(maxWidth: 200, alignment: .leading)
+                        Text(store.data.settings.money ? "Earned" : "Stars").font(.subheadline.bold()).foregroundStyle(.secondary).frame(maxWidth: 200, alignment: .leading)
                         ForEach(0..<7, id: \.self) { i in
-                            Text(wk.earned[i] == 0 ? "" : "\(wk.earned[i])").font(.headline.weight(.black))
+                            Text(wk.earned[i] == 0 ? "" : store.data.settings.money ? store.data.settings.amountText(wk.earned[i]) : "\(wk.earned[i])").font(.headline.weight(.black)).minimumScaleFactor(0.5).lineLimit(1)
                                 .frame(maxWidth: .infinity, minHeight: 40).background(Theme.goldSoft, in: RoundedRectangle(cornerRadius: 10))
                         }
                     }
                 }
                 .padding(10)
                 .background(Theme.card, in: RoundedRectangle(cornerRadius: 22))
-                Text("This week: ⭐ \(wk.total)").font(.system(size: 24, weight: .black, design: .rounded))
+                Text("This week: " + store.data.settings.amountShort(wk.total)).font(.system(size: 24, weight: .black, design: .rounded))
             }
         }
     }
 
     @ViewBuilder private func cell(_ c: WeekCell, today: Bool, color: Color) -> some View {
         let symbol: String = { switch c { case .done: return "⭐"; case .waiting: return "⏳"; case .todo: return "○"; default: return "" } }()
-        Text(symbol).font(.system(size: 22)).foregroundStyle(Color.secondary.opacity(0.4))
+        Group {
+            if c == .done && store.data.settings.money { CoinFace(coin: store.data.settings.coinKind, size: 28) }
+            else { Text(symbol).font(.system(size: 22)).foregroundStyle(Color.secondary.opacity(0.4)) }
+        }
             .frame(maxWidth: .infinity, minHeight: 46)
             .background(c == .off ? Color.clear : Theme.bg, in: RoundedRectangle(cornerRadius: 10))
             .overlay(RoundedRectangle(cornerRadius: 10).stroke(today ? color : .clear, lineWidth: 3))
