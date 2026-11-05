@@ -10,8 +10,8 @@ DTSTART:20261101T113000
 DURATION:PT15M
 RRULE:FREQ=DAILY
 SUMMARY:Ask Me Tomorrow: today's story
-DESCRIPTION:Open Ask Me Tomorrow and answer today's question.\nhttps://dfwilley.github.io/Ask-Me-Tomorrow/
-URL:https://dfwilley.github.io/Ask-Me-Tomorrow/
+DESCRIPTION:Open Ask Me Tomorrow and answer today's question.\nhttps://dfwilley.github.io/Claude-Apps/ask-me-tomorrow/
+URL:https://dfwilley.github.io/Claude-Apps/ask-me-tomorrow/
 BEGIN:VALARM
 TRIGGER:PT0M
 ACTION:DISPLAY

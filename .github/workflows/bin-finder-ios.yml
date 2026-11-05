@@ -1,9 +1,9 @@
-name: Build iPhone app
+name: Bin Finder iPhone app
 
 on:
   push:
     branches: [main]
-    paths-ignore: ["docs/**", "tests/**", "README.md"]
+    paths: ["native/bin-finder/**", "tests/bin-finder.test.js", ".github/workflows/bin-finder-ios.yml"]
   workflow_dispatch:
 
 permissions:
@@ -19,13 +19,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Test the search rules shared with the web version
+        run: node tests/bin-finder.test.js
+
       - name: Install XcodeGen
         run: command -v xcodegen || brew install xcodegen
 
       - name: Create the Xcode project
+        working-directory: native/bin-finder
         run: xcodegen generate
 
       - name: Run tests and take screenshots on an iPhone simulator
+        working-directory: native/bin-finder
         run: |
           DEVICE=$(xcrun simctl list devices available | grep -E '^[[:space:]]+iPhone' | head -1 | sed -E 's/^[[:space:]]+//; s/ \(.*//')
           echo "::notice::Simulator: $DEVICE"
@@ -40,8 +45,9 @@ jobs:
             exit 1
           fi
 
-      - name: Publish screenshots to the ci-screenshots branch
+      - name: Publish screenshots to the ci-screenshots-binfinder branch
         if: always()
+        working-directory: native/bin-finder
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -50,12 +56,13 @@ jobs:
           xcrun xcresulttool export attachments --path TestResults.xcresult --output-path shots || true
           ls shots | head -40
           cd shots
-          git init -q -b ci-screenshots
+          git init -q -b ci-screenshots-binfinder
           git config user.name "github-actions"; git config user.email "github-actions@users.noreply.github.com"
           git add -A && git commit -qm "Screenshots from run ${{ github.run_number }}" || exit 0
-          git push -qf "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" ci-screenshots
+          git push -qf "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" ci-screenshots-binfinder
 
       - name: Build for iPhone (unsigned)
+        working-directory: native/bin-finder
         run: |
           xcodebuild build \
             -project BinFinder.xcodeproj -scheme BinFinder \
@@ -68,18 +75,19 @@ jobs:
           fi
 
       - name: Package the .ipa
+        working-directory: native/bin-finder
         run: |
           mkdir -p Payload
           cp -R build/Build/Products/Release-iphoneos/BinFinder.app Payload/
           zip -qry Bin-Finder.ipa Payload
           ls -l Bin-Finder.ipa
 
-      - name: Publish the .ipa as the latest release
+      - name: Publish the .ipa (always at the same download link)
+        working-directory: native/bin-finder
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "build-${{ github.run_number }}" Bin-Finder.ipa \
-            --repo "${{ github.repository }}" \
-            --title "Bin Finder (build ${{ github.run_number }})" \
-            --notes "Download Bin-Finder.ipa below and install it with Sideloadly. Built from commit ${GITHUB_SHA:0:7}." \
-            --latest
+          gh release delete bin-finder-latest --repo "${{ github.repository }}" --cleanup-tag -y || true
+          gh release create bin-finder-latest Bin-Finder.ipa --repo "${{ github.repository }}" \
+            --title "Bin Finder (build ${{ github.run_number }})" --latest=false \
+            --notes "Download Bin-Finder.ipa below and install it with Sideloadly. Built from commit ${GITHUB_SHA:0:7}."

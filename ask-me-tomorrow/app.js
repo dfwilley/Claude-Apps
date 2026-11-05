@@ -3,7 +3,7 @@
 (() => {
 "use strict";
 
-const APP_URL = "https://dfwilley.github.io/Ask-Me-Tomorrow/";
+const APP_URL = "https://dfwilley.github.io/Claude-Apps/ask-me-tomorrow/";
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 

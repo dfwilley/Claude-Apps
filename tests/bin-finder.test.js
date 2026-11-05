@@ -1,4 +1,4 @@
-const S = require(process.argv[2] || require("path").join(__dirname, "../docs/search.js")); const assert = require("assert");
+const S = require(process.argv[2] || require("path").join(__dirname, "../bin-finder/search.js")); const assert = require("assert");
 const bins = [
   { name: "Electrical spares", location: "Garage", code: "G-01", items: ["Fuses (ATC)", "Zip ties", "Electrical tape"] },
   { name: "Drill and bits", location: "Garage", code: "G-02", items: ["Cordless drill", "Step bits"] },

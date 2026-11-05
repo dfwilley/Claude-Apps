@@ -2,7 +2,7 @@
 
 One question a day about your life. Answer it out loud, and over time the answers become a memoir for your family, sorted into chapters.
 
-**Open it on your iPhone:** https://dfwilley.github.io/Ask-Me-Tomorrow/
+**Open it on your iPhone:** https://dfwilley.github.io/Claude-Apps/ask-me-tomorrow/
 (In Safari, tap Share › **Add to Home Screen** so it opens like an app.)
 
 ## What it does

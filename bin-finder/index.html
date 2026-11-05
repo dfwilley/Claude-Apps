@@ -2,13 +2,43 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Bin Finder</title>
-<link rel="apple-touch-icon" href="docs/icons/icon-180.png">
-<script>location.replace("docs/" + location.hash);</script>
-<meta http-equiv="refresh" content="0; url=docs/">
+<meta name="description" content="Photograph each bin once. Later, type what you're looking for.">
+<meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Bin Finder">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="style.css">
 </head>
-<body style="font-family:-apple-system,system-ui,sans-serif;padding:24px">
-<p>Opening Bin Finder… If nothing happens, <a href="docs/">tap here</a>.</p>
+<body>
+<div id="app"></div>
+
+<!-- Hidden pickers: camera and photo library -->
+<input type="file" id="pickCamera" accept="image/*" capture="environment" hidden>
+<input type="file" id="pickLibrary" accept="image/*" multiple hidden>
+<input type="file" id="pickBackup" accept=".json,application/json" hidden>
+
+<dialog id="dlg">
+  <form method="dialog">
+    <h2 id="dlgTitle"></h2>
+    <p class="sub" id="dlgText"></p>
+    <div class="col">
+      <button class="btn primary" id="dlgShare" value="share">Share or save…</button>
+      <a class="btn" id="dlgDownload" download>Download</a>
+      <button class="btn plain" value="close">Close</button>
+    </div>
+  </form>
+</dialog>
+
+<div class="reading" id="reading" hidden aria-live="polite"></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="vendor/qrcode.js"></script>
+<script src="search.js"></script>
+<script src="app.js"></script>
 </body>
 </html>

@@ -2,10 +2,10 @@
 
 A native iPhone app for finding things in storage bins. Photograph what's inside each bin, shelf or RV compartment once and list a few things. Later, type what you're looking for ("spare fuses") and it shows which bin, with the photo.
 
-**Download the app file:** https://github.com/dfwilley/Bin-Finder/releases/latest/download/Bin-Finder.ipa
+**Download the app file:** https://github.com/dfwilley/Claude-Apps/releases/download/bin-finder-latest/Bin-Finder.ipa
 Install it with Sideloadly (USB or Wi-Fi). With a free Apple ID, re-install every 7 days; your bins and photos stay on the phone.
 
-**Web version (no install, runs in Safari):** https://dfwilley.github.io/Bin-Finder/ — same features, in the `docs` folder. Backups move between the web and native versions.
+**Web version (no install, runs in Safari):** https://dfwilley.github.io/Claude-Apps/bin-finder/ — same features, in this folder. Backups move between the web and native versions.
 
 ## What it does
 
@@ -32,8 +32,8 @@ Anything odd: note the step number and what you saw.
 
 ## How it's built
 
-Every push to `main` builds on a GitHub cloud Mac: it runs the tests, takes screenshots on an iPhone simulator (saved to the `ci-screenshots` branch), builds an unsigned `.ipa` and publishes it as the latest release.
+Every push to `main` that changes Bin Finder builds on a GitHub cloud Mac: it runs the tests, takes screenshots on an iPhone simulator (saved to the `ci-screenshots-binfinder` branch), builds an unsigned `.ipa` and publishes it at the same download link each time (release `bin-finder-latest`). The iPhone app's code is in `native/bin-finder/`; the build setup is `.github/workflows/bin-finder-ios.yml`.
 
 ## Web version
 
-`docs/` holds a web version of the same app. It stores bins and photos in the browser on the phone (nothing is uploaded) and reads printed words in photos with Tesseract.js running in the browser (included in `docs/vendor`; no object recognition in the web version). Labels print from Safari on Avery 5163 sheets. Search rules are shared with the native app and checked by `node tests/web-search.test.js`.
+This folder holds the web version of the same app. It stores bins and photos in the browser on the phone (nothing is uploaded) and reads printed words in photos with Tesseract.js running in the browser (included in `vendor/`; no object recognition in the web version). Labels print from Safari on Avery 5163 sheets. Search rules are shared with the native app and checked by `node tests/bin-finder.test.js`.
