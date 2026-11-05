@@ -222,7 +222,7 @@ struct ChoreCard: View {
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(chore.name + (status == .done ? ", done" : status == .waiting ? ", waiting for a grown-up" : ""))
             .accessibilityAddTraits(.isButton)
-            .accessibilityAction(action)
+            .accessibilityAction { action() }
             .accessibilityIdentifier("chore-\(chore.name)")
 
             HStack {
