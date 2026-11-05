@@ -1,0 +1,68 @@
+name: BinFinder
+options:
+  bundleIdPrefix: com.dfwilley
+  deploymentTarget:
+    iOS: "16.0"
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "1.1"
+    CURRENT_PROJECT_VERSION: "1"
+targets:
+  BinFinder:
+    type: application
+    platform: iOS
+    sources: [BinFinder]
+    info:
+      path: BinFinder/Info.plist
+      properties:
+        CFBundleDisplayName: Bin Finder
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSRequiresIPhoneOS: true
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        NSCameraUsageDescription: Bin Finder uses the camera to photograph what's inside each bin.
+        NSPhotoLibraryAddUsageDescription: Bin Finder can save photos you choose.
+        NSMicrophoneUsageDescription: Bin Finder listens when you tap the microphone, so you can say what you're looking for.
+        NSSpeechRecognitionUsageDescription: Bin Finder turns what you say into a search, on the phone when possible.
+        UIFileSharingEnabled: true
+        LSSupportsOpeningDocumentsInPlace: true
+        CFBundleURLTypes:
+          - CFBundleURLName: com.dfwilley.binfinder
+            CFBundleURLSchemes: [binfinder]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.dfwilley.binfinder
+        TARGETED_DEVICE_FAMILY: "1"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+  BinFinderTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [BinFinderTests]
+    dependencies:
+      - target: BinFinder
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        TARGETED_DEVICE_FAMILY: "1"
+  BinFinderUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [BinFinderUITests]
+    dependencies:
+      - target: BinFinder
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        TARGETED_DEVICE_FAMILY: "1"
+schemes:
+  BinFinder:
+    build:
+      targets:
+        BinFinder: all
+    test:
+      targets:
+        - BinFinderTests
+        - BinFinderUITests
