@@ -32,12 +32,12 @@ struct GrownUpView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 6) {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 118), spacing: 6)], spacing: 6) {
+                    Group {
                         ForEach(tabs) { t in
                             Button { tab = t } label: {
                                 HStack(spacing: 4) {
-                                    Text(t.rawValue).font(.headline)
+                                    Text(t.rawValue).font(.headline).lineLimit(1).minimumScaleFactor(0.8)
                                     if t == .check, store.data.waitingList().count > 0 {
                                         Text("\(store.data.waitingList().count)").font(.caption.bold()).foregroundStyle(.white)
                                             .padding(.horizontal, 7).padding(.vertical, 2).background(Theme.red, in: Capsule())
@@ -45,13 +45,14 @@ struct GrownUpView: View {
                                 }
                                 .padding(.horizontal, 14).padding(.vertical, 10)
                                 .foregroundStyle(tab == t ? .white : .primary)
+                                .frame(maxWidth: .infinity)
                                 .background(tab == t ? Theme.purple : Theme.card, in: RoundedRectangle(cornerRadius: 14))
                             }
                             .accessibilityIdentifier("gu-\(t)")
                         }
                     }
-                    .padding(.horizontal, 16).padding(.vertical, 8)
                 }
+                .padding(.horizontal, 16).padding(.vertical, 8)
                 content
             }
             .background(Theme.bg)
