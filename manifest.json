@@ -1,0 +1,53 @@
+[
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "8F571767-87A3-448E-AF82-29C992EC2D5E",
+        "deviceName" : "iPhone 16 Pro",
+        "exportedFileName" : "6C2168D2-2088-4480-9BA8-590B8DAD63E8.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "5-all_0_199108B6-FF1A-46F8-8784-E5863ED6964D.png",
+        "timestamp" : 1793898706.01
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "8F571767-87A3-448E-AF82-29C992EC2D5E",
+        "deviceName" : "iPhone 16 Pro",
+        "exportedFileName" : "DA0DDE4F-7B61-47C4-B022-FDEF75B7B9CA.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "4-binder_0_17C4C901-DDBF-4AB6-8D05-587EEE2A07E8.png",
+        "timestamp" : 1793898703.388
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "8F571767-87A3-448E-AF82-29C992EC2D5E",
+        "deviceName" : "iPhone 16 Pro",
+        "exportedFileName" : "C87C63A8-DDBC-47D7-9ADF-636AC8BC3224.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "3-fees_0_76FBB476-09D3-4602-A71F-3CEF61738DFA.png",
+        "timestamp" : 1793898700.829
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "8F571767-87A3-448E-AF82-29C992EC2D5E",
+        "deviceName" : "iPhone 16 Pro",
+        "exportedFileName" : "66352D7D-79B2-441E-B8F1-B65EAF408BFF.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "2-points_0_24755B79-AA91-4AF2-966C-CE83F82E762C.png",
+        "timestamp" : 1793898698.14
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "8F571767-87A3-448E-AF82-29C992EC2D5E",
+        "deviceName" : "iPhone 16 Pro",
+        "exportedFileName" : "CB859863-046E-4B5E-BB0B-1182072DEA4D.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "1-welcome_0_C1305CA9-859A-4496-A37E-4E60DF940253.png",
+        "timestamp" : 1793898690.075
+      }
+    ],
+    "testIdentifier" : "ScreenshotTests/testScreens()",
+    "testIdentifierURL" : "test://com.apple.xcode/HGVCBinder/HGVCBinderUITests/ScreenshotTests/testScreens"
+  }
+]
