@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Gate Time Puzzles</title>
+  <meta name="description" content="One-minute brain teasers in math, navigation and mechanics. Tap to answer; they get harder as you improve, and work with no signal.">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Gate Time">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="theme-color" content="#F4F1EA" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0E1520" media="(prefers-color-scheme: dark)">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <img src="icon.svg" alt="" class="logo">
+    <h1>Gate Time<span class="full"> Puzzles</span></h1>
+    <span id="boardPill" class="pill" hidden></span>
+  </header>
+  <main id="app" aria-live="polite"></main>
+  <nav class="tabs" aria-label="Sections">
+    <button data-tab="play" type="button"><span aria-hidden="true">🧩</span>Play</button>
+    <button data-tab="board" type="button"><span aria-hidden="true">🟩</span>Greenie Board</button>
+    <button data-tab="more" type="button"><span aria-hidden="true">⚙️</span>Settings</button>
+  </nav>
+  <div id="toast" class="toast" hidden role="status"></div>
+  <noscript>Gate Time Puzzles needs JavaScript turned on.</noscript>
+  <script src="core.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

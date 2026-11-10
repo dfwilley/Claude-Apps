@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1B4470"/>
+      <stop offset="1" stop-color="#0D2238"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#sky)"/>
+  <!-- one-minute timer ring -->
+  <circle cx="256" cy="256" r="196" fill="none" stroke="#2A4F78" stroke-width="22"/>
+  <circle cx="256" cy="256" r="196" fill="none" stroke="#3DBE6E" stroke-width="22" stroke-linecap="round"
+          stroke-dasharray="923 1232" transform="rotate(-90 256 256)"/>
+  <!-- puzzle piece -->
+  <path d="M160 160 H222 A34 34 0 1 1 290 160 H352 V222 A34 34 0 1 1 352 290 V352 H290 A34 34 0 1 0 222 352 H160 V290 A34 34 0 1 0 160 222 Z"
+        fill="#F0B44C" stroke="#FFE4B0" stroke-width="6" stroke-linejoin="round"/>
+  <!-- airplane, top view -->
+  <path d="M256 196 c8 0 12 8 12 18 v34 l60 30 v14 l-60 -14 v32 l18 14 v10 l-30 -8 l-30 8 v-10 l18 -14 v-32 l-60 14 v-14 l60 -30 v-34 c0 -10 4 -18 12 -18 z"
+        fill="#12304F"/>
+</svg>
