@@ -66,9 +66,9 @@
 
   // ---------- categories ----------
   const CATS = {
-    math: { label: "Math", icon: "🧮", blurb: "Mental math, percents, fractions, units, patterns and spreadsheet cells" },
-    nav: { label: "Navigation", icon: "🧭", blurb: "Headings, runways, wind, time-speed-distance, fuel, Zulu time" },
-    mech: { label: "Mechanics", icon: "⚙️", blurb: "Gears, levers, pulleys, torque, CG, hydraulics, electrics, hardware" },
+    math: { label: "Math", icon: "🧮", blurb: "Mental math, estimates, percents, fractions, ratios, algebra, odds, binary and hex, patterns, Excel formulas" },
+    nav: { label: "Navigation", icon: "🧭", blurb: "Wind triangles, holds, VORs, fuel planning, descents, Zulu time, altitudes, regs and light signals" },
+    mech: { label: "Mechanics", icon: "⚙️", blurb: "Gears, levers, torque, weight and balance, G-loads, rivets, bend allowance, hydraulics, electrics, horsepower" },
   };
 
   // Each recipe: { id, cat, min (lowest level it appears), gen(level, rng) }
@@ -823,6 +823,736 @@
   });
 
   // =====================================================================
+  // MORE MATH
+  // =====================================================================
+  const SUP = { "-": "⁻", 0: "⁰", 1: "¹", 2: "²", 3: "³", 4: "⁴", 5: "⁵", 6: "⁶", 7: "⁷", 8: "⁸", 9: "⁹" };
+  const sup = (n) => String(n).split("").map((c) => SUP[c]).join("");
+  const sig = (v, s) => { if (v === 0) return 0; const p = 10 ** (Math.floor(Math.log10(Math.abs(v))) - (s - 1)); return Math.round(v / p) * p; };
+  const money = (v) => "$" + fixed(v, 2);
+
+  add("math", "estimate", 3, (L, R) => {
+    const a = L >= 7 ? R.ri(1100, 9800) : R.ri(110, 980), b = L >= 7 ? R.ri(31, 98) : R.ri(11, 49);
+    const exact = a * b, est = sig(exact, 2), ra = sig(a, 1), rb = sig(b, 1);
+    return {
+      text: "No paper allowed — which is closest?", big: `${num(a)} × ${b}`, answer: `≈ ${num(est)}`,
+      pool: [est * 10, est / 10, sig(exact * 1.45, 2), sig(exact * 0.6, 2), sig(exact * 2, 2)].map((v) => `≈ ${num(v)}`),
+      how: `Round to one digit: ${num(ra)} × ${rb} = ${num(ra * rb)} — the only choice in that neighborhood is ≈ ${num(est)}. (Exactly ${num(exact)}.)`,
+    };
+  });
+
+  add("math", "ratio", 2, (L, R) => {
+    if (L <= 4) {
+      const unit = R.pick([4.25, 5.5, 6.75, 7.2, 3.8, 5.9, 6.4]), n1 = R.ri(2, 6), n2 = R.ri(7, 15), c1 = unit * n1, c2 = unit * n2;
+      return {
+        text: `${n1} gallons of 100LL cost ${money(c1)}. At the same price, what do ${n2} gallons cost?`, answer: money(c2),
+        pool: [c2 + unit, c2 - unit, c1 + n2, c1 * (n2 - n1), c2 + 10].filter((v) => v > 0).map(money),
+        how: `One gallon is ${money(c1)} ÷ ${n1} = ${money(unit)}; × ${n2} = ${money(c2)}.`,
+      };
+    }
+    if (L <= 7) {
+      const S = R.pick([12, 24, 32, 48, 72]), m = R.ri(6, 30), ft = (m * S) / 12;
+      return {
+        text: `A 1:${S} scale model of a ship is ${m} inches long. How long is the real ship?`, answer: `${num(ft, 1)} ft`,
+        pool: [m * S, ft / 2, ft * 2, (m * S) / 10, ft + 12].map((v) => `${num(v, 1)} ft`),
+        how: `Real size is ${S} times bigger: ${m} × ${S} = ${num(m * S)} inches; ÷ 12 = ${num(ft, 1)} ft.`,
+      };
+    }
+    for (;;) {
+      const w1 = R.ri(3, 12), h1 = R.ri(4, 20), w2 = R.ri(2, 15);
+      if (w2 === w1 || (w1 * h1) % w2) continue;
+      const h2 = (w1 * h1) / w2;
+      return {
+        text: `${w1} builders can rivet a wing in ${h1} hours. Working at the same pace, how long would ${w2} builders take?`, answer: `${num(h2)} h`,
+        pool: [(h1 * w2) / w1, h1 + (w1 - w2), h1, h2 + 2, Math.max(1, h2 - 2)].filter((v) => v > 0).map((v) => `${num(Math.round(v * 10) / 10, 1)} h`),
+        how: `Total work is ${w1} × ${h1} = ${w1 * h1} builder-hours. ÷ ${w2} builders = ${num(h2)} h. Fewer builders means longer, not shorter.`,
+      };
+    }
+  });
+
+  add("math", "average", 2, (L, R) => {
+    if (L <= 4) {
+      const n = R.ri(4, 5), m = R.ri(10, 90), xs = Array.from({ length: n - 1 }, () => m + R.ri(-15, 15));
+      xs.push(m * n - xs.reduce((s, x) => s + x, 0));
+      if (xs[n - 1] < 1) xs[n - 1] = m;
+      const avg = xs.reduce((s, x) => s + x, 0) / n;
+      const sorted = xs.slice().sort((a, b) => a - b);
+      return {
+        text: "What's the average (mean)?", big: xs.join(", "), answer: num(avg, 1),
+        pool: [avg + 1, avg - 1, avg + 2, sorted[Math.floor(n / 2)], (sorted[0] + sorted[n - 1]) / 2].map((v) => num(v, 1)),
+        how: `Add them: ${num(xs.reduce((s, x) => s + x, 0))}; ÷ ${n} = ${num(avg, 1)}.`,
+      };
+    }
+    if (L <= 6 && R.chance(0.5)) {
+      const n = R.pick([5, 7]), xs = Array.from({ length: n }, () => R.ri(1, 60)), s = xs.slice().sort((a, b) => a - b), med = s[(n - 1) / 2];
+      const mean = xs.reduce((a, b) => a + b, 0) / n;
+      return {
+        text: "What's the median (middle value)?", big: xs.join(", "), answer: num(med),
+        pool: [xs[(n - 1) / 2], Math.round(mean), s[(n - 1) / 2 + 1], s[(n - 1) / 2 - 1], s[n - 1] - s[0]].map((v) => num(v)),
+        how: `Sort them: ${s.join(", ")}. The middle one is ${med}.`,
+      };
+    }
+    for (;;) {
+      const n = R.ri(3, 5), T = R.ri(80, 92), xs = Array.from({ length: n }, () => R.ri(70, 98));
+      const need = T * (n + 1) - xs.reduce((a, b) => a + b, 0);
+      if (need < 60 || need > 100) continue;
+      return {
+        text: `Your checkride written scores so far: ${xs.join(", ")}. What do you need on the next test to average exactly ${T}?`, answer: num(need),
+        pool: [T, need + 2, need - 2, need + 5, T * 2 - xs[xs.length - 1]].filter((v) => v > 0 && v <= 100).map((v) => num(v)),
+        how: `${n + 1} tests at ${T} = ${T * (n + 1)} points total. You have ${xs.reduce((a, b) => a + b, 0)}, so you need ${T * (n + 1)} − ${xs.reduce((a, b) => a + b, 0)} = ${need}.`,
+      };
+    }
+  });
+
+  add("math", "together", 6, (L, R) => {
+    const pairs = [[3, 6], [4, 12], [6, 12], [10, 15], [12, 24], [20, 30], [15, 30], [12, 36], [20, 60], [30, 45], [24, 40]];
+    const [a, b] = R.pick(pairs), t = (a * b) / (a + b);
+    if (L >= 9 && R.chance(0.5)) {
+      // one fills, one drains
+      const [f, d] = [a, b].sort((x, y) => x - y), tt = (f * d) / (d - f);
+      return {
+        text: `A hose fills a tank in ${f} minutes, but a leak would empty the full tank in ${d} minutes. With both going, how long to fill it?`, answer: dur(tt),
+        pool: [d - f, f + d, (f * d) / (f + d), f * 2, tt + 10].map(dur),
+        how: `Each minute the hose adds 1/${f} and the leak takes 1/${d}. Net 1/${f} − 1/${d} = 1/${num(tt, 1)}, so ${dur(tt)}.`,
+      };
+    }
+    return {
+      text: `Fuel pump A can fill a tank in ${a} minutes; pump B takes ${b} minutes. Running both, how long?`, answer: dur(t),
+      pool: [(a + b) / 2, a + b, a / 2, Math.min(a, b) - 1, t + 5].filter((v) => v > 0).map(dur),
+      how: `Rates add: 1/${a} + 1/${b} = 1/${num(t, 1)} of a tank per minute. So it takes ${a} × ${b} ÷ (${a} + ${b}) = ${dur(t)}.`,
+    };
+  });
+
+  add("math", "powers", 3, (L, R) => {
+    if (L <= 5) {
+      const base = R.pick([2, 2, 3, 5]), n = base === 2 ? R.ri(5, 12) : base === 3 ? R.ri(3, 7) : R.ri(3, 5), v = base ** n;
+      return {
+        text: "Work it out:", big: `${base}${sup(n)}`, answer: num(v),
+        pool: [base ** (n + 1), base ** (n - 1), base * n, n ** base, v + base].map((x) => num(x)),
+        how: `${base} multiplied by itself ${n} times = ${num(v)}.${base === 2 ? " (2¹⁰ = 1,024 is a handy one to know.)" : ""}`,
+      };
+    }
+    const a = R.ri(2, 9), b = R.ri(2, 9), p = R.ri(-4, 6) || 3, q = R.ri(-5, 5) || -2;
+    let c = a * b, e = p + q; if (c >= 10) { c /= 10; e += 1; }
+    const sci = (m, x) => `${num(m, 2)} × 10${sup(x)}`;
+    if (L >= 8 && R.chance(0.5)) {
+      const prod = a * b; // divide prod×10^(p+q) by b×10^q
+      return {
+        text: "Work it out (scientific notation):", big: `(${num(prod)} × 10${sup(p + q)}) ÷ (${b} × 10${sup(q)})`, answer: sci(a, p),
+        pool: [sci(a, p + 2 * q), sci(a, p + 1), sci(a, p - 1), sci(b, p), sci(a, q)].map(String),
+        how: `Divide the numbers: ${prod} ÷ ${b} = ${a}. Subtract the powers: ${p + q} − (${q}) = ${p}. Answer ${sci(a, p)}.`,
+      };
+    }
+    return {
+      text: "Work it out (scientific notation):", big: `(${a} × 10${sup(p)}) × (${b} × 10${sup(q)})`, answer: sci(c, e),
+      pool: [sci(c, p * q === e ? e + 2 : p * q), sci(c, e + 1), sci(c, e - 1), sci(a + b, e), sci(c, e + 2)],
+      how: `Multiply the numbers: ${a} × ${b} = ${a * b}. Add the powers: ${p} + ${q} = ${p + q}.${a * b >= 10 ? ` ${a * b} = ${num(c, 2)} × 10, so the power goes up one.` : ""} Answer ${sci(c, e)}.`,
+    };
+  });
+
+  add("math", "netpct", 5, (L, R) => {
+    const p1 = R.pick([10, 20, 25, 50]) * (R.chance(0.6) ? 1 : -1), p2 = R.pick([10, 20, 25, 40, 50]) * (R.chance(0.5) ? 1 : -1);
+    const net = ((1 + p1 / 100) * (1 + p2 / 100) - 1) * 100;
+    const word = (v) => (Math.abs(v) < 1e-9 ? "No change" : v > 0 ? `Up ${num(v, 2)}%` : `Down ${num(-v, 2)}%`);
+    const say = (v) => (v > 0 ? `goes up ${v}%` : `drops ${-v}%`);
+    return {
+      text: `The price of avgas ${say(p1)}, then ${say(p2)}. What's the overall change?`, answer: word(net),
+      pool: [word(p1 + p2), word(-net), word(net + 5), word(net - 5), "No change", word(p1 * p2 / 100)],
+      how: `Multiply the factors: ${num(1 + p1 / 100, 2)} × ${num(1 + p2 / 100, 2)} = ${num(1 + net / 100, 4)}, so ${word(net).toLowerCase()}. Percents don't simply add, because the second change applies to the new price.`,
+    };
+  });
+
+  add("math", "divis", 3, (L, R) => {
+    const rules = [
+      { d: 3, rule: "the digits add up to a multiple of 3" }, { d: 9, rule: "the digits add up to a multiple of 9" },
+      { d: 4, rule: "the last two digits make a multiple of 4" }, { d: 6, rule: "it's even and divisible by 3" },
+    ];
+    if (L >= 6) rules.push({ d: 8, rule: "the last three digits make a multiple of 8" }, { d: 11, rule: "the alternating digit sum (+ − + …) is a multiple of 11" });
+    const { d, rule } = R.pick(rules), lo = L >= 6 ? 1000 : 100, hi = L >= 6 ? 9999 : 999;
+    let good = R.ri(Math.ceil(lo / d), Math.floor(hi / d)) * d;
+    const bad = new Set();
+    while (bad.size < 5) { const v = R.ri(lo, hi); if (v % d) bad.add(v); }
+    return {
+      text: `Which of these is divisible by ${d}?`, answer: num(good), pool: [...bad].map((v) => num(v)),
+      how: `A number divides by ${d} when ${rule}. ${num(good)} ÷ ${d} = ${num(good / d)}.`,
+    };
+  });
+
+  add("math", "clock", 6, (L, R) => {
+    const h = R.ri(1, 12), m = L <= 7 ? R.ri(0, 11) * 5 : R.ri(1, 59);
+    let a = Math.abs(30 * (h % 12) - 5.5 * m); if (a > 180) a = 360 - a;
+    let wrong = Math.abs(30 * (h % 12) - 6 * m); if (wrong > 180) wrong = 360 - wrong;
+    return {
+      text: `What's the smaller angle between the hour and minute hands at ${h}:${String(m).padStart(2, "0")}?`, answer: `${num(a, 1)}°`,
+      pool: [wrong, 360 - a, a + 15, Math.abs(a - 15), a + 30].map((v) => `${num(v, 1)}°`),
+      how: `Minute hand: ${m} × 6° = ${6 * m}°. Hour hand: ${h % 12} × 30° + ${m} × 0.5° = ${num(30 * (h % 12) + 0.5 * m, 1)}° (it creeps forward as the minutes pass). Difference: ${num(a, 1)}°.`,
+    };
+  });
+
+  add("math", "odds", 5, (L, R) => {
+    const kinds = ["dice", "coins"]; if (L >= 7) kinds.push("atleast"); if (L >= 9) kinds.push("cards");
+    const k = R.pick(kinds);
+    if (k === "dice") {
+      const s = R.ri(3, 11), ways = 6 - Math.abs(s - 7);
+      return {
+        text: `Roll two dice. What are the chances they add up to ${s}?`, answer: fracStr(ways, 36),
+        pool: [fracStr(1, 11), fracStr(ways + 1, 36), fracStr(ways, 12), fracStr(Math.max(1, ways - 1), 36), fracStr(1, 6)],
+        how: `There are 36 equally likely rolls. ${ways} of them total ${s}, so ${ways}/36 = ${fracStr(ways, 36)}.`,
+      };
+    }
+    if (k === "coins") {
+      const n = R.ri(3, 5), h = R.ri(0, n), C = (a, b) => { let r = 1; for (let i = 1; i <= b; i++) r = (r * (a - b + i)) / i; return r; }, ways = C(n, h);
+      return {
+        text: `Flip a coin ${n} times. What are the chances of exactly ${h} head${h === 1 ? "" : "s"}?`, answer: fracStr(ways, 2 ** n),
+        pool: [fracStr(1, n + 1), fracStr(1, 2 ** n), fracStr(h || 1, n), fracStr(ways + 1, 2 ** n), fracStr(1, 2)],
+        how: `${n} flips make ${2 ** n} equally likely outcomes. ${ways} of them have exactly ${h} heads, so ${ways}/${2 ** n} = ${fracStr(ways, 2 ** n)}.`,
+      };
+    }
+    if (k === "atleast") {
+      const n = R.ri(2, 3), miss = 5 ** n, all = 6 ** n;
+      return {
+        text: `Roll one die ${n} times. What are the chances of at least one six?`, answer: fracStr(all - miss, all),
+        pool: [fracStr(n, 6), fracStr(1, 6), fracStr(miss, all), fracStr(1, 6 ** n), fracStr(n, 36)],
+        how: `Easier backwards: no six on any roll is (5/6)${sup(n)} = ${miss}/${all}. So at least one six = 1 − ${miss}/${all} = ${fracStr(all - miss, all)}.`,
+      };
+    }
+    return {
+      text: "Draw 2 cards from a full 52-card deck. What are the chances both are aces?", answer: fracStr(12, 2652),
+      pool: [fracStr(1, 169), fracStr(2, 52), fracStr(1, 13), fracStr(4, 2652), fracStr(1, 26)],
+      how: "First ace: 4/52. Then 3 aces are left in 51 cards: 3/51. Multiply: 12/2,652 = 1/221.",
+    };
+  });
+
+  add("math", "algebra", 4, (L, R) => {
+    if (L <= 6) {
+      const x = R.ri(-9, 15), a = R.ri(2, 9), b = R.ri(-20, 30), c = a * x + b;
+      const bs = b >= 0 ? `+ ${b}` : `− ${-b}`;
+      return {
+        text: "Solve for x:", big: `${a}x ${bs} = ${c}`, answer: `x = ${x}`,
+        pool: [(c + b) / a, x + 1, x - 1, c - b, -x].filter((v) => Number.isInteger(v)).map((v) => `x = ${v}`),
+        how: `${b >= 0 ? `Take ${b} from` : `Add ${-b} to`} both sides: ${a}x = ${c - b}. Divide by ${a}: x = ${x}.`,
+      };
+    }
+    if (L <= 8) {
+      const x = R.ri(2, 20), y = R.ri(1, 15), a = R.ri(1, 4), b = R.ri(1, 4), s = a * x + b * y, d = x - y;
+      return {
+        text: "Find x:", mono: [`${a === 1 ? "" : a}x + ${b === 1 ? "" : b}y = ${s}`, `x − y = ${d}`], answer: `x = ${x}`,
+        pool: [y, x + 1, x - 1, x + d, s - d].filter((v) => v !== x).map((v) => `x = ${v}`),
+        how: `From the second line, y = x − ${d}. Put that in the first: ${a}x + ${b}(x − ${d}) = ${s} → ${a + b}x = ${s + b * d} → x = ${x} (and y = ${y}).`,
+      };
+    }
+    for (;;) {
+      const x = R.ri(-8, 12), a = R.ri(3, 9), c = R.ri(1, a - 1), b = R.ri(1, 25), d = a * x - b - c * x;
+      if (a === c) continue;
+      const ds = d >= 0 ? `+ ${d}` : `− ${-d}`;
+      return {
+        text: "Solve for x:", big: `${a}x − ${b} = ${c}x ${ds}`, answer: `x = ${x}`,
+        pool: [(d - b) / (a - c), (d + b) / (a + c), x + 1, x - 1, -x].filter((v) => Number.isInteger(v)).map((v) => `x = ${v}`),
+        how: `Get the x's on one side: ${a}x − ${c}x = ${d} + ${b} → ${a - c}x = ${d + b} → x = ${x}.`,
+      };
+    }
+  });
+
+  add("math", "binary", 4, (L, R) => {
+    if (L <= 6) {
+      const v = R.ri(9, L <= 5 ? 63 : 255), b = v.toString(2);
+      return {
+        text: "What is this binary number in decimal?", big: b, answer: num(v),
+        pool: [v + 1, v - 1, v + 2, parseInt(b.split("").reverse().join(""), 2), v + 8].filter((x) => x !== v).map((x) => num(x)),
+        how: `Place values from the right: 1, 2, 4, 8, 16, 32… Add the ones with a 1: ${b.split("").reverse().map((c, i) => (c === "1" ? 2 ** i : 0)).filter(Boolean).reverse().join(" + ")} = ${v}.`,
+      };
+    }
+    if (R.chance(0.5)) {
+      const v = R.ri(16, 255), h = v.toString(16).toUpperCase();
+      return {
+        text: "What is this hexadecimal number in decimal? (VBA writes it &H…)", big: h, answer: num(v),
+        pool: [parseInt(h, 10) || v + 6, v + 16, v - 16, parseInt(h.split("").reverse().join(""), 16), v + 1].filter((x) => x !== v).map((x) => num(x)),
+        how: `First digit × 16 plus second digit: ${h[0]} = ${parseInt(h[0], 16)}, ${h[1] || 0} = ${parseInt(h[1] || "0", 16)}. ${parseInt(h[0], 16)} × 16 + ${parseInt(h[1] || "0", 16)} = ${v}.`,
+      };
+    }
+    const v = R.ri(20, 120), b = v.toString(2);
+    const flip = (i) => b.slice(0, i) + (b[i] === "1" ? "0" : "1") + b.slice(i + 1);
+    return {
+      text: `What is ${v} in binary?`, answer: b,
+      pool: [flip(b.length - 1), flip(b.length - 2), flip(1), (v * 2).toString(2), b.split("").reverse().join("")],
+      how: `Take off the biggest powers of 2: ${b.split("").reverse().map((c, i) => (c === "1" ? 2 ** i : 0)).filter(Boolean).reverse().join(" + ")} = ${v}, giving ${b}.`,
+    };
+  });
+
+  add("math", "sheet2", 5, (L, R) => {
+    const kinds = [];
+    const xs = Array.from({ length: 5 }, () => R.ri(1, 30)), lim = R.ri(8, 22);
+    kinds.push(() => {
+      const ans = xs.filter((v) => v > lim).length;
+      return { lines: xs.map((v, i) => [`A${i + 1}`, v]).concat([["B1", `=COUNTIF(A1:A5,">${lim}")`]]), ask: "B1", ans,
+        pool: [xs.filter((v) => v >= lim).length + (xs.includes(lim) ? 0 : 1), 5 - ans, xs.filter((v) => v > lim).reduce((a, b) => a + b, 0), ans + 1, ans + 2],
+        how: `COUNTIF counts the cells over ${lim}: ${xs.filter((v) => v > lim).join(", ") || "none"} → ${ans}.` };
+    });
+    const v = R.ri(10, 99) + R.ri(1, 9) / 10, d = R.pick([3, 4, 6, 7]), q = v / d;
+    kinds.push(() => {
+      const ans = Math.ceil(q);
+      return { lines: [["A1", num(v, 1)], ["A2", d], ["A3", "=ROUNDUP(A1/A2,0)"]], ask: "A3", ans,
+        pool: [Math.floor(q), Math.round(q) === ans ? ans + 1 : Math.round(q), ans + 1, Math.ceil(d / v * 100)],
+        how: `${num(v, 1)} ÷ ${d} = ${q.toFixed(3)}…; ROUNDUP always goes up: ${ans}.` };
+    });
+    if (L >= 7) {
+      const q1 = [R.ri(2, 9), R.ri(2, 9), R.ri(2, 9)], p1 = [R.ri(3, 12), R.ri(3, 12), R.ri(3, 12)];
+      kinds.push(() => {
+        const ans = q1.reduce((s, x, i) => s + x * p1[i], 0);
+        return { lines: [0, 1, 2].map((i) => [`A${i + 1}`, `${q1[i]}    B${i + 1}  ${p1[i]}`]).concat([["C1", "=SUMPRODUCT(A1:A3,B1:B3)"]]), ask: "C1", ans,
+          pool: [q1.reduce((a, b) => a + b, 0) * p1.reduce((a, b) => a + b, 0), q1.reduce((a, b) => a + b, 0) + p1.reduce((a, b) => a + b, 0), ans + q1[0], ans - p1[2], ans + 10],
+          how: `SUMPRODUCT multiplies row by row and adds: ${q1.map((x, i) => `${x}×${p1[i]}`).join(" + ")} = ${ans}.` };
+      });
+      const codes = ["KTUS", "KPHX", "KFLG", "KPRC"], prices = codes.map(() => R.ri(55, 79) / 10), pickI = R.ri(0, 3);
+      kinds.push(() => ({
+        lines: codes.map((c, i) => [`A${i + 1}`, `${c}   B${i + 1}  ${prices[i].toFixed(2)}`]).concat([["C1", `=VLOOKUP("${codes[pickI]}",A1:B4,2,FALSE)`]]),
+        ask: "C1", ans: prices[pickI], dp: 2,
+        pool: [prices[(pickI + 1) % 4], prices[(pickI + 3) % 4], prices[(pickI + 2) % 4], pickI + 1, 2],
+        how: `VLOOKUP finds "${codes[pickI]}" in column A and returns column 2 of that row: ${prices[pickI].toFixed(2)}.` }));
+      const a = R.ri(1, 40), b = R.ri(1, 40);
+      kinds.push(() => {
+        const ans = a > 10 && b > 10 ? a + b : a > 10 || b > 10 ? Math.max(a, b) : 0;
+        return { lines: [["A1", a], ["A2", b], ["A3", "=IF(AND(A1>10,A2>10),A1+A2,IF(OR(A1>10,A2>10),MAX(A1,A2),0))"]], ask: "A3", ans,
+          pool: [a + b, Math.max(a, b), Math.min(a, b), 0, a * b, ans + 10],
+          how: `AND(A1>10, A2>10) is ${a > 10 && b > 10 ? "TRUE → A1+A2" : `FALSE; OR(…) is ${a > 10 || b > 10 ? "TRUE → MAX" : "FALSE → 0"}`} = ${ans}.` };
+      });
+    }
+    if (L >= 9) {
+      const n = -(R.ri(10, 99) + R.ri(1, 9) / 10);
+      kinds.push(() => ({ lines: [["A1", num(n, 1)], ["A2", "=INT(A1)+TRUNC(A1)"]], ask: "A2", ans: Math.floor(n) + Math.trunc(n),
+        pool: [Math.trunc(n) * 2, Math.floor(n) * 2, Math.round(n) * 2, Math.trunc(n) * 2 + 1],
+        how: `INT rounds down (toward minus infinity): INT(${num(n, 1)}) = ${Math.floor(n)}. TRUNC just chops the decimal: ${Math.trunc(n)}. Sum ${Math.floor(n) + Math.trunc(n)}.` }));
+    }
+    const k = R.pick(kinds)();
+    const f = (x) => (k.dp ? fixed(x, k.dp) : num(x));
+    return { text: `In a spreadsheet, what does ${k.ask} show?`, mono: k.lines.map(([c, x]) => `${c.padEnd(3)} ${x}`), answer: f(k.ans), pool: k.pool.map(f), how: k.how };
+  });
+
+  add("math", "area", 3, (L, R) => {
+    if (L <= 5) {
+      const w = R.ri(30, 60), d = R.ri(30, 50), cov = R.pick([200, 250, 300]), area = w * d, gal = Math.ceil(area / cov);
+      return {
+        text: `Your hangar floor is ${w} × ${d} ft. One gallon of epoxy covers ${cov} sq ft. How many whole gallons do you buy?`, answer: `${gal} gal`,
+        pool: [Math.floor(area / cov), gal + 1, Math.ceil((2 * (w + d)) / cov) + 1, gal * 2, Math.ceil(area / 100)].filter((v) => v > 0).map((v) => `${v} gal`),
+        how: `Area = ${w} × ${d} = ${num(area)} sq ft. ÷ ${cov} = ${num(area / cov, 2)} gallons, so buy ${gal}.`,
+      };
+    }
+    const r = R.ri(4, 15), h = R.ri(10, 40);
+    if (R.chance(0.5)) {
+      const c = 2 * Math.PI * r;
+      return {
+        text: `How much edge trim goes around a round table top ${2 * r} in across?`, answer: `${num(c, 1)} in`,
+        pool: [Math.PI * r * r, Math.PI * r, 4 * 2 * r, c + 6, 3 * 2 * r].map((v) => `${num(v, 1)} in`),
+        how: `Circumference = π × diameter = 3.1416 × ${2 * r} = ${num(c, 1)} in.`,
+      };
+    }
+    const vol = Math.PI * r * r * h, gal = vol / 231;
+    return {
+      text: `A round tank is ${2 * r} in across and ${h} in tall. About how many gallons does it hold? (231 cubic inches per gallon)`, answer: `${num(gal, 1)} gal`,
+      pool: [(Math.PI * 4 * r * r * h) / 231, (2 * r * 2 * r * h) / 231, gal * 0.5, gal + 5, vol / 1000].map((v) => `${num(v, 1)} gal`),
+      how: `Volume = π × radius² × height = 3.1416 × ${r}² × ${h} = ${num(vol)} cu in. ÷ 231 = ${num(gal, 1)} gal. (Use the radius, ${r} in, not the diameter.)`,
+    };
+  });
+
+  // =====================================================================
+  // MORE NAVIGATION
+  // =====================================================================
+  add("nav", "windtri", 5, (L, R) => {
+    for (;;) {
+      const tc = R.ri(1, 360), tas = R.ri(20, 36) * 5, s = R.ri(2, 7) * 5;
+      const off = R.ri(20, 160) * (R.chance(0.5) ? 1 : -1), wd = wrap360(tc + off);
+      const xw = s * sinD(off), hw = s * cosD(off), wca = Math.asin(xw / tas) * 180 / Math.PI, w = Math.round(wca);
+      const gs = Math.round(tas * cosD(wca) - hw);
+      if (Math.abs(w) < 3) continue;
+      const side = w > 0 ? "right" : "left", other = w > 0 ? "left" : "right";
+      const k = L >= 8 ? R.pick(["wca", "gs", "th"]) : R.pick(["wca", "gs"]);
+      const intro = `True course ${hdg(tc)}°, true airspeed ${tas} kt, wind ${hdg(wd)}° at ${s} kt.`;
+      const how = `Crosswind = ${s} × sin ${Math.abs(off)}° ≈ ${num(Math.abs(xw), 1)} kt from the ${side}; ${hw >= 0 ? "headwind" : "tailwind"} ≈ ${num(Math.abs(hw), 1)} kt. Wind correction ≈ crosswind × 60 ÷ TAS ≈ ${Math.abs(w)}° ${side}. Groundspeed ≈ ${tas} ${hw >= 0 ? "−" : "+"} ${num(Math.abs(hw), 0)} ≈ ${gs} kt.`;
+      if (k === "wca") return { text: `${intro} How much wind correction?`, answer: `${Math.abs(w)}° ${side}`,
+        pool: [`${Math.abs(w)}° ${other}`, `${Math.abs(w) + 4}° ${side}`, `${Math.max(1, Math.abs(w) - 4)}° ${side}`, `${Math.round(Math.abs(xw))}° ${side}`, `${Math.abs(w) * 2}° ${side}`], how };
+      if (k === "gs") return { text: `${intro} About what groundspeed?`, answer: `${gs} kt`,
+        pool: [tas, Math.round(tas + hw), gs + 8, gs - 8, tas - s].map((v) => `${v} kt`), how };
+      return { text: `${intro} What true heading do you fly?`, answer: hdg(tc + w) + "°",
+        pool: [tc - w, tc, tc + 2 * w, tc + w + 5, wd].map((v) => hdg(v) + "°"), how: how + ` True heading = ${hdg(tc)} ${w > 0 ? "+" : "−"} ${Math.abs(w)} = ${hdg(tc + w)}°.` };
+    }
+  });
+
+  add("nav", "hold", 6, (L, R) => {
+    const pts = ["north", "northeast", "east", "southeast", "south", "southwest", "west", "northwest"];
+    for (;;) {
+      const I = L <= 7 ? R.ri(1, 36) * 10 : R.ri(1, 360), right = L <= 7 ? true : R.chance(0.7), H = R.ri(1, 360);
+      let p = wrap360(H + 180 - I); if (!right) p = wrap360(360 - p);
+      if ([0, 110, 290, 360].some((b) => Math.abs(p - b) < 10)) continue;
+      const entry = p >= 110 && p <= 290 ? "Direct" : p > 290 ? "Teardrop" : "Parallel";
+      let where;
+      if (L >= 8) {
+        const radial = wrap360(I + 180), side = pts[Math.round(radial / 45) % 8];
+        where = `Hold ${side} of the VOR on the ${hdg(radial)}° radial, ${right ? "standard (right)" : "left"} turns.`;
+      } else where = `Holding inbound course ${hdg(I)}° to the fix, right turns.`;
+      return {
+        text: `${where} You're flying heading ${hdg(H)}° to the fix. Which entry?`, answer: entry,
+        pool: ["Direct", "Teardrop", "Parallel", "No entry turn needed"],
+        how: `${L >= 8 ? `The inbound course is the radial's opposite: ${hdg(I)}°. ` : ""}Draw the 70° line through the fix. Arriving from the holding side beyond the fix (a 110° slice) = parallel; from the non-holding side beyond the fix (a 70° slice) = teardrop; anywhere else (180°) = direct. Heading ${hdg(H)}° puts you in the ${entry.toLowerCase()} slice.`,
+      };
+    }
+  });
+
+  add("nav", "vor", 3, (L, R) => {
+    const radial = L >= 5 ? R.ri(1, 360) : R.ri(1, 36) * 10;
+    const k = R.pick(["to", "to-flag", "from-flag"]);
+    if (k === "to") return {
+      text: `You're on the ${hdg(radial)}° radial. What course do you fly direct TO the station?`, answer: hdg(radial + 180) + "°",
+      pool: [radial, radial + 90, radial - 90, radial + 170].map((v) => hdg(v) + "°"),
+      how: `Radials point away from the station. To fly back in, use the opposite: ${hdg(radial)} ± 180 = ${hdg(radial + 180)}°.`,
+    };
+    const obs = radial, to = k === "to-flag", on = to ? obs + 180 : obs;
+    return {
+      text: `OBS set to ${hdg(obs)}°, needle centered, ${to ? "TO" : "FROM"} flag. Which radial are you on?`, answer: hdg(on) + "°",
+      pool: [to ? obs : obs + 180, obs + 90, obs - 90, on + 10].map((v) => hdg(v) + "°"),
+      how: to ? `With a TO flag, you're on the opposite radial of the OBS setting: ${hdg(obs)} ± 180 = ${hdg(on)}°.` : `With a FROM flag and the needle centered, you're on the radial the OBS shows: ${hdg(obs)}°.`,
+    };
+  });
+
+  const VFRMIN = [
+    ["Class B airspace", "3 SM; clear of clouds"],
+    ["Class C or D airspace", "3 SM; 500 below, 1,000 above, 2,000 horizontal"],
+    ["Class E airspace below 10,000 ft MSL", "3 SM; 500 below, 1,000 above, 2,000 horizontal"],
+    ["Class E airspace at or above 10,000 ft MSL", "5 SM; 1,000 below, 1,000 above, 1 SM horizontal"],
+    ["Class G, daytime, 1,200 ft AGL or lower", "1 SM; clear of clouds"],
+  ];
+  const REGS = [
+    ["VFR fuel reserve for a daytime flight (Part 91)?", "30 minutes at normal cruise", ["45 minutes at normal cruise", "1 hour at normal cruise", "20 minutes at normal cruise"]],
+    ["VFR fuel reserve at night (Part 91)?", "45 minutes at normal cruise", ["30 minutes at normal cruise", "1 hour at normal cruise", "60 minutes plus alternate"]],
+    ["Above what cabin altitude must the required crew use oxygen the whole time?", "14,000 ft MSL", ["12,500 ft MSL", "15,000 ft MSL", "10,000 ft MSL"]],
+    ["Above what cabin altitude must every passenger be offered oxygen?", "15,000 ft MSL", ["14,000 ft MSL", "12,500 ft MSL", "18,000 ft MSL"]],
+    ["Crew must use oxygen after how long between 12,500 and 14,000 ft MSL?", "More than 30 minutes", ["More than 15 minutes", "More than 1 hour", "Any time at all"]],
+    ["Transponder code for lost communications?", "7600", ["7700", "7500", "1200"]],
+    ["Transponder code for an emergency?", "7700", ["7600", "7500", "7000"]],
+    ["Transponder code for unlawful interference (hijack)?", "7500", ["7700", "7600", "7400"]],
+    ["Standard VFR transponder code in the US?", "1200", ["7000", "2000", "1400"]],
+  ];
+  const GUN = {
+    ground: { "Steady green": "Cleared for takeoff", "Flashing green": "Cleared to taxi", "Steady red": "Stop", "Flashing red": "Taxi clear of the runway in use", "Flashing white": "Return to starting point on the airport", "Alternating red and green": "Exercise extreme caution" },
+    air: { "Steady green": "Cleared to land", "Flashing green": "Return for landing", "Steady red": "Give way to other aircraft and keep circling", "Flashing red": "Airport unsafe — do not land", "Alternating red and green": "Exercise extreme caution" },
+  };
+  add("nav", "regs", 2, (L, R) => {
+    const k = L <= 3 ? R.pick(["gun", "regs"]) : R.pick(["gun", "regs", "vfrmin", "vfrmin"]);
+    if (k === "vfrmin") {
+      const [where, ans] = R.pick(VFRMIN);
+      return { text: `VFR weather minimums in ${where}: visibility and cloud clearance?`, answer: ans,
+        pool: [...new Set(VFRMIN.map((x) => x[1]))].concat(["3 SM; 1,000 below, 1,000 above, 1 SM horizontal", "1 SM; 500 below, 1,000 above, 2,000 horizontal"]),
+        how: `${where}: ${ans} (14 CFR 91.155).` };
+    }
+    if (k === "regs") {
+      const [q, a, w] = R.pick(REGS);
+      return { text: q, answer: a, pool: w, how: `${a}.${/oxygen/.test(q) ? " (14 CFR 91.211)" : /fuel/.test(q) ? " (14 CFR 91.151)" : ""}` };
+    }
+    const where = R.chance(0.5) ? "ground" : "air", sig = R.pick(Object.keys(GUN[where])), ans = GUN[where][sig];
+    return {
+      text: `${where === "ground" ? "You're on the ground" : "You're in the air"} and the tower flashes a light gun at you: ${sig.toLowerCase()}. What does it mean?`, answer: ans,
+      pool: Object.values(GUN[where]).concat(Object.values(GUN[where === "ground" ? "air" : "ground"])),
+      how: `${sig} ${where === "ground" ? "on the ground" : "in the air"} = "${ans}" (14 CFR 91.125). The same color can mean something different on the ground and in the air.`,
+    };
+  });
+
+  add("nav", "cruisealt", 3, (L, R) => {
+    const mc = R.ri(1, 359), east = mc < 180, base = R.ri(4, 15), ifr = L >= 6 && R.chance(0.5);
+    const odd = (n) => (n % 2 ? n : n + 1), even = (n) => (n % 2 ? n + 1 : n);
+    const th = east ? odd(base) : even(base), wth = east ? even(base) : odd(base);
+    const ans = ifr ? th * 1000 : th * 1000 + 500;
+    const f = (v) => `${num(v)} ft`;
+    return {
+      text: `${ifr ? "IFR, picking your own altitude" : "VFR (more than 3,000 ft above the ground)"}, magnetic course ${hdg(mc)}°, wanting to cruise near ${num(base * 1000)} ft. Which altitude is legal?`, answer: f(ans),
+      pool: ifr ? [wth * 1000, th * 1000 + 500, wth * 1000 + 500, (wth + 2) * 1000].map(f) : [wth * 1000 + 500, th * 1000, wth * 1000, (wth + 2) * 1000 + 500].map(f),
+      how: `${hdg(mc)}° is ${east ? "0–179° (eastbound): odd" : "180–359° (westbound): even"} thousands${ifr ? "" : " plus 500 for VFR"}. "East is odd, west is even." So ${f(ans)}. (14 CFR 91.159 / 91.179)`,
+    };
+  });
+
+  add("nav", "glide", 4, (L, R) => {
+    const ratio = R.pick([8, 9, 10, 11, 12]), h = R.ri(4, 20) * 500, nm = Math.round((h * ratio) / 6076);
+    return {
+      text: `Engine quits ${num(h)} ft above the ground. Your glide ratio is ${ratio}:1. About how far can you glide?`, answer: `${nm} nm`,
+      pool: [Math.round((h * ratio) / 1000), Math.round(h / 1000), nm * 2, Math.max(1, Math.round(nm / 2)), nm + 4].map((v) => `${v} nm`),
+      how: `${num(h)} ft × ${ratio} = ${num(h * ratio)} ft of distance. A nautical mile is about 6,076 ft: ${num(h * ratio)} ÷ 6,076 ≈ ${nm} nm.`,
+    };
+  });
+
+  add("nav", "tas", 5, (L, R) => {
+    const ias = R.ri(20, 34) * 5, k = R.ri(2, 12), tas = Math.round(ias * (1 + 0.02 * k));
+    return {
+      text: `Indicated ${ias} kt at ${num(k * 1000)} ft. About what's your true airspeed?`, answer: `${tas} kt`,
+      pool: [ias, ias + k, Math.round(ias * (1 + 0.05 * k)), tas + 12, Math.round(ias * (1 - 0.02 * k))].map((v) => `${v} kt`),
+      how: `Rule of thumb: true airspeed is about 2% higher per 1,000 ft. ${k} × 2% = ${2 * k}%; ${ias} × ${num(1 + 0.02 * k, 2)} ≈ ${tas} kt.`,
+    };
+  });
+
+  add("nav", "checkpoint", 6, (L, R) => {
+    const gs = R.pick([120, 135, 144, 150, 156, 165, 180]), t1 = R.ri(6, 15), d1 = Math.round((gs * t1) / 60);
+    const g = (d1 / t1) * 60, d2 = R.ri(25, 90), t2 = Math.round((d2 / g) * 60), pass = R.ri(0, 287) * 5;
+    return {
+      text: `Checkpoints A to B, ${d1} nm, took ${t1} minutes. You passed B at ${hhmm(pass)}Z. C is ${d2} nm beyond B. ETA at C?`, answer: hhmm(pass + t2) + "Z",
+      pool: [pass + t2 + 5, pass + t2 - 5, pass + d2 / 2, pass + t2 + 10, pass + Math.round((d2 / d1) * t1 * 0.8)].map((v) => hhmm(v) + "Z"),
+      how: `Groundspeed: ${d1} nm in ${t1} min = ${num(d1 / t1, 2)} nm/min (${Math.round(g)} kt). ${d2} nm ÷ ${num(d1 / t1, 2)} ≈ ${t2} min. ${hhmm(pass)} + ${t2} min = ${hhmm(pass + t2)}Z.`,
+    };
+  });
+
+  add("nav", "tripfuel", 7, (L, R) => {
+    const D = R.ri(15, 45) * 10, tas = R.ri(26, 35) * 5, w = R.ri(2, 6) * 5, head = R.chance(0.65), gph = R.pick([8, 8.5, 9, 9.5, 10, 10.5, 11, 12]);
+    const gs = head ? tas - w : tas + w, t = D / gs, fuel = t * gph + 0.75 * gph;
+    const f = (v) => `${fixed(v, 1)} gal`;
+    return {
+      text: `${D} nm trip, TAS ${tas} kt, ${w}-kt ${head ? "headwind" : "tailwind"}, burning ${gph} gal/hr. Fuel needed including a 45-minute reserve?`, answer: f(fuel),
+      pool: [(D / tas) * gph + 0.75 * gph, (D / (head ? tas + w : tas - w)) * gph + 0.75 * gph, t * gph, t * gph + 0.5 * gph, fuel + gph].map(f),
+      how: `Groundspeed ${tas} ${head ? "−" : "+"} ${w} = ${gs} kt. Time ${D} ÷ ${gs} = ${num(t, 2)} h. Burn ${num(t, 2)} × ${gph} = ${fixed(t * gph, 1)} gal, plus 45 min (${fixed(0.75 * gph, 2)} gal) = ${f(fuel)}.`,
+    };
+  });
+
+  add("nav", "vdp", 7, (L, R) => {
+    const hat = R.ri(15, 50) * 20, nm = hat / 300;
+    return {
+      text: `Non-precision approach, MDA is ${num(hat)} ft above the touchdown zone. About how far from the threshold is your 3° visual descent point?`, answer: `${num(nm, 1)} nm`,
+      pool: [hat / 100, hat / 200, hat / 600, nm + 1, hat / 1000].map((v) => `${num(v, 1)} nm`),
+      how: `A 3° path drops about 300 ft per nautical mile. ${num(hat)} ÷ 300 = ${num(nm, 1)} nm.`,
+    };
+  });
+
+  add("nav", "compass", 4, (L, R) => {
+    const items = [
+      ["Northern Hemisphere: you accelerate on an east or west heading. The magnetic compass briefly shows…", "A turn toward north", ["A turn toward south", "No change", "A turn toward east"], "ANDS: Accelerate North, Decelerate South."],
+      ["Northern Hemisphere: you slow down on an east or west heading. The magnetic compass briefly shows…", "A turn toward south", ["A turn toward north", "No change", "A turn toward west"], "ANDS: Accelerate North, Decelerate South."],
+      ["Turning to a north heading by the magnetic compass, when do you roll out?", "Before it reads north (undershoot)", ["After it passes north (overshoot)", "Exactly on north", "When it stops moving"], "UNOS: Undershoot North, Overshoot South (by about the latitude)."],
+      ["Turning to a south heading by the magnetic compass, when do you roll out?", "After it passes south (overshoot)", ["Before it reads south (undershoot)", "Exactly on south", "When the card stops swinging"], "UNOS: Undershoot North, Overshoot South (by about the latitude)."],
+      ["Starting a turn from a north heading, the magnetic compass first shows…", "A turn the opposite way", ["The correct turn, but faster", "No movement at first", "The correct turn, but slower"], "From north it lags and swings the wrong way at first; from south it leads."],
+    ];
+    const [q, a, w, h] = R.pick(items);
+    return { text: q, answer: a, pool: w, how: h };
+  });
+
+  // =====================================================================
+  // MORE MECHANICS
+  // =====================================================================
+  add("mech", "loadfactor", 4, (L, R) => {
+    const bank = R.pick(L >= 7 ? [30, 45, 60, 70, 75] : [30, 45, 60]), n = 1 / cosD(bank);
+    if (L >= 6 && R.chance(0.6)) {
+      const vs = R.ri(9, 14) * 5, v = Math.round(vs * Math.sqrt(n));
+      return {
+        text: `Stall speed is ${vs} kt in level flight. About what is it in a level ${bank}° bank?`, answer: `${v} kt`,
+        pool: [Math.round(vs * n), vs, v + 6, Math.round(vs + bank / 2), Math.max(vs + 1, v - 6)].map((x) => `${x} kt`),
+        how: `Load factor in a ${bank}° bank = 1 ÷ cos ${bank}° = ${num(n, 2)} G. Stall speed goes up by the square root: ${vs} × √${num(n, 2)} = ${vs} × ${num(Math.sqrt(n), 2)} ≈ ${v} kt.`,
+      };
+    }
+    return {
+      text: `In a level, coordinated ${bank}° bank, what's the load factor?`, answer: `${num(n, 2)} G`,
+      pool: [bank / 30, 1 + bank / 100, n * 1.3, 1, Math.sqrt(n)].map((x) => `${num(x, 2)} G`),
+      how: `Load factor = 1 ÷ cos(bank) = 1 ÷ ${num(cosD(bank), 3)} = ${num(n, 2)} G.`,
+    };
+  });
+
+  add("mech", "weightspeed", 6, (L, R) => {
+    const W1 = R.ri(20, 30) * 100, W2 = W1 - R.ri(3, 9) * 100, va = R.ri(20, 26) * 5, v2 = Math.round(va * Math.sqrt(W2 / W1));
+    const name = R.chance(0.5) ? "Maneuvering speed (Va)" : "Best glide speed";
+    return {
+      text: `${name} is ${va} KIAS at ${num(W1)} lb gross. About what is it at ${num(W2)} lb?`, answer: `${v2} KIAS`,
+      pool: [va, Math.round((va * W2) / W1), Math.round(va * Math.sqrt(W1 / W2)), v2 + 6, v2 - 6].map((x) => `${x} KIAS`),
+      how: `It changes with the square root of weight: ${va} × √(${num(W2)} ÷ ${num(W1)}) = ${va} × ${num(Math.sqrt(W2 / W1), 3)} ≈ ${v2} KIAS. Lighter means slower.`,
+    };
+  });
+
+  add("mech", "cgshift", 6, (L, R) => {
+    for (;;) {
+      const W = R.ri(14, 26) * 100, cg = R.ri(780, 900) / 10, dw = R.ri(2, 12) * 10, a = R.ri(60, 100), b = a + R.ri(30, 70) * (R.chance(0.5) ? 1 : -1);
+      if (b < 30 || b > 160) continue;
+      const shift = (dw * (b - a)) / W, ncg = cg + shift;
+      if (Math.abs(shift) < 0.4) continue;
+      if (L >= 8 && R.chance(0.5)) {
+        // adding weight
+        const nw = W + dw, ncg2 = (W * cg + dw * b) / nw;
+        return {
+          text: `Airplane weighs ${num(W)} lb, CG at ${num(cg, 1)} in. You load ${dw} lb of bags at ${b} in. New CG?`, answer: `${num(ncg2, 1)} in`,
+          pool: [cg + (dw * b) / W, (cg + b) / 2, cg + (dw * (b - cg)) / W + 1.5, ncg2 - 1.2, cg].map((v) => `${num(v, 1)} in`),
+          how: `Moment: ${num(W)} × ${num(cg, 1)} = ${num(W * cg)}; bags ${dw} × ${b} = ${num(dw * b)}. Total ${num(W * cg + dw * b)} ÷ ${num(nw)} lb = ${num(ncg2, 1)} in.`,
+        };
+      }
+      return {
+        text: `Airplane weighs ${num(W)} lb with CG at ${num(cg, 1)} in. You move ${dw} lb from station ${a} to station ${b}. New CG?`, answer: `${num(ncg, 1)} in`,
+        pool: [cg - shift, cg + shift * 2, cg + (dw * (b - a)) / (W + dw) + 0.6, cg + (b - a) / 10, cg].map((v) => `${num(v, 1)} in`),
+        how: `CG change = weight moved × distance ÷ total weight = ${dw} × ${b - a} ÷ ${num(W)} = ${num(shift, 2)} in. ${num(cg, 1)} ${shift >= 0 ? "+" : "−"} ${num(Math.abs(shift), 2)} = ${num(ncg, 1)} in.`,
+      };
+    }
+  });
+
+  add("mech", "rivet", 3, (L, R) => {
+    if (L <= 5) {
+      const d = R.ri(3, 6), l = R.ri(3, 12), part = `AN470AD${d}-${l}`;
+      if (R.chance(0.5)) return {
+        text: `What's the shank diameter of an ${part} rivet?`, answer: `${fracStr(d, 32)} in`,
+        pool: [fracStr(d, 16), fracStr(d, 8), fracStr(l, 32), fracStr(d + 1, 32)].map((s) => `${s} in`),
+        how: `The number after AD is the diameter in 32nds of an inch: ${d}/32 = ${fracStr(d, 32)} in.`,
+      };
+      return {
+        text: `How long is an ${part} rivet?`, answer: `${fracStr(l, 16)} in`,
+        pool: [fracStr(l, 32), fracStr(l, 8), fracStr(d, 16), fracStr(l + 1, 16)].map((s) => `${s} in`),
+        how: `The dash number is the length in 16ths of an inch: ${l}/16 = ${fracStr(l, 16)} in.`,
+      };
+    }
+    const ts = [0.016, 0.020, 0.025, 0.032, 0.040, 0.050, 0.063], t1 = R.pick(ts), t2 = R.pick(ts), d = R.pick([3, 4, 5]);
+    const grip = t1 + t2, need = grip + 1.5 * (d / 32), l = Math.ceil(need * 16 - 1e-9);
+    return {
+      text: `Riveting ${t1.toFixed(3)} skin to a ${t2.toFixed(3)} rib with a ${fracStr(d, 32)}-in rivet. Grip + 1.5 × diameter, rounded up to the next 1/16: which rivet?`, answer: `AN470AD${d}-${l}`,
+      pool: [`AN470AD${d}-${l + 1}`, `AN470AD${d}-${Math.max(2, l - 1)}`, `AN470AD${d}-${Math.max(2, Math.ceil(grip * 16))}`, `AN470AD${d + 1}-${l}`, `AN470AD${d}-${l + 2}`],
+      how: `Grip ${t1.toFixed(3)} + ${t2.toFixed(3)} = ${grip.toFixed(3)} in. 1.5 × ${(d / 32).toFixed(4)} = ${(1.5 * d / 32).toFixed(3)}. Total ${need.toFixed(3)} in → next 1/16 is ${l}/16 → -${l}.`,
+    };
+  });
+
+  add("mech", "tank", 4, (L, R) => {
+    const l = R.ri(12, 40), w = R.ri(8, 24), h = R.ri(6, 16), cu = l * w * h, gal = cu / 231;
+    if (L >= 7) {
+      const lb = gal * 6;
+      return {
+        text: `A ${l} × ${w} × ${h} in fuel tank is full of avgas. About how much does the fuel weigh?`, answer: `${num(Math.round(lb))} lb`,
+        pool: [cu / 1000 * 6, gal * 8.3, gal, lb + 20, (cu / 1728) * 6].map((v) => `${num(Math.round(v))} lb`),
+        how: `${l} × ${w} × ${h} = ${num(cu)} cu in ÷ 231 = ${num(gal, 1)} gal × 6 lb/gal ≈ ${num(Math.round(lb))} lb.`,
+      };
+    }
+    return {
+      text: `How many gallons fit in a ${l} × ${w} × ${h} in tank? (231 cubic inches per gallon)`, answer: `${num(gal, 1)} gal`,
+      pool: [cu / 1728, cu / 100, gal * 2, gal + 3, cu / 277].map((v) => `${num(v, 1)} gal`),
+      how: `${l} × ${w} × ${h} = ${num(cu)} cubic inches. ÷ 231 = ${num(gal, 1)} gal.`,
+    };
+  });
+
+  add("mech", "horsepower", 6, (L, R) => {
+    const T = R.ri(15, 30) * 10, rpm = R.ri(20, 28) * 100, hp = (T * rpm) / 5252;
+    if (R.chance(0.5)) return {
+      text: `An engine makes ${T} ft-lb of torque at ${num(rpm)} rpm. About how much horsepower?`, answer: `${num(Math.round(hp))} hp`,
+      pool: [(T * rpm) / 33000, (T * rpm) / 1000, hp * 1.5, hp + 25, (T * rpm) / 63025].map((v) => `${num(Math.round(v))} hp`),
+      how: `Horsepower = torque × rpm ÷ 5,252: ${T} × ${num(rpm)} ÷ 5,252 ≈ ${num(Math.round(hp))} hp.`,
+    };
+    const P = R.ri(14, 21) * 10, t = (P * 5252) / rpm;
+    return {
+      text: `A ${P}-hp engine turning ${num(rpm)} rpm. About how much torque is that?`, answer: `${num(Math.round(t))} ft-lb`,
+      pool: [(P * rpm) / 5252, (P * 33000) / rpm, t * 0.7, t + 50, (P * 63025) / rpm].map((v) => `${num(Math.round(v))} ft-lb`),
+      how: `Torque = hp × 5,252 ÷ rpm = ${P} × 5,252 ÷ ${num(rpm)} ≈ ${num(Math.round(t))} ft-lb.`,
+    };
+  });
+
+  add("mech", "resist", 4, (L, R) => {
+    const pairs = [[6, 3], [12, 6], [4, 4], [20, 5], [10, 15], [12, 4], [30, 20], [60, 30], [9, 18]];
+    if (L >= 7 && R.chance(0.6)) {
+      const trios = [[6, 3, 2], [12, 6, 4], [20, 30, 60], [4, 6, 12], [10, 15, 30]], [a, b, c] = R.pick(trios), rp = 1 / (1 / a + 1 / b + 1 / c);
+      if (L >= 9) {
+        const V = R.pick([12, 24, 28]), I = V / rp;
+        return {
+          text: `Three loads of ${a}, ${b} and ${c} Ω are wired in parallel across ${V} V. Total current?`, answer: `${num(I, 1)} A`,
+          pool: [V / (a + b + c), V / a, I / 2, I + 2, V / ((a + b + c) / 3)].map((v) => `${num(v, 1)} A`),
+          how: `Parallel: 1/R = 1/${a} + 1/${b} + 1/${c} → R = ${num(rp, 2)} Ω. Current = ${V} ÷ ${num(rp, 2)} = ${num(I, 1)} A (or add each branch: ${num(V / a, 1)} + ${num(V / b, 1)} + ${num(V / c, 1)}).`,
+        };
+      }
+      return {
+        text: `${a}, ${b} and ${c} ohms in parallel. Total resistance?`, answer: `${num(rp, 2)} Ω`,
+        pool: [a + b + c, (a + b + c) / 3, Math.min(a, b, c), rp * 2, rp + 1].map((v) => `${num(v, 2)} Ω`),
+        how: `1/R = 1/${a} + 1/${b} + 1/${c} = ${num(1 / rp, 3)} → R = ${num(rp, 2)} Ω. Parallel is always less than the smallest one.`,
+      };
+    }
+    const [a, b] = R.pick(pairs), par = R.chance(0.6), rr = par ? (a * b) / (a + b) : a + b;
+    return {
+      text: `A ${a}-ohm and a ${b}-ohm resistor in ${par ? "parallel" : "series"}. Total resistance?`, answer: `${num(rr, 2)} Ω`,
+      pool: [par ? a + b : (a * b) / (a + b), (a + b) / 2, Math.min(a, b), a * b, rr + 2].map((v) => `${num(v, 2)} Ω`),
+      how: par ? `Parallel pair: product ÷ sum = ${a * b} ÷ ${a + b} = ${num(rr, 2)} Ω.` : `Series just adds: ${a} + ${b} = ${rr} Ω.`,
+    };
+  });
+
+  add("mech", "battery", 3, (L, R) => {
+    const C = R.pick([17, 24, 28, 35, 42]), I = R.ri(4, 20), usable = L >= 6 ? R.pick([0.5, 0.7, 0.8]) : 1, min = (C * usable / I) * 60;
+    return {
+      text: `Alternator fails. Battery is ${C} amp-hours${usable < 1 ? `, but only ${usable * 100}% is usable` : ""}, and the load is ${I} A. About how long until it's flat?`, answer: dur(min),
+      pool: [(C / I) * 60 * (usable < 1 ? 1 : 0.5), (I / C) * 60, min + 30, Math.max(5, min - 20), C * 2].map(dur),
+      how: `Hours = amp-hours ÷ amps: ${C}${usable < 1 ? ` × ${usable}` : ""} ÷ ${I} = ${num(min / 60, 2)} h ≈ ${dur(min)}. Shedding load buys time.`,
+    };
+  });
+
+  add("mech", "pythag", 2, (L, R) => {
+    if (L <= 5) {
+      const [a, b, c] = R.pick([[3, 4, 5], [5, 12, 13], [8, 15, 17], [7, 24, 25], [20, 21, 29]]), k = a > 7 ? 1 : R.ri(1, 4);
+      const askHyp = R.chance(0.6);
+      if (askHyp) return {
+        text: `A diagonal brace spans a frame ${a * k} ft wide and ${b * k} ft tall. How long is the brace?`, answer: `${c * k} ft`,
+        pool: [(a + b) * k, c * k + 1, c * k - 1, Math.round(((a + b) * k) / 2) + 3, b * k + 2].map((v) => `${v} ft`),
+        how: `a² + b² = c²: ${a * k}² + ${b * k}² = ${(a * k) ** 2 + (b * k) ** 2} = ${c * k}².`,
+      };
+      return {
+        text: `A ${c * k}-ft ladder leans on the hangar, its foot ${a * k} ft from the wall. How high does it reach?`, answer: `${b * k} ft`,
+        pool: [c * k - a * k, b * k + 1, b * k - 1, c * k, b * k + 2].map((v) => `${v} ft`),
+        how: `${c * k}² − ${a * k}² = ${(c * k) ** 2 - (a * k) ** 2} = ${b * k}².`,
+      };
+    }
+    const a = R.ri(4, 30), b = R.ri(4, 30), c = Math.hypot(a, b);
+    return {
+      text: `Square up a hangar door frame: it's ${a} ft wide and ${b} ft tall. What should the diagonal measure?`, answer: `${num(c, 1)} ft`,
+      pool: [a + b, c + 1, c - 1, Math.max(a, b) + 1, (a + b) / 1.5].map((v) => `${num(v, 1)} ft`),
+      how: `√(${a}² + ${b}²) = √${a * a + b * b} ≈ ${num(c, 1)} ft. Both diagonals equal = square.`,
+    };
+  });
+
+  add("mech", "waterp", 5, (L, R) => {
+    const ft = R.ri(4, 40), psi = ft * 0.433;
+    return {
+      text: `What's the water pressure at the bottom of a ${ft}-ft-tall full water tank?`, answer: `${num(psi, 1)} psi`,
+      pool: [ft * 62.4, ft * 0.5 + 1, ft * 14.7 / 33, psi + 3, ft / 0.433].map((v) => `${num(v, 1)} psi`),
+      how: `Water adds 0.433 psi per foot of depth (62.4 lb per cu ft ÷ 144 sq in): ${ft} × 0.433 = ${num(psi, 1)} psi. Height matters, not the tank's width.`,
+    };
+  });
+
+  add("mech", "actuator", 7, (L, R) => {
+    const d = R.pick([0.75, 1, 1.25, 1.5, 2]), p = R.ri(6, 30) * 100, A = Math.PI * (d / 2) ** 2, F = p * A;
+    return {
+      text: `A hydraulic actuator has a ${d}-in bore. At ${num(p)} psi, about how hard does it push?`, answer: `${num(Math.round(F))} lb`,
+      pool: [p * d, p * Math.PI * d * d, F * 2, p * d * d, F + 300].map((v) => `${num(Math.round(v))} lb`),
+      how: `Piston area = π × r² = 3.1416 × ${d / 2}² = ${num(A, 3)} sq in. Force = ${num(p)} × ${num(A, 3)} ≈ ${num(Math.round(F))} lb.`,
+    };
+  });
+
+  add("mech", "lever2", 6, (L, R) => {
+    for (;;) {
+      const w1 = R.ri(4, 20) * 10, d1 = R.ri(1, 4), w2 = R.ri(2, 12) * 10, d2 = R.ri(d1 + 1, 7), d3 = R.ri(2, 8), m = w1 * d1 + w2 * d2;
+      if (m % d3) continue;
+      const F = m / d3;
+      return {
+        text: `On one side of a pivot: ${w1} lb at ${d1} ft and ${w2} lb at ${d2} ft. What force at ${d3} ft on the other side balances them?`, answer: `${num(F)} lb`,
+        pool: [w1 + w2, ((w1 + w2) * d1) / d3, F + 10, (w1 * d1) / d3, ((w1 + w2) * (d1 + d2)) / d3].map((v) => `${num(Math.round(v))} lb`),
+        how: `Add the moments: ${w1} × ${d1} + ${w2} × ${d2} = ${m} ft-lb. ÷ ${d3} ft = ${num(F)} lb.`,
+      };
+    }
+  });
+
+  add("mech", "tipspeed", 7, (L, R) => {
+    const D = R.pick([68, 70, 72, 74, 76]), rpm = R.ri(22, 27) * 100, v = Math.round((Math.PI * (D / 12) * rpm) / 60);
+    return {
+      text: `A ${D}-in prop turning ${num(rpm)} rpm. About what's the tip speed in feet per second?`, answer: `${num(v)} ft/s`,
+      pool: [v / 2, Math.PI * D * rpm / 60, (D / 12) * rpm / 60, v + 90, v * 0.68].map((x) => `${num(Math.round(x))} ft/s`),
+      how: `Tip travels π × diameter each turn: 3.1416 × ${num(D / 12, 2)} ft = ${num(Math.PI * D / 12, 2)} ft. × ${num(rpm)} rpm ÷ 60 = ${num(v)} ft/s (sound is about 1,100 ft/s).`,
+    };
+  });
+
+  add("mech", "bend", 8, (L, R) => {
+    const T = R.pick([0.025, 0.032, 0.040, 0.050, 0.063]), Rd = R.pick([0.0625, 0.09375, 0.125, 0.1875, 0.25]), N = L >= 10 ? R.pick([45, 90, 120]) : 90;
+    const ba = (0.01743 * Rd + 0.0078 * T) * N, f = (v) => `${v.toFixed(3)} in`;
+    return {
+      text: `Sheet metal: ${T.toFixed(3)} in thick, ${Rd}-in bend radius, ${N}° bend. What's the bend allowance?`, answer: f(ba),
+      pool: [0.01743 * Rd * N, (Rd + T) * 1, (0.01743 * T + 0.0078 * Rd) * N, ba + 0.05, ((Rd + T / 2) * Math.PI) / 2 + 0.03].map(f),
+      how: `BA = (0.01743 × R + 0.0078 × T) × degrees = (0.01743 × ${Rd} + 0.0078 × ${T}) × ${N} = ${f(ba)}.`,
+    };
+  });
+
+  add("mech", "tire", 8, (L, R) => {
+    const p1 = R.ri(6, 12) * 5, t1 = R.ri(4, 7) * 10, t2 = R.ri(9, 13) * 10, p2 = ((p1 + 14.7) * (t2 + 460)) / (t1 + 460) - 14.7;
+    return {
+      text: `You set the tires to ${p1} psi at ${t1} °F. On the ramp at ${t2} °F, what will the gauge read?`, answer: `${num(p2, 1)} psi`,
+      pool: [(p1 * t2) / t1, p1, (p1 * (t2 + 460)) / (t1 + 460) + 2, p2 + 4, p1 + (t2 - t1) / 2].map((v) => `${num(v, 1)} psi`),
+      how: `Use absolute units: (${p1} + 14.7) × (${t2} + 460) ÷ (${t1} + 460) = ${num(p2 + 14.7, 1)} psi absolute; − 14.7 = ${num(p2, 1)} psi on the gauge.`,
+    };
+  });
+
+  // =====================================================================
   // Building a puzzle
   // =====================================================================
   const BAD = /NaN|undefined|Infinity|null/;
@@ -877,7 +1607,7 @@
     if (seconds <= 35 * k) return "OK";
     return "F";
   }
-  const STEP = { OKU: 0.5, OK: 0.35, F: 0.15, B: -0.3, NG: -0.45, WO: -0.1 };
+  const STEP = { OKU: 0.6, OK: 0.4, F: 0.15, B: -0.3, NG: -0.45, WO: -0.1 };
   const updateRating = (r, g) => Math.max(1, Math.min(10.99, (r || 1) + STEP[g]));
   const RANKS = ["Student Pilot", "Solo", "Private Pilot", "Instrument Rated", "Commercial", "Flight Instructor", "Airline Transport", "Carrier Qualified", "Test Pilot", "Top Gun"];
   const rankOf = (L) => RANKS[Math.max(1, Math.min(10, L)) - 1];

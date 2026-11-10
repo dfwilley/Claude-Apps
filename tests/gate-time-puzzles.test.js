@@ -86,6 +86,29 @@ for (let i = 0; i < 300; i++) {
     assert.strictEqual(x.answer, `${want} kt`, x.text);
   }
 }
+// newer question types
+for (let i = 0; i < 400; i++) {
+  const L = 6 + (i % 5);
+  const hd = gen("hold", L);
+  let I, right = !/left turns/.test(hd.text);
+  const m1 = hd.text.match(/inbound course (\d{3})/), m2 = hd.text.match(/on the (\d{3})° radial/);
+  I = m1 ? +m1[1] : (+m2[1] + 180) % 360;
+  const H = +hd.text.match(/heading (\d{3})° to the fix/)[1];
+  // position of the airplane seen from the fix, relative to the inbound course, mirrored for left turns
+  let p = (((H + 180 - I) % 360) + 360) % 360; if (!right) p = (360 - p) % 360;
+  assert.strictEqual(hd.answer, p >= 110 && p <= 290 ? "Direct" : p > 290 ? "Teardrop" : "Parallel", hd.text);
+  const ca = gen("cruisealt", L), mc = +ca.text.match(/course (\d{3})/)[1], alt = +ca.answer.replace(/[^\d]/g, "");
+  const th = Math.floor(alt / 1000), isVfr = /VFR/.test(ca.text);
+  assert.strictEqual(alt % 1000, isVfr ? 500 : 0, ca.text);
+  assert.strictEqual(th % 2, mc < 180 ? 1 : 0, ca.text);
+  const ck = gen("clock", L), [, hh, mm] = ck.text.match(/at (\d+):(\d\d)/).map(Number);
+  let ang = Math.abs((hh % 12) * 30 + mm * 0.5 - mm * 6); if (ang > 180) ang = 360 - ang;
+  assert.strictEqual(ck.answer, `${P.num(ang, 1)}°`);
+  const al = gen("algebra", 4 + (i % 3));
+  const [, a2, sgn, b2, c2] = al.big.match(/(\d+)x ([+−]) (\d+) = (-?\d+)/);
+  const xv = (+c2 - (sgn === "+" ? +b2 : -b2)) / +a2;
+  assert.strictEqual(al.answer, `x = ${xv}`);
+}
 // the classic examples
 assert.strictEqual(P.grade({ correct: true, seconds: 10 }), "OKU");
 assert.strictEqual(P.grade({ correct: true, seconds: 30 }), "OK");

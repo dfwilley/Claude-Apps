@@ -1,6 +1,6 @@
 // Gate Time Puzzles: everything is saved on the phone so it opens and plays in airplane mode.
 // Serves the saved copy right away and quietly fetches updates for next time.
-const CACHE = "gtp-v1";
+const CACHE = "gtp-v2";
 const SHELL = ["./", "index.html", "style.css", "core.js", "app.js", "manifest.webmanifest", "icon.svg",
   "icons/icon-180.png", "icons/icon-192.png", "icons/icon-512.png"];
 self.addEventListener("install", (e) => { e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting())); });
