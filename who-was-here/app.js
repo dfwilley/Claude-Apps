@@ -46,12 +46,18 @@
 
   // ---------- network ----------
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-  async function getJSON(url, opts = {}, tries = 3) {
+  async function getJSON(url, opts = {}, tries = 4) {
     let last;
     for (let i = 0; i < tries; i++) {
       try {
         const r = await fetch(url, opts);
-        if (r.status === 429 || r.status >= 500) { last = new Error(`Server busy (${r.status})`); await sleep(1500 * (i + 1) + Math.random() * 500); continue; }
+        if (r.status === 429 || r.status >= 500) {
+          // Wikidata says how long to wait when it's busy ("Retry-After"); honor it.
+          const after = parseInt(r.headers.get("Retry-After") || "", 10);
+          last = new Error(`The history service is busy (${r.status}). Try again in a minute.`);
+          if (i < tries - 1) await sleep(Number.isFinite(after) ? Math.min(after, 60) * 1000 + 500 : 2000 * (i + 1) + Math.random() * 800);
+          continue;
+        }
         if (!r.ok) throw new Error(`Lookup failed (${r.status})`);
         return await r.json();
       } catch (e) { last = e; if (search && search.cancelled) throw e; await sleep(800 * (i + 1)); }
@@ -77,8 +83,10 @@
     const c = code.trim();
     if (W.parseLatLon(c)) return geocode(c);
     if (/^[A-Za-z0-9-]{3,4}$/.test(c)) {
-      const rows = await sparql(W.airportQuery(c));
-      if (rows.length) return { coord: W.parsePoint(rows[0].coord.value), name: `${c.toUpperCase()} · ${rows[0].aLabel.value}` };
+      for (const q of W.airportQueries(c)) {
+        const rows = await sparql(q);
+        if (rows.length) return { coord: W.parsePoint(rows[0].coord.value), name: `${c.toUpperCase()} · ${rows[0].aLabel.value}` };
+      }
     }
     return geocode(/airport|field|airpark/i.test(c) ? c : c + " airport");
   }
@@ -179,7 +187,7 @@
         if (Date.now() - lastPaint > 1500) { lastPaint = Date.now(); rebuildStops(); renderStopsLive(); } else renderProgress();
       }
     };
-    await Promise.all([worker(), worker(), worker()]);
+    await Promise.all([worker(), worker()]); // Wikidata allows a few lookups at a time per person
     if (search.cancelled) throw new Error("cancelled");
   }
 

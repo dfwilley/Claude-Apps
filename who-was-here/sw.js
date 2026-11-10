@@ -1,6 +1,6 @@
 // Who Was Here: the app opens without a signal once loaded (saved trips and picks still show; new searches need a connection).
 // Tries the network first so updates arrive.
-const CACHE = "wwh-v1";
+const CACHE = "wwh-v2";
 const SHELL = ["./", "index.html", "style.css", "core.js", "app.js", "manifest.webmanifest", "icon.svg",
   "icons/icon-180.png", "icons/icon-192.png", "icons/icon-512.png", "vendor/leaflet/leaflet.js", "vendor/leaflet/leaflet.css"];
 self.addEventListener("install", (e) => { e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting())); });

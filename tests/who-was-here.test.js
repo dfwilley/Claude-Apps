@@ -61,11 +61,12 @@ const q = W.peopleQuery(KTUS, 20, 30);
 assert(q.includes('"Point(-110.94100 32.11610)"^^geo:wktLiteral'));
 assert(q.includes('wikibase:radius "20.0"') && q.includes(">= 30"));
 const pq = W.placesQuery(KTUS, 20, 8);
-for (const t of [q, pq, W.airportQuery("ktus")]) {
+for (const t of [q, pq, ...W.airportQueries("ktus")]) {
   assert.equal((t.match(/{/g) || []).length, (t.match(/}/g) || []).length, "braces balanced");
   assert.equal((t.match(/\(/g) || []).length, (t.match(/\)/g) || []).length, "parens balanced");
 }
-assert(W.airportQuery(" k-tus ").includes('"KTUS"'));
+assert(W.airportQueries(" k-tus ")[0].includes('wdt:P239 "KTUS"') && W.airportQueries("E60")[1].includes('wdt:P240 "E60"'));
+assert(q.includes('"en,mul,') && pq.includes("P1082"), "shared-language names and no towns");
 
 // Classification of places
 const cls = (label, description, types, extra = {}) => W.classifyPlace({ label, description, types, ...extra });
@@ -79,6 +80,11 @@ assert.deepEqual(cls("Casa Grande", "city in Pinal County, Arizona, United State
 assert.deepEqual(cls("Santa Cruz River", "river in Arizona", ["river"]), []);
 assert.deepEqual(cls("University of Arizona", "public university in Tucson", ["public university"]), []);
 assert(cls("Marksburg", "castle in Braubach, Germany", ["castle"], { heritage: true }).includes("landmark"));
+assert.deepEqual(cls("Liestal", "town in, and capital of, the Swiss canton of Basel-Country", ["municipality of Switzerland", "cantonal capital of Switzerland"], { heritage: true }), [], "heritage town is not a stop");
+assert(cls("2011 Tucson shooting", "Casas Adobes Safeway shooting", ["mass shooting"]).includes("event"));
+assert.deepEqual(cls("Silingi", "historical ethnical group of Germania", ["historical ethnic group"]), []);
+assert(cls("Augusta Raurica", "archaeological site and former Roman colony town", ["archaeological site", "Roman city"], { heritage: true }).includes("landmark"));
+assert(cls("Air France Flight 296", "aviation accident at Habsheim air show", ["aviation accident"]).includes("aviation"));
 assert(cls("Lorelei", "rock on the Rhine", ["rock formation"], { heritage: true }).includes("landmark"), "heritage counts");
 assert(cls("USS Arizona Memorial", "memorial at Pearl Harbor", ["memorial"]).includes("aviation"));
 assert(cls("1943 Rhine crash", "aviation accident", ["aviation accident"], { hasDate: true }).includes("event"));

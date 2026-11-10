@@ -100,20 +100,22 @@
     return out;
   }
 
-  // How each corridor width is searched: query circles 1.25× the corridor, spaced 1.5× apart, so every
-  // spot within the corridor is inside at least one circle.
+  // How each corridor width is searched. Any spot within r of the route is within r of some route point,
+  // and every route point is within half a spacing of a search center, so circles of r + spacing/2 cover
+  // the whole corridor, whatever the shape of the road.
   function searchPlan(path, corridorMi, maxPoints = 160) {
     const r = Math.max(1, corridorMi * KM_PER_MI);
-    let radius = r * 1.25, spacing = r * 1.5;
+    const radius = Math.min(r * 1.75, Math.max(60, r * 1.25));
+    let spacing = 2 * (radius - r);
     let pts = samplePath(path, spacing);
-    let thinned = false;
+    let thinned = false, radiusKm = radius;
     if (pts.length > maxPoints) {
       spacing = pathLengthKm(path) / (maxPoints - 1);
-      radius = Math.max(radius, spacing * 0.75);
       pts = samplePath(path, spacing);
+      radiusKm = Math.min(r + spacing / 2, 80);
       thinned = true;
     }
-    return { points: pts, radiusKm: Math.min(radius, 60), spacingKm: spacing, thinned };
+    return { points: pts, radiusKm, spacingKm: spacing, thinned };
   }
 
   // Fame levels: minimum number of Wikipedia language editions an item must have.
@@ -138,35 +140,32 @@ OPTIONAL { ?person wdt:P570 ?died . }
 BIND(EXISTS { ?person wdt:P106 ?occ . FILTER(?occ IN (wd:Q2095549, wd:Q11631)) } AS ?aviator)
 BIND(EXISTS { ?person wdt:P241 ?branch . FILTER(?branch IN (wd:Q11220, wd:Q172771)) } AS ?navy)
 OPTIONAL { ?article schema:about ?person ; schema:isPartOf <https://en.wikipedia.org/> . }
-SERVICE wikibase:label { bd:serviceParam wikibase:language "en,de,fr,nl,es,no" . }
+SERVICE wikibase:label { bd:serviceParam wikibase:language "en,mul,de,fr,nl,es,no,it" . }
 } ORDER BY DESC(?links) LIMIT ${limit}`;
   }
 
   // Things with a map location: landmarks, museums, battles, air bases...
-  function placesQuery(p, radiusKm, minLinks, limit = 400) {
+  function placesQuery(p, radiusKm, minLinks, limit = 600) {
     return `SELECT ?item ?itemLabel ?itemDescription ?coord ?links ?typeLabel ?heritage ?date ?start ?article WHERE {
 SERVICE wikibase:around { ?item wdt:P625 ?coord . bd:serviceParam wikibase:center ${pointLiteral(p)} ; wikibase:radius "${radiusKm.toFixed(1)}" . }
 ?item wikibase:sitelinks ?links .
 FILTER(?links >= ${minLinks})
 FILTER NOT EXISTS { ?item wdt:P31 wd:Q5 . }
+FILTER NOT EXISTS { ?item wdt:P1082 ?population . }
 OPTIONAL { ?item wdt:P31 ?type . }
 OPTIONAL { ?item wdt:P1435 ?heritage . }
 OPTIONAL { ?item wdt:P585 ?date . }
 OPTIONAL { ?item wdt:P580 ?start . }
 OPTIONAL { ?article schema:about ?item ; schema:isPartOf <https://en.wikipedia.org/> . }
-SERVICE wikibase:label { bd:serviceParam wikibase:language "en,de,fr,nl,es,no" . }
+SERVICE wikibase:label { bd:serviceParam wikibase:language "en,mul,de,fr,nl,es,no,it" . }
 } LIMIT ${limit}`;
   }
 
-  // Airports by ICAO (KTUS), IATA (TUS) or FAA code (E60).
-  function airportQuery(code) {
+  // Airports: one quick query per code system, tried in order ICAO (KTUS), FAA (E60), IATA (TUS).
+  // (One combined query with UNION was very slow on the query service.)
+  function airportQueries(code) {
     const c = String(code).trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
-    return `SELECT ?a ?aLabel ?coord ?kind WHERE {
-VALUES ?code { "${c}" }
-{ ?a wdt:P239 ?code . BIND(1 AS ?kind) } UNION { ?a wdt:P240 ?code . BIND(2 AS ?kind) } UNION { ?a wdt:P238 ?code . BIND(3 AS ?kind) }
-?a wdt:P625 ?coord .
-SERVICE wikibase:label { bd:serviceParam wikibase:language "en" . }
-} ORDER BY ?kind LIMIT 3`;
+    return ["P239", "P240", "P238"].map((prop) => `SELECT ?a ?aLabel ?coord WHERE { ?a wdt:${prop} "${c}" ; wdt:P625 ?coord . SERVICE wikibase:label { bd:serviceParam wikibase:language "en,mul" . } } LIMIT 1`);
   }
 
   // "Point(lon lat)" → [lat, lon]
@@ -194,9 +193,11 @@ SERVICE wikibase:label { bd:serviceParam wikibase:language "en" . }
 
   // ---- Sorting things into the four kinds of stops ----
   const AVIATION = /\b(air ?force|air base|airbase|air station|airfield|air field|aerodrome|naval|navy|aviation|aviator|aircraft|aeroplane|airplane|aerospace|air museum|flight museum|space ?(center|centre|museum|flight)|airship|zeppelin|boneyard|warship|battleship|aircraft carrier|submarine|destroyer|cruiser|frigate|shipwreck|naval battle|air crash|plane crash|air disaster|airliner|wright brothers|astronaut|test pilot|pilot|air raid|missile|rocket|seaplane|uss |hms )/i;
-  const EVENT = /\b(battle|siege|massacre|skirmish|raid|shootout|gunfight|disaster|earthquake|eruption|flood|explosion|crash|accident|derailment|bombing|attack|treaty|riot|uprising|rebellion|revolt|assassination|incident|hurricane|tornado|shipwreck|sinking|fire of|great fire|armistice|surrender|ambush|duel|robbery|heist|strike of|first flight)\b/i;
+  const EVENT = /\b(battle|siege|massacre|skirmish|raid|shootout|gunfight|disaster|earthquake|eruption|flood|explosion|crash|accident|derailment|bombing|attack|treaty|riot|uprising|rebellion|revolt|assassination|incident|shooting|hurricane|tornado|shipwreck|sinking|fire of|great fire|armistice|surrender|ambush|duel|robbery|heist|strike of|first flight)\b/i;
   const LANDMARK = /\b(museum|historic|historical|history|monument|memorial|fort|fortress|presidio|mission|castle|palace|cathedral|basilica|abbey|monastery|convent|minster|ruins?|archaeological|landmark|birthplace|boyhood home|house museum|tomb|mausoleum|cemetery|graveyard|observatory|lighthouse|old town|old city|plantation|pueblo|cliff dwelling|amphitheat(re|er)|roman|castle ruin|citadel|bridge|world heritage|heritage site|national park|national monument|battlefield|estate|manor|chateau|château|schloss|stave church|church|synagogue|mosque|temple|shrine|statue|opera house|theat(re|er)|library|courthouse|capitol|state house|mine|ghost town|trading post|stage ?coach|railroad depot|station museum)\b/i;
-  const SETTLEMENT = /\b(city|town|village|municipality|human settlement|commune|county|census-designated|borough|hamlet|unincorporated|neighbou?rhood|quarter|suburb|district|ortsteil|stadtteil|state|province|region|canton|country|island|river|lake|mountain|mountain range|hill|valley|bay|sea|ocean|stream|creek|desert|forest|road|highway|interstate|street|avenue|school|high school|university|college|company|business|enterprise|hotel|restaurant|shopping|store|hospital|stadium|arena|sports venue|golf|park and ride|bus station|railway station|train station|metro station|tram stop|airport)\b/i;
+  const SETTLEMENT = /\b(city|town|village|municipality|human settlement|commune|county|census-designated|borough|hamlet|unincorporated|neighbou?rhood|quarter|suburb|district|ortsteil|stadtteil|state|province|region|canton|country|island|river|lake|mountain|mountain range|hill|valley|bay|sea|ocean|stream|creek|desert|forest|road|highway|interstate|street|avenue|school|high school|university|college|company|business|enterprise|hotel|restaurant|shopping|store|hospital|stadium|arena|sports venue|golf|park and ride|bus station|railway station|train station|metro station|tram stop|tram system|airport)\b/i;
+  // Never a place to stop, whatever their description says.
+  const NOT_A_STOP = /\b(ethnic group|organi[sz]ation|tournament|song contest|supermarket|retail chain|tram system|bus system|road|highway|sports league|sports team|club)\b/i;
 
   // types: array of type labels; heritage: true if it has a protected-heritage status.
   function classifyPlace(it) {
@@ -205,12 +206,13 @@ SERVICE wikibase:label { bd:serviceParam wikibase:language "en" . }
     const types = (it.types || []).join("; ");
     const all = `${label}; ${desc}; ${types}`;
     const kinds = [];
+    if (NOT_A_STOP.test(types)) return [];
     const settlementOnly = SETTLEMENT.test(types) && !LANDMARK.test(types) && !EVENT.test(types) && !AVIATION.test(types);
     const plainAirport = /\bairport\b/i.test(`${types}; ${desc}`) && !/\b(historic|former|military|air force|naval|museum|base)\b/i.test(all);
     if (AVIATION.test(all) && !plainAirport) kinds.push("aviation");
     if (EVENT.test(all)) kinds.push("event");
     if ((it.heritage || LANDMARK.test(`${desc}; ${types}`)) && !plainAirport) kinds.push("landmark");
-    if (settlementOnly && !it.heritage) return [];
+    if (settlementOnly) return []; // towns can carry heritage status too, but they aren't a "stop"
     return [...new Set(kinds)];
   }
 
@@ -345,7 +347,7 @@ SERVICE wikibase:label { bd:serviceParam wikibase:language "en" . }
 
   const api = {
     KM_PER_MI, FAME, haversine, interpolateGC, greatCirclePath, pathLengthKm, samplePath, distanceToPath, thinPath,
-    searchPlan, peopleQuery, placesQuery, airportQuery, parsePoint, parseLatLon, qid, year, yearText,
+    searchPlan, peopleQuery, placesQuery, airportQueries, parsePoint, parseLatLon, qid, year, yearText,
     classifyPlace, classifyPerson, mergePeopleRows, mergePlaceRows, buildStops, sortStops, rolesText, lifeText,
     kmToMi, miText, shareText,
   };
