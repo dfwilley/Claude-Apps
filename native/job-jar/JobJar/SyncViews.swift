@@ -202,14 +202,14 @@ struct DevicesTab: View {
             Button { linking = true } label: { Label("Link a kid's device", systemImage: "plus.circle.fill").bold() }
                 .disabled(store.data.kids.isEmpty)
                 .accessibilityIdentifier("linkDevice")
+                .sheet(isPresented: $linking, onDismiss: { sync.endOffer() }) {
+                    LinkDeviceSheet().environmentObject(store).environmentObject(sync)
+                }
+                .confirmationDialog("Unlink this device? Its chart is cleared the next time it connects. Stars and history stay here.", isPresented: Binding(get: { unlinkId != nil }, set: { if !$0 { unlinkId = nil } }), titleVisibility: .visible) {
+                    Button("Unlink", role: .destructive) { if let id = unlinkId { sync.unlink(id) }; unlinkId = nil }
+                }
         } header: { Text("Kid devices") } footer: {
             Text("A linked device shows only that kid's chart, with no grown-up settings. The two devices stay in step whenever they are on the same Wi-Fi with The Job Jar! open on both. Nothing goes over the internet. If one is out of reach, it catches up next time.")
-        }
-        .sheet(isPresented: $linking, onDismiss: { sync.endOffer() }) {
-            LinkDeviceSheet().environmentObject(store).environmentObject(sync)
-        }
-        .confirmationDialog("Unlink this device? Its chart is cleared the next time it connects. Stars and history stay here.", isPresented: Binding(get: { unlinkId != nil }, set: { if !$0 { unlinkId = nil } }), titleVisibility: .visible) {
-            Button("Unlink", role: .destructive) { if let id = unlinkId { sync.unlink(id) }; unlinkId = nil }
         }
     }
 
