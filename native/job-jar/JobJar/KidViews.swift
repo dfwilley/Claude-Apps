@@ -4,6 +4,7 @@ private func starsText(_ n: Int) -> String { String(repeating: "⭐", count: max
 
 struct HomeView: View {
     @EnvironmentObject var store: JarStore
+    @EnvironmentObject var sync: SyncHub
     @EnvironmentObject var ui: UIState
 
     var body: some View {
@@ -12,6 +13,7 @@ struct HomeView: View {
                 Image("Logo").resizable().frame(width: 44, height: 44).clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
                 Text("The Job Jar!").font(.system(size: 28, weight: .black, design: .rounded)).lineLimit(1).minimumScaleFactor(0.7)
                 Spacer()
+                if sync.isKid { KidDeviceButton() } else {
                 Button {
                     ui.askGrownUp(store, "Grown-ups only") {
                         GrownUpView.startOnCheck = !store.data.waitingList().isEmpty
@@ -22,6 +24,7 @@ struct HomeView: View {
                         .padding(.horizontal, 12).padding(.vertical, 9).background(Theme.card, in: RoundedRectangle(cornerRadius: 14))
                 }
                 .accessibilityIdentifier("grownups")
+                }
             }
             .padding(.horizontal, 16).padding(.vertical, 10)
 
@@ -84,6 +87,7 @@ enum KidTab { case today, prizes, week }
 
 struct KidView: View {
     @EnvironmentObject var store: JarStore
+    @EnvironmentObject var sync: SyncHub
     @EnvironmentObject var ui: UIState
     let kidId: String
     @State private var tab: KidTab = .today
@@ -94,10 +98,14 @@ struct KidView: View {
             let color = Color(hex: kid.color)
             VStack(spacing: 0) {
                 HStack(spacing: 12) {
-                    Button { ui.screen = .home } label: {
-                        Image(systemName: "house.fill").font(.title2).frame(width: 56, height: 56).background(Theme.card, in: Circle())
+                    if sync.isKid && store.data.kids.count == 1 {
+                        KidDeviceButton()
+                    } else {
+                        Button { ui.screen = .home } label: {
+                            Image(systemName: "house.fill").font(.title2).frame(width: 56, height: 56).background(Theme.card, in: Circle())
+                        }
+                        .accessibilityLabel("Home").accessibilityIdentifier("home")
                     }
-                    .accessibilityLabel("Home").accessibilityIdentifier("home")
                     Button { picking = true } label: { KidAvatar(kid: kid, size: 54) }
                         .accessibilityLabel("Change my picture").accessibilityIdentifier("myPicture")
                     Text(kid.name).font(.system(size: 28, weight: .black, design: .rounded)).foregroundStyle(color).lineLimit(1).minimumScaleFactor(0.6)
@@ -129,7 +137,7 @@ struct KidView: View {
                 .padding(.horizontal, 12).padding(.top, 10).padding(.bottom, 6)
                 .background(.ultraThinMaterial)
             }
-            .sheet(isPresented: $picking) { MyPictureSheet(kidId: kidId).environmentObject(store) }
+            .sheet(isPresented: $picking) { MyPictureSheet(kidId: kidId).environmentObject(store).environmentObject(sync) }
         }
     }
 
@@ -150,6 +158,7 @@ struct KidView: View {
 
 struct TodayGrid: View {
     @EnvironmentObject var store: JarStore
+    @EnvironmentObject var sync: SyncHub
     @EnvironmentObject var ui: UIState
     let kid: Kid
     @State private var asking: Chore?
@@ -174,7 +183,7 @@ struct TodayGrid: View {
         }
         .sheet(item: $asking) { c in
             UndoSheet(chore: c, status: store.data.status(kid.id, c.id, store.today)) {
-                store.data.undo(kid.id, c.id, store.today)
+                sync.perform(SyncOp("undo", kid: kid.id, chore: c.id, day: dayKey(store.today)))
                 asking = nil
             } keep: { asking = nil }
             .presentationDetents([.medium])
@@ -187,7 +196,7 @@ struct TodayGrid: View {
             store.say(st == .done ? "\(c.name). Done!" : "\(c.name). Waiting for a grown-up.")
             return
         }
-        let got = store.data.markDone(kid.id, c.id, store.today)
+        let got = sync.perform(SyncOp("done", kid: kid.id, chore: c.id, day: dayKey(store.today)))
         store.ding()
         if store.data.progress(kid.id, store.today).allDone {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { store.fanfare() }
@@ -275,6 +284,7 @@ struct UndoSheet: View {
 
 struct PrizesGrid: View {
     @EnvironmentObject var store: JarStore
+    @EnvironmentObject var sync: SyncHub
     @EnvironmentObject var ui: UIState
     let kid: Kid
 
@@ -318,7 +328,12 @@ struct PrizesGrid: View {
                 ProgressView(value: Double(min(kid.stars, r.cost)), total: Double(r.cost)).tint(Theme.gold).scaleEffect(x: 1, y: 3)
             }
             Text(ready ? "You have enough!" : s.money ? "\(s.amountText(min(kid.stars, r.cost))) of \(s.amountText(r.cost))" : "\(min(kid.stars, r.cost)) of \(r.cost) ⭐").font(.headline).foregroundStyle(.secondary)
-            if ready {
+            if store.data.asked(kid.id, r.id) {
+                Text("⏳ Waiting for a grown-up").font(.headline.weight(.heavy)).padding(.horizontal, 14).padding(.vertical, 10)
+                    .background(Theme.waitSoft, in: Capsule())
+                    .accessibilityIdentifier("asked-\(r.name)")
+                Button("Never mind") { sync.perform(SyncOp("unask", kid: kid.id, reward: r.id)) }.font(.subheadline.bold())
+            } else if ready {
                 Button { get(r) } label: {
                     Text("Get it!").font(.title2.weight(.black)).foregroundStyle(Color(hex: "#3A2400")).padding(.horizontal, 26).padding(.vertical, 12)
                         .background(Theme.gold, in: Capsule())
@@ -338,6 +353,14 @@ struct PrizesGrid: View {
     }
 
     private func get(_ r: Reward) {
+        if sync.isKid {
+            // On a kid's own device the request goes to the grown-up's device for a yes or no.
+            sync.perform(SyncOp("ask", kid: kid.id, reward: r.id))
+            store.ding()
+            ui.celebrate("🙋", "You asked!", "A grown-up will say yes or no")
+            store.say("You asked for \(r.name)! A grown-up will say yes or no.")
+            return
+        }
         store.say("Ask a grown-up for \(r.name)!")
         let kidId = kid.id
         ui.askGrownUp(store, "Grown-up: OK \(r.name) for \(kid.name)?") {

@@ -2,7 +2,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 enum GUTab: String, CaseIterable, Identifiable {
-    case check = "✅ Check", kids = "👧 Kids", chores = "🧹 Chores", rewards = "🎁 Rewards", history = "📜 History", settings = "⚙️ Settings"
+    case check = "✅ Check", kids = "👧 Kids", chores = "🧹 Chores", rewards = "🎁 Rewards", history = "📜 History", devices = "📱 Devices", settings = "⚙️ Settings"
     var id: String { rawValue }
 }
 
@@ -25,7 +25,7 @@ struct GrownUpView: View {
     @State private var alertText: String?
 
     private var tabs: [GUTab] {
-        let showCheck = store.data.settings.needsApproval || !store.data.waitingList().isEmpty
+        let showCheck = store.data.settings.needsApproval || !store.data.waitingList().isEmpty || !store.data.requests.isEmpty
         return GUTab.allCases.filter { $0 != .check || showCheck }
     }
 
@@ -38,8 +38,8 @@ struct GrownUpView: View {
                             Button { tab = t } label: {
                                 HStack(spacing: 4) {
                                     Text(t.rawValue).font(.headline).lineLimit(1).minimumScaleFactor(0.8)
-                                    if t == .check, store.data.waitingList().count > 0 {
-                                        Text("\(store.data.waitingList().count)").font(.caption.bold()).foregroundStyle(.white)
+                                    if t == .check, store.data.waitingList().count + store.data.requests.count > 0 {
+                                        Text("\(store.data.waitingList().count + store.data.requests.count)").font(.caption.bold()).foregroundStyle(.white)
                                             .padding(.horizontal, 7).padding(.vertical, 2).background(Theme.red, in: Capsule())
                                     }
                                 }
@@ -101,6 +101,7 @@ struct GrownUpView: View {
         List {
             switch tab {
             case .check: checkTab
+            case .devices: DevicesTab()
             case .kids: kidsTab
             case .chores: choresTab
             case .rewards: rewardsTab
@@ -117,6 +118,30 @@ struct GrownUpView: View {
 
     @ViewBuilder private var checkTab: some View {
         let waiting = store.data.waitingList()
+        if !store.data.requests.isEmpty {
+            Section {
+                ForEach(store.data.requests) { q in
+                    if let k = store.data.kid(q.kid), let r = store.data.reward(q.reward) {
+                        HStack(spacing: 12) {
+                            Text(r.pic).font(.system(size: 34))
+                            VStack(alignment: .leading) {
+                                Text(r.name).font(.headline)
+                                Text("\(k.name) is asking · costs \(store.data.settings.amountShort(r.cost))").font(.subheadline).foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Button { store.data.answer(q.id, yes: false) } label: { Image(systemName: "xmark").font(.headline).padding(10) }
+                                .buttonStyle(.bordered).accessibilityLabel("Not now")
+                            Button {
+                                if store.data.answer(q.id, yes: true) { store.fanfare() }
+                            } label: { Text("Yes!").font(.headline) }
+                                .buttonStyle(.borderedProminent).tint(Theme.gold).accessibilityIdentifier("yesReward")
+                        }
+                    }
+                }
+            } header: { Text("Rewards asked for") } footer: {
+                Text("Sent from a kid's own device. “Yes!” takes the cost out of their jar and cheers on their device.")
+            }
+        }
         Section {
             if waiting.isEmpty {
                 Text("👍 Nothing waiting to be checked.").foregroundStyle(.secondary)

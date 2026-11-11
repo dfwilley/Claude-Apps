@@ -23,7 +23,28 @@ enum DemoData {
         // Ava has two done today
         for item in d.choresFor(ava.id, today).prefix(2) { d.markDone(ava.id, item.chore.id, today) }
         d.adjust(ava.id, 2, reason: "Helped Granddad wash the airplane")
+        d.adjust(ben.id, 6, reason: "Helped rake leaves")
         s.data = d
+    }
+
+    /// Pretends Ben's iPad is linked and Ben asked for a reward from it (grown-up's device screenshots).
+    static func addLinkedDevice(_ s: JarStore, _ hub: SyncHub) {
+        guard let ben = s.data.kids.first(where: { $0.name == "Ben" }), let story = s.data.rewards.first else { return }
+        hub.config.role = "parent"
+        hub.config.familyId = "demo"
+        hub.config.devices = [LinkedDevice(id: "demo-ipad", name: "iPad", token: "demo", kidIds: [ben.id])]
+        s.data.ask(ben.id, story.id)
+    }
+
+    /// Turns the sample into a kid's device linked for Ben: only Ben's chart, no grown-up settings.
+    static func makeKidDevice(_ s: JarStore, _ hub: SyncHub) {
+        guard let ben = s.data.kids.first(where: { $0.name == "Ben" }) else { return }
+        s.data = s.data.slice(for: [ben.id])
+        hub.config.role = "kid"
+        hub.config.familyId = "demo"
+        hub.config.token = "demo"
+        hub.config.parentName = "iPhone"
+        hub.kidLink = .linked
     }
 
     /// A drawn smiley "photo" so screenshots show a picture avatar without using anyone's real photo.

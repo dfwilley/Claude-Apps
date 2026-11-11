@@ -27,6 +27,8 @@ targets:
         UIFileSharingEnabled: true
         LSSupportsOpeningDocumentsInPlace: true
         ITSAppUsesNonExemptEncryption: false
+        NSLocalNetworkUsageDescription: The Job Jar! uses your Wi-Fi to keep a grown-up's device and a kid's device in step. Nothing is sent over the internet.
+        NSBonjourServices: [_jobjar._tcp, _jobjar._udp]
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.dfwilley.jobjar

@@ -54,6 +54,19 @@ final class ScreenshotTests: XCTestCase {
         pin(app, "1234")
         snap(app, "8-grownups-kids")
 
+        // Linked kid devices, and a reward Ben asked for from his own device
+        app.buttons["gu-devices"].tap(); sleep(1)
+        snap(app, "22-devices")
+        app.buttons["linkDevice"].tap(); sleep(1)
+        snap(app, "23-whose-device")
+        if app.buttons["linkKid-Ava"].waitForExistence(timeout: 3) { app.buttons["linkKid-Ava"].tap(); sleep(1) }
+        snap(app, "24-link-code")
+        app.buttons["linkDone"].tap(); sleep(1)
+        app.buttons["gu-check"].tap(); sleep(1)
+        snap(app, "25-reward-asked")
+        if app.buttons["yesReward"].firstMatch.waitForExistence(timeout: 3) { app.buttons["yesReward"].firstMatch.tap(); sleep(1) }
+        app.buttons["gu-kids"].tap(); sleep(1)
+
         app.buttons["gu-chores"].tap(); sleep(1)
         snap(app, "9-grownups-chores")
         app.staticTexts["Feed the dog"].firstMatch.tap(); sleep(1)
@@ -131,5 +144,38 @@ final class ScreenshotTests: XCTestCase {
         app.buttons["guDone"].tap(); sleep(1)
         XCTAssertTrue(app.buttons["kid-Mia"].waitForExistence(timeout: 5))
         snap(app, "0-first-home")
+    }
+
+    /// A kid's own device: only that kid's chart, no grown-up settings.
+    func testKidDevice() {
+        continueAfterFailure = true
+        let app = XCUIApplication()
+        app.launchArguments = ["-demoKid"]
+        app.launch()
+        XCTAssertTrue(app.buttons["tab-Prizes"].waitForExistence(timeout: 10))
+        XCTAssertFalse(app.buttons["grownups"].exists)
+        XCTAssertFalse(app.buttons["kid-Ava"].exists)
+        snap(app, "30-kid-device-today")
+        app.descendants(matching: .any)["chore-Pick up toys"].tap(); sleep(3)
+        app.buttons["tab-Prizes"].tap(); sleep(1)
+        snap(app, "31-kid-device-prizes")
+        let get = app.buttons["get-Extra story time"]
+        if get.waitForExistence(timeout: 3) { get.tap(); sleep(3) }
+        snap(app, "32-kid-device-asked")
+        app.buttons["kidDeviceMenu"].tap(); sleep(1)
+        snap(app, "33-kid-device-menu")
+    }
+
+    func testKidLinkScreen() {
+        let app = XCUIApplication()
+        app.launchArguments = ["-freshStart"]
+        app.launch()
+        XCTAssertTrue(app.buttons["kidDevice"].waitForExistence(timeout: 10))
+        app.swipeUp()
+        app.buttons["kidDevice"].tap(); sleep(1)
+        XCTAssertTrue(app.textFields["linkCode"].waitForExistence(timeout: 5))
+        snap(app, "34-kid-link-screen")
+        app.buttons["Back"].tap(); sleep(1)
+        XCTAssertTrue(app.buttons["start"].waitForExistence(timeout: 5))
     }
 }

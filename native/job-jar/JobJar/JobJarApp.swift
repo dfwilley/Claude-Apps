@@ -3,26 +3,35 @@ import SwiftUI
 @main
 struct JobJarApp: App {
     @StateObject private var store: JarStore
+    @StateObject private var sync: SyncHub
     @StateObject private var ui = UIState()
 
     init() {
         let args = ProcessInfo.processInfo.arguments
-        if args.contains("-demoData") {
-            // Sample family, not saved, used by the automated screenshot test.
-            let s = JarStore(file: nil)
+        let s: JarStore
+        let hub: SyncHub
+        if args.contains("-demoData") || args.contains("-demoKid") {
+            // Sample family, not saved, used by the automated screenshot test. No networking.
+            s = JarStore(file: nil)
             DemoData.seed(s)
-            _store = StateObject(wrappedValue: s)
+            hub = SyncHub(store: s, file: nil, dry: true)
+            if args.contains("-demoKid") { DemoData.makeKidDevice(s, hub) } else { DemoData.addLinkedDevice(s, hub) }
         } else if args.contains("-freshStart") {
-            _store = StateObject(wrappedValue: JarStore(file: nil))
+            s = JarStore(file: nil)
+            hub = SyncHub(store: s, file: nil, dry: true)
         } else {
-            _store = StateObject(wrappedValue: JarStore(file: JarStore.documentsFile()))
+            s = JarStore(file: JarStore.documentsFile())
+            hub = SyncHub(store: s, file: SyncHub.documentsFile(), dry: false)
         }
+        _store = StateObject(wrappedValue: s)
+        _sync = StateObject(wrappedValue: hub)
     }
 
     var body: some Scene {
         WindowGroup {
             RootView()
                 .environmentObject(store)
+                .environmentObject(sync)
                 .environmentObject(ui)
                 .tint(Theme.purple)
         }
@@ -72,6 +81,7 @@ final class UIState: ObservableObject {
 
 struct RootView: View {
     @EnvironmentObject var store: JarStore
+    @EnvironmentObject var sync: SyncHub
     @EnvironmentObject var ui: UIState
     @Environment(\.scenePhase) private var phase
     private let tick = Timer.publish(every: 30, on: .main, in: .common).autoconnect()
@@ -80,7 +90,9 @@ struct RootView: View {
         ZStack {
             Theme.bg.ignoresSafeArea()
             Group {
-                if !store.data.setupDone {
+                if sync.isKid {
+                    kidDevice
+                } else if !store.data.setupDone {
                     WelcomeView()
                 } else {
                     switch ui.screen {
@@ -101,12 +113,40 @@ struct RootView: View {
         .fontDesign(.rounded)
         .sheet(item: $ui.gate) { g in GateView(gate: g).environmentObject(store) }
         .onReceive(tick) { _ in store.refreshDay() }
-        .onChange(of: phase) { p in if p == .active { store.refreshDay() } }
+        .onChange(of: phase) { p in
+            if p == .active { store.refreshDay(); sync.appActive() }
+            if p == .background { sync.appInactive() }
+        }
+        .onChange(of: store.data) { _ in sync.dataChanged() }
+        .onAppear {
+            sync.onReward = { r in
+                store.fanfare()
+                ui.celebrate(r.pic, r.name + "!", "A grown-up said yes!", big: true)
+                store.say("Hooray! \(r.name)!")
+            }
+            sync.onStars = { store.ding() }
+            sync.appActive()
+        }
+    }
+
+    /// A kid's device shows only that kid's chart (or a short list if siblings share the device).
+    @ViewBuilder private var kidDevice: some View {
+        let kids = store.data.kids
+        if !sync.config.isLinkedKid || kids.isEmpty {
+            KidLinkView(asSheet: false)
+        } else if kids.count == 1 {
+            KidView(kidId: kids[0].id)
+        } else if case .kid(let id) = ui.screen, store.data.kid(id) != nil {
+            KidView(kidId: id)
+        } else {
+            HomeView()
+        }
     }
 }
 
 struct WelcomeView: View {
     @EnvironmentObject var store: JarStore
+    @EnvironmentObject var sync: SyncHub
     @EnvironmentObject var ui: UIState
 
     var body: some View {
@@ -131,6 +171,17 @@ struct WelcomeView: View {
                 }
                 .accessibilityIdentifier("start")
                 Button("Skip the PIN for now") { finish() }.font(.headline)
+                Divider().padding(.vertical, 8)
+                Text("Setting up a kid's own iPad or iPhone? Link it to the grown-up's device and it will show only that kid's chart.")
+                    .font(.body).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                Button {
+                    sync.config.role = "kid"
+                } label: {
+                    Text("🧒 This is a kid's device").font(.title3.bold()).frame(maxWidth: 360).padding(.vertical, 14)
+                        .background(Theme.card, in: RoundedRectangle(cornerRadius: 18)).foregroundStyle(.primary)
+                        .overlay(RoundedRectangle(cornerRadius: 18).stroke(Theme.purple, lineWidth: 3))
+                }
+                .accessibilityIdentifier("kidDevice")
             }
             .padding(24)
             .frame(maxWidth: 560)
@@ -139,6 +190,7 @@ struct WelcomeView: View {
     }
 
     private func finish() {
+        sync.config.role = "parent"
         store.data.setupDone = true
         ui.screen = .grownUps
         GrownUpView.openAddKidOnAppear = true

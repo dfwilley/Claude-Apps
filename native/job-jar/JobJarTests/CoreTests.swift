@@ -147,4 +147,135 @@ final class CoreTests: XCTestCase {
         XCTAssertEqual(daysText([6, 0]), "Weekends")
         XCTAssertGreaterThan(JarStore.chime([784, 1175], step: 0.11).count, 1000)
     }
+
+    // MARK: linking a grown-up's device and a kid's device
+
+    func family() -> (AppData, Date) {
+        let thu = day(2026, 11, 5)
+        var s = AppData.starter()
+        s.settings.pin = "1234"
+        s.kids = [Kid(id: "a", name: "Ava", avatar: "🦊", color: "#f00", stars: 6, photo: ""), Kid(id: "b", name: "Ben", avatar: "🐻", color: "#00f", stars: 2)]
+        s.chores[5].kids = ["b"]          // only Ben feeds the dog
+        s.chores[4].kids = ["a", "b"]
+        s.markDone("a", s.chores[0].id, thu, now: thu)
+        s.markDone("b", s.chores[0].id, thu, now: thu)
+        return (s, thu)
+    }
+
+    func testKidDeviceGetsOnlyItsOwnKid() {
+        let (s, thu) = family()
+        let k = s.slice(for: ["a"])
+        XCTAssertEqual(k.kids.map(\.id), ["a"])
+        XCTAssertEqual(k.settings.pin, "", "the grown-up PIN stays off the kid's device")
+        XCTAssertTrue(k.setupDone)
+        XCTAssertEqual(k.chores.count, 5, "no dog chore: that one is Ben's")
+        XCTAssertEqual(k.chores.first { $0.id == s.chores[4].id }?.kids, ["a"])
+        XCTAssertNil(k.done[dayKey(thu)]?["b"])
+        XCTAssertEqual(k.status("a", s.chores[0].id, thu), .done)
+        XCTAssertTrue(k.log.allSatisfy { $0.kid == "a" })
+        XCTAssertEqual(k.log.count, 1)
+        XCTAssertEqual(k.rewards, s.rewards)
+        XCTAssertEqual(s.slice(for: ["a", "b"]).kids.count, 2)
+        XCTAssertTrue(s.slice(for: []).kids.isEmpty)
+    }
+
+    func testKidActionsReachTheGrownUpsDevice() {
+        let fam = family()
+        var parent = fam.0
+        let thu = fam.1
+        var pc = SyncConfig()
+        let dev = pc.link(deviceId: "ipad", name: "iPad", kidId: "a")
+        XCTAssertFalse(pc.familyId.isEmpty)
+        XCTAssertNotNil(pc.device("ipad", token: dev.token))
+        XCTAssertNil(pc.device("ipad", token: "guess"))
+        XCTAssertNil(pc.device("other", token: dev.token))
+
+        // The kid's device, out of reach of the grown-up's device
+        var kc = SyncConfig()
+        kc.role = "kid"; kc.token = dev.token
+        var kid = parent.slice(for: dev.kidIds)
+        let teeth = parent.chores[1].id
+        let op1 = SyncOp("done", kid: "a", chore: teeth, day: dayKey(thu), t: thu)
+        XCTAssertEqual(kid.apply(op1), 1)
+        kc.pending.append(op1)
+        let op2 = SyncOp("picture", kid: "a", avatar: "🦄", photo: "")
+        kid.apply(op2); kc.pending.append(op2)
+        XCTAssertEqual(kid.kid("a")?.stars, 8)
+
+        // Meanwhile the grown-up gives a bonus and adds a chore
+        parent.adjust("a", 3, reason: "Helped")
+        parent.chores.append(Chore(pic: "🪴", name: "Water plants"))
+
+        // Fresh slice arrives before the actions are confirmed: nothing the kid did is lost
+        kid = kc.merge(slice: parent.slice(for: dev.kidIds), acked: [])
+        XCTAssertEqual(kid.kid("a")?.stars, 6 + 1 + 3 + 1)
+        XCTAssertEqual(kid.status("a", teeth, thu), .done)
+        XCTAssertEqual(kid.kid("a")?.avatar, "🦄")
+        XCTAssertEqual(kid.chores.count, 6)
+        XCTAssertEqual(kc.pending.count, 2)
+
+        // The actions arrive (twice, as can happen on a shaky link) and are carried out once
+        var acked = pc.receive(kc.pending, from: dev, into: &parent)
+        acked = pc.receive(kc.pending, from: dev, into: &parent)
+        XCTAssertEqual(acked.count, 2)
+        XCTAssertEqual(parent.kid("a")?.stars, 6 + 1 + 3 + 1)
+        XCTAssertEqual(parent.kid("a")?.avatar, "🦄")
+        XCTAssertEqual(parent.status("a", teeth, thu), .done)
+        kid = kc.merge(slice: parent.slice(for: dev.kidIds), acked: acked)
+        XCTAssertTrue(kc.pending.isEmpty)
+        XCTAssertEqual(kid, parent.slice(for: dev.kidIds), "both devices now agree")
+
+        // A device can't act for a kid it isn't linked to
+        _ = pc.receive([SyncOp("done", kid: "b", chore: teeth, day: dayKey(thu))], from: dev, into: &parent)
+        XCTAssertEqual(parent.status("b", teeth, thu), .todo)
+
+        // With "grown-up checks first" on, a chore from the kid's device waits for the grown-up
+        parent.settings.needsApproval = true
+        let toys = parent.chores[2].id
+        _ = pc.receive([SyncOp("done", kid: "a", chore: toys, day: dayKey(thu))], from: dev, into: &parent)
+        XCTAssertEqual(parent.status("a", toys, thu), .waiting)
+        parent.approve("a", toys, dayKey(thu))
+        XCTAssertEqual(parent.slice(for: ["a"]).status("a", toys, thu), .done)
+
+        // A second kid on the same device
+        let again = pc.link(deviceId: "ipad", name: "iPad", kidId: "b")
+        XCTAssertEqual(again.kidIds, ["a", "b"])
+        XCTAssertEqual(again.token, dev.token)
+        XCTAssertEqual(pc.devices.count, 1)
+    }
+
+    func testAskingForARewardFromAKidsDevice() {
+        var parent = family().0
+        let story = parent.rewards[0].id   // costs 5
+        let ice = parent.rewards[3].id     // costs 15
+        XCTAssertFalse(parent.ask("a", ice), "not enough stars")
+        XCTAssertEqual(parent.apply(SyncOp("ask", kid: "a", reward: story)), 0)
+        XCTAssertTrue(parent.asked("a", story))
+        XCTAssertFalse(parent.ask("a", story), "only asked once")
+        XCTAssertEqual(parent.slice(for: ["a"]).requests.count, 1)
+        XCTAssertTrue(parent.slice(for: ["b"]).requests.isEmpty)
+        let before = parent.kid("a")!.stars
+        XCTAssertTrue(parent.answer(parent.requests[0].id, yes: true))
+        XCTAssertEqual(parent.kid("a")?.stars, before - 5)
+        XCTAssertTrue(parent.requests.isEmpty)
+        XCTAssertEqual(parent.log.first?.kind, "reward")
+
+        parent.adjust("a", 10)
+        let mid = parent.kid("a")!.stars
+        XCTAssertTrue(parent.ask("a", story))
+        XCTAssertFalse(parent.answer(parent.requests[0].id, yes: false))
+        XCTAssertEqual(parent.kid("a")?.stars, mid, "saying no costs nothing")
+        parent.ask("a", story)
+        parent.apply(SyncOp("unask", kid: "a", reward: story))
+        XCTAssertTrue(parent.requests.isEmpty)
+        parent.ask("a", story)
+        parent.removeKid("a")
+        XCTAssertTrue(parent.requests.isEmpty)
+
+        // Saved files from before linking existed still open
+        let old = try? JSONDecoder().decode(SyncConfig.self, from: Data("{}".utf8))
+        XCTAssertEqual(old?.role, "")
+        XCTAssertFalse(old?.isKid ?? true)
+        XCTAssertEqual(newPairCode().count, 6)
+    }
 }

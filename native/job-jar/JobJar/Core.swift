@@ -264,6 +264,8 @@ struct AppData: Codable, Equatable {
     var log: [LogEntry] = []
     var settings = Settings()
     var setupDone = false
+    /// Rewards a kid asked for from their own device, waiting for a grown-up's yes or no.
+    var requests: [RewardRequest] = []
 
     init() {}
 
@@ -291,6 +293,7 @@ struct AppData: Codable, Equatable {
         log = (try? c.decode([LogEntry].self, forKey: .log)) ?? []
         settings = (try? c.decode(Settings.self, forKey: .settings)) ?? Settings()
         setupDone = (try? c.decode(Bool.self, forKey: .setupDone)) ?? false
+        requests = (try? c.decode([RewardRequest].self, forKey: .requests)) ?? []
     }
 
     // MARK: lookups
@@ -438,6 +441,8 @@ struct AppData: Codable, Equatable {
             done[k] = done[k]?.filter { ids.contains($0.key) }
         }
         for i in chores.indices { chores[i].kids = chores[i].kids.filter { ids.contains($0) } }
+        let rewardIds = Set(rewards.map(\.id))
+        requests.removeAll { !ids.contains($0.kid) || !rewardIds.contains($0.reward) }
     }
 
     mutating func removeKid(_ kidId: String) {

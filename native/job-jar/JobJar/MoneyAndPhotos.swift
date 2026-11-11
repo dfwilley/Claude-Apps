@@ -198,6 +198,7 @@ struct PhotoImportButtons: View {
 /// Kids tap their own picture to change it: a photo, a picture file, or an animal.
 struct MyPictureSheet: View {
     @EnvironmentObject var store: JarStore
+    @EnvironmentObject var sync: SyncHub
     @Environment(\.dismiss) private var dismiss
     let kidId: String
 
@@ -210,11 +211,11 @@ struct MyPictureSheet: View {
                         HStack(spacing: 16) {
                             KidAvatar(kid: kid, size: 96)
                             if !kid.photo.isEmpty {
-                                Button("Remove photo") { store.data.kids[i].photo = "" }.buttonStyle(.bordered)
+                                Button("Remove photo") { sync.perform(SyncOp("picture", kid: kidId, photo: "")) }.buttonStyle(.bordered)
                             }
                         }
                         PhotoImportButtons { s in
-                            store.data.kids[i].photo = s
+                            sync.perform(SyncOp("picture", kid: kidId, photo: s))
                             store.say("Looking good!")
                             dismiss()
                         }
@@ -222,8 +223,7 @@ struct MyPictureSheet: View {
                         LazyVGrid(columns: [GridItem(.adaptive(minimum: 62), spacing: 8)], spacing: 8) {
                             ForEach(avatars, id: \.self) { a in
                                 Button {
-                                    store.data.kids[i].avatar = a
-                                    store.data.kids[i].photo = ""
+                                    sync.perform(SyncOp("picture", kid: kidId, avatar: a, photo: ""))
                                     dismiss()
                                 } label: {
                                     Text(a).font(.system(size: 40)).frame(maxWidth: .infinity, minHeight: 62)
