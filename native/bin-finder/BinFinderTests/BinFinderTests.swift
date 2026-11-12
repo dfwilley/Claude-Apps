@@ -30,6 +30,14 @@ final class BinFinderTests: XCTestCase {
         XCTAssertEqual(BinSearch.stem("ties"), "tie")
     }
 
+    func testSingularAndPluralFindEachOther() {
+        let power = [Bin(name: "Power", location: "Garage", code: "G-09", items: ["AA batteries", "Hose clamps", "Paint brushes"])]
+        for q in ["battery", "batteries", "aa battery", "clamp", "hose clamps", "brush", "brushes"] {
+            XCTAssertEqual(BinSearch.search(q, in: power).count, 1, q)
+        }
+        XCTAssertEqual(BinSearch.search("butter", in: power).count, 0)
+    }
+
     func testWordsSeenInPhotosAreSearchable() {
         let hits = BinSearch.search("camco", in: sample)
         XCTAssertEqual(hits.first?.bin.code, "RR-01")

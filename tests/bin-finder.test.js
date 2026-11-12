@@ -18,6 +18,10 @@ assert.equal(S.codePrefix("Garage"), "G"); assert.equal(S.codePrefix("RV Rear Ba
 assert.equal(S.nextCode("Garage", bins), "G-03"); assert.equal(S.nextCode("Shed", bins), "S-01");
 assert.deepEqual(S.photoWords("LEVELERS  www.camco.com  lll 1234 Aeroshell 15W-50 nnm"), ["levelers", "camco", "aeroshell"]);
 assert.match(S.isoNow(new Date("2026-10-31T10:00:00.123Z")), /^2026-10-31T10:00:00Z$/);
+// Singular and plural find each other
+const power = [{ name: "Power", location: "Garage", code: "G-09", items: ["AA batteries", "Hose clamps", "Paint brushes"] }];
+for (const q of ["battery", "batteries", "aa battery", "clamp", "hose clamps", "brush", "brushes"]) assert.equal(S.search(q, power).length, 1, q);
+assert.equal(S.search("butter", power).length, 0);
 // Spoken searches
 assert.deepEqual(S.terms("Where's my spare fuses?"), ["spare", "fus"]);
 assert.equal(S.search("where did I put the drill bits", bins)[0].bin.code, "G-02");

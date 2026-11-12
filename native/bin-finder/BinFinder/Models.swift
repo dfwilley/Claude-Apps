@@ -74,6 +74,16 @@ enum BinSearch {
         return w
     }
 
+    /// Does the text contain the search word? Also compares against the text with each word made singular,
+    /// so "battery" and "batteries" find each other.
+    static func has(_ text: String, _ t: String) -> Bool {
+        let n = normalize(text)
+        if n.contains(t) { return true }
+        let singular = n.split(whereSeparator: { !($0.isLetter || $0.isNumber || $0 == "-" || $0 == ".") })
+            .map { stem(String($0)) }.joined(separator: " ")
+        return singular.contains(t)
+    }
+
     static func terms(_ query: String) -> [String] {
         let words = normalize(query).replacingOccurrences(of: "'", with: "").replacingOccurrences(of: "’", with: "")
             .split(whereSeparator: { !($0.isLetter || $0.isNumber || $0 == "-" || $0 == ".") })
@@ -94,12 +104,12 @@ enum BinSearch {
             var reasons: [String] = []
             func add(_ r: String) { if !reasons.contains(r) { reasons.append(r) } }
             for t in ts {
-                if normalize(bin.name).contains(t) { score += 6; matched += 1; add("Name"); continue }
-                if let item = bin.items.first(where: { normalize($0).contains(t) }) { score += 5; matched += 1; add("Item: \(item)"); continue }
+                if has(bin.name, t) { score += 6; matched += 1; add("Name"); continue }
+                if let item = bin.items.first(where: { has($0, t) }) { score += 5; matched += 1; add("Item: \(item)"); continue }
                 if normalize(bin.code).contains(t) { score += 5; matched += 1; add("Label \(bin.code)"); continue }
-                if normalize(bin.location).contains(t) { score += 2; matched += 1; add("Location: \(bin.location)"); continue }
-                if normalize(bin.notes).contains(t) { score += 2; matched += 1; add("Notes"); continue }
-                if let w = bin.autoWords.first(where: { normalize($0).contains(t) }) { score += 1; matched += 1; add("Seen in photo: \(w)"); continue }
+                if has(bin.location, t) { score += 2; matched += 1; add("Location: \(bin.location)"); continue }
+                if has(bin.notes, t) { score += 2; matched += 1; add("Notes"); continue }
+                if let w = bin.autoWords.first(where: { has($0, t) }) { score += 1; matched += 1; add("Seen in photo: \(w)"); continue }
             }
             if matched > 0 { hits.append(SearchHit(bin: bin, score: score, matchedTerms: matched, reasons: reasons)) }
         }

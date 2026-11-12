@@ -22,6 +22,11 @@
     return (useful.length ? useful : words).map(stem);
   }
 
+  // Does the text contain the search word? Also compares against the text with each word made singular,
+  // so "battery" and "batteries" find each other.
+  const singular = (s) => normalize(s).split(/[^\p{L}\p{N}.\-]+/u).map(stem).join(" ");
+  const has = (text, t) => normalize(text).includes(t) || singular(text).includes(t);
+
   const displayName = (b) => (b.name || "").trim() || `Bin ${b.code}`;
 
   // If some bins match every word, only those are shown; otherwise the best partial matches.
@@ -33,13 +38,13 @@
       let score = 0, matched = 0; const reasons = [];
       const add = (r) => { if (!reasons.includes(r)) reasons.push(r); };
       for (const t of ts) {
-        if (normalize(bin.name).includes(t)) { score += 6; matched++; add("Name"); continue; }
-        const item = (bin.items || []).find((i) => normalize(i).includes(t));
+        if (has(bin.name, t)) { score += 6; matched++; add("Name"); continue; }
+        const item = (bin.items || []).find((i) => has(i, t));
         if (item) { score += 5; matched++; add(`Item: ${item}`); continue; }
         if (normalize(bin.code).includes(t)) { score += 5; matched++; add(`Label ${bin.code}`); continue; }
-        if (normalize(bin.location).includes(t)) { score += 2; matched++; add(`Location: ${bin.location}`); continue; }
-        if (normalize(bin.notes).includes(t)) { score += 2; matched++; add("Notes"); continue; }
-        const w = (bin.autoWords || []).find((x) => normalize(x).includes(t));
+        if (has(bin.location, t)) { score += 2; matched++; add(`Location: ${bin.location}`); continue; }
+        if (has(bin.notes, t)) { score += 2; matched++; add("Notes"); continue; }
+        const w = (bin.autoWords || []).find((x) => has(x, t));
         if (w) { score += 1; matched++; add(`Seen in photo: ${w}`); continue; }
       }
       if (matched > 0) hits.push({ bin, score, matchedTerms: matched, reasons });

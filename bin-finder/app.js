@@ -379,7 +379,7 @@ function renderEdit(id, presetLoc) {
       location.replace("#/bin/" + target.id);
     } catch (e) { $("save").disabled = false; toast("Couldn't save: " + e.message); }
   };
-  if (isNew) setTimeout(() => $("name").focus(), 100);
+  if (isNew) setTimeout(() => $("name")?.focus(), 100);
 }
 
 /* ---------- A place and what's inside it ---------- */
