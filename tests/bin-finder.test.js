@@ -22,6 +22,13 @@ assert.match(S.isoNow(new Date("2026-10-31T10:00:00.123Z")), /^2026-10-31T10:00:
 const power = [{ name: "Power", location: "Garage", code: "G-09", items: ["AA batteries", "Hose clamps", "Paint brushes"] }];
 for (const q of ["battery", "batteries", "aa battery", "clamp", "hose clamps", "brush", "brushes"]) assert.equal(S.search(q, power).length, 1, q);
 assert.equal(S.search("butter", power).length, 0);
+// Bin or box, and the list of all items
+assert.equal(S.kindOf({}), "bin"); assert.equal(S.kindOf({ kind: "box" }), "box"); assert.equal(S.kindOf({ kind: "crate" }), "bin");
+assert.equal(S.displayName({ name: " ", code: "G-07", kind: "box" }), "Box G-07"); assert.equal(S.displayName({ name: "", code: "G-08" }), "Bin G-08");
+assert.deepEqual(S.allItems(bins.slice(0, 2)).map((x) => [x.item, x.bin.code]),
+  [["Cordless drill", "G-02"], ["Electrical tape", "G-01"], ["Fuses (ATC)", "G-01"], ["Step bits", "G-02"], ["Zip ties", "G-01"]]);
+assert.deepEqual(S.allItems([{ name: "B", code: "B-02", items: ["tape", " "] }, { name: "A", code: "B-01", items: ["Tape", "10 mm socket", "9 mm socket"] }]).map((x) => [x.item, x.bin.code]),
+  [["9 mm socket", "B-01"], ["10 mm socket", "B-01"], ["Tape", "B-01"], ["tape", "B-02"]]);
 // Spoken searches
 assert.deepEqual(S.terms("Where's my spare fuses?"), ["spare", "fus"]);
 assert.equal(S.search("where did I put the drill bits", bins)[0].bin.code, "G-02");

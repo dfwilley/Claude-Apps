@@ -15,15 +15,20 @@ struct Bin: Identifiable, Codable, Hashable {
     var autoWords: [String] = []
     /// On the trip checklist (things that get loaded for an RV trip).
     var trip: Bool = false
+    /// "bin" (plastic) or "box" (cardboard). They work the same; the word just matches what's on the shelf.
+    var kind: String = "bin"
     var created: Date = Date()
     var updated: Date = Date()
 
-    var displayName: String { name.trimmingCharacters(in: .whitespaces).isEmpty ? "Bin \(code)" : name }
+    var isBox: Bool { kind == "box" }
+    /// "Bin" or "Box".
+    var kindWord: String { isBox ? "Box" : "Bin" }
+    var displayName: String { name.trimmingCharacters(in: .whitespaces).isEmpty ? "\(kindWord) \(code)" : name }
 
     init(id: UUID = UUID(), name: String = "", location: String = "", code: String = "", items: [String] = [],
-         notes: String = "", photos: [String] = [], autoWords: [String] = [], trip: Bool = false, created: Date = Date(), updated: Date = Date()) {
+         notes: String = "", photos: [String] = [], autoWords: [String] = [], trip: Bool = false, kind: String = "bin", created: Date = Date(), updated: Date = Date()) {
         self.id = id; self.name = name; self.location = location; self.code = code; self.items = items
-        self.notes = notes; self.photos = photos; self.autoWords = autoWords; self.trip = trip; self.created = created; self.updated = updated
+        self.notes = notes; self.photos = photos; self.autoWords = autoWords; self.trip = trip; self.kind = kind == "box" ? "box" : "bin"; self.created = created; self.updated = updated
     }
 
     // Tolerant decoding so older or hand-edited files still open.
@@ -38,9 +43,17 @@ struct Bin: Identifiable, Codable, Hashable {
         photos = try c.decodeIfPresent([String].self, forKey: .photos) ?? []
         autoWords = try c.decodeIfPresent([String].self, forKey: .autoWords) ?? []
         trip = try c.decodeIfPresent(Bool.self, forKey: .trip) ?? false
+        kind = (try? c.decodeIfPresent(String.self, forKey: .kind)) == "box" ? "box" : "bin"
         created = try c.decodeIfPresent(Date.self, forKey: .created) ?? Date()
         updated = try c.decodeIfPresent(Date.self, forKey: .updated) ?? Date()
     }
+}
+
+/// One line of the All items list: an item and the bin or box it's in.
+struct ItemEntry: Identifiable {
+    let item: String
+    let bin: Bin
+    var id: String { "\(bin.id.uuidString)|\(item)" }
 }
 
 struct SearchHit: Identifiable {
@@ -82,6 +95,18 @@ enum BinSearch {
         let singular = n.split(whereSeparator: { !($0.isLetter || $0.isNumber || $0 == "-" || $0 == ".") })
             .map { stem(String($0)) }.joined(separator: " ")
         return singular.contains(t)
+    }
+
+    /// Every item in every bin and box, A to Z, each with the container it's in.
+    static func allItems(_ bins: [Bin]) -> [ItemEntry] {
+        let opts: String.CompareOptions = [.caseInsensitive, .diacriticInsensitive, .numeric]
+        var out: [ItemEntry] = []
+        for b in bins { for i in b.items where !i.trimmed.isEmpty { out.append(ItemEntry(item: i.trimmed, bin: b)) } }
+        return out.sorted { a, b in
+            let c = a.item.compare(b.item, options: opts)
+            if c != .orderedSame { return c == .orderedAscending }
+            return a.bin.displayName.compare(b.bin.displayName, options: opts) == .orderedAscending
+        }
     }
 
     static func terms(_ query: String) -> [String] {
@@ -209,6 +234,7 @@ enum Route: Hashable {
     case bin(UUID)
     case place(String)
     case trip
+    case items
 }
 
 enum BinLinks {

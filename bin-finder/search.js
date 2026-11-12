@@ -27,7 +27,17 @@
   const singular = (s) => normalize(s).split(/[^\p{L}\p{N}.\-]+/u).map(stem).join(" ");
   const has = (text, t) => normalize(text).includes(t) || singular(text).includes(t);
 
-  const displayName = (b) => (b.name || "").trim() || `Bin ${b.code}`;
+  // A container is a bin (plastic) or a box (cardboard). They work the same; the word just matches what's on the shelf.
+  const kindOf = (b) => (b && b.kind === "box" ? "box" : "bin");
+  const kindWord = (b) => (kindOf(b) === "box" ? "Box" : "Bin");
+  const displayName = (b) => (b.name || "").trim() || `${kindWord(b)} ${b.code}`;
+  // Every item in every bin and box, A to Z, each with the container it's in.
+  function allItems(bins) {
+    const out = [];
+    for (const bin of bins) for (const item of bin.items || []) if (String(item).trim()) out.push({ item: String(item).trim(), bin });
+    const opt = { sensitivity: "base", numeric: true };
+    return out.sort((a, b) => a.item.localeCompare(b.item, undefined, opt) || displayName(a.bin).localeCompare(displayName(b.bin), undefined, opt));
+  }
 
   // If some bins match every word, only those are shown; otherwise the best partial matches.
   function search(query, bins) {
@@ -132,6 +142,6 @@
   const isoNow = (d = new Date()) => d.toISOString().replace(/\.\d{3}Z$/, "Z");
 
   const api = { normalize, stem, terms, search, codePrefix, nextCode, photoWords, displayName, isoNow,
-    placeParts, tidyPlace, isUnder, allPlaces, childPlaces, placeBelow, renamePlace, tripKeys, tripProgress };
+    kindOf, kindWord, allItems, placeParts, tidyPlace, isUnder, allPlaces, childPlaces, placeBelow, renamePlace, tripKeys, tripProgress };
   if (typeof module !== "undefined" && module.exports) module.exports = api; else root.BinSearch = api;
 })(typeof window !== "undefined" ? window : globalThis);

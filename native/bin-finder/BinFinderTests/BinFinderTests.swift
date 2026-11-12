@@ -181,6 +181,27 @@ final class BinFinderTests: XCTestCase {
         XCTAssertEqual(bins.first?.trip, false)
     }
 
+    func testBinOrBoxSurvivesBackupAndOldFiles() throws {
+        let a = tempStore()
+        a.upsert(Bin(name: "Lights", code: "G-07", kind: "box"))
+        a.upsert(Bin(name: "", code: "G-08"))
+        let b = tempStore()
+        try b.restore(from: try a.makeBackup())
+        XCTAssertEqual(b.bins.first { $0.code == "G-07" }?.kind, "box")
+        XCTAssertEqual(b.bins.first { $0.code == "G-08" }?.displayName, "Bin G-08")
+        XCTAssertEqual(Bin(name: " ", code: "G-09", kind: "box").displayName, "Box G-09")
+        let old = #"[{"id":"6F9619FF-8B86-D011-B42D-00C04FC964FF","name":"Old"},{"id":"6F9619FF-8B86-D011-B42D-00C04FC964FE","name":"Odd","kind":"crate"}]"#.data(using: .utf8)!
+        XCTAssertEqual(try JSONDecoder().decode([Bin].self, from: old).map(\.kind), ["bin", "bin"])
+    }
+
+    func testAllItemsListIsAlphabeticalWithItsContainer() {
+        XCTAssertEqual(BinSearch.allItems(Array(sample.prefix(2))).map { "\($0.item)|\($0.bin.code)" },
+                       ["Cordless drill|G-02", "Electrical tape|G-01", "Fuses (ATC)|G-01", "Step bits|G-02", "Zip ties|G-01"])
+        let mixed = [Bin(name: "B", code: "B-02", items: ["tape", " "]), Bin(name: "A", code: "B-01", items: ["Tape", "10 mm socket", "9 mm socket"])]
+        XCTAssertEqual(BinSearch.allItems(mixed).map { "\($0.item)|\($0.bin.code)" },
+                       ["9 mm socket|B-01", "10 mm socket|B-01", "Tape|B-01", "tape|B-02"])
+    }
+
     func testItemParsing() {
         XCTAssertEqual(BinEditView.parseItems("zip ties, tape\n\n fuses ;wire"), ["zip ties", "tape", "fuses", "wire"])
     }

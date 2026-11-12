@@ -69,6 +69,12 @@ struct BinEditView: View {
                     TextField("Name, like Electrical spares", text: $bin.name)
                         .textInputAutocapitalization(.sentences)
                         .accessibilityIdentifier("binName")
+                    Picker("Container", selection: $bin.kind) {
+                        Text("Bin (plastic)").tag("bin")
+                        Text("Box (cardboard)").tag("box")
+                    }
+                    .pickerStyle(.segmented)
+                    .accessibilityIdentifier("binKind")
                     HStack {
                         TextField("Location, like Hangar / Shelf 2", text: $bin.location)
                             .textInputAutocapitalization(.words)
@@ -90,7 +96,7 @@ struct BinEditView: View {
                     }
                     Toggle("Pack for trips", isOn: $bin.trip)
                 } header: {
-                    Text("Bin")
+                    Text("Bin or box")
                 } footer: {
                     Text("For a place inside a place, use / or ›, like Hangar / Shelf 2 or RV / Front bay / Left.")
                 }
@@ -109,7 +115,7 @@ struct BinEditView: View {
                     TextField("Anything else", text: $bin.notes, axis: .vertical).lineLimit(2...6)
                 }
             }
-            .navigationTitle(isNew ? "New bin" : "Edit bin")
+            .navigationTitle(isNew ? "New bin or box" : (bin.isBox ? "Edit box" : "Edit bin"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
@@ -143,6 +149,7 @@ struct BinEditView: View {
         b.name = bin.name.trimmed
         b.location = BinPlaces.tidy(bin.location)
         b.trip = bin.trip
+        b.kind = bin.kind
         b.code = bin.code.trimmed.isEmpty ? store.nextCode(for: bin.location) : bin.code.trimmed
         b.notes = bin.notes
         b.items = Self.parseItems(itemsText)

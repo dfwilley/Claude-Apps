@@ -89,6 +89,7 @@ final class BinStore: ObservableObject {
         b.updated = Date()
         b.items = b.items.map(\.trimmed).filter { !$0.isEmpty }
         b.location = BinPlaces.tidy(b.location)
+        b.kind = b.isBox ? "box" : "bin"
         if b.code.trimmed.isEmpty { b.code = nextCode(for: b.location) }
         if let i = bins.firstIndex(where: { $0.id == b.id }) { bins[i] = b } else { bins.append(b) }
         save()

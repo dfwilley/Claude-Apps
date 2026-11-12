@@ -12,7 +12,7 @@ enum DemoData {
             ("Leveling blocks", "RV › Rear bay", "RR-02", ["Leveling blocks", "Wheel chocks", "Tire pressure gauge"], "square.stack.3d.up.fill", .systemYellow, "LEVELERS"),
         ]
         for s in samples {
-            let b = Bin(name: s.0, location: s.1, code: s.2, items: s.3, trip: s.1.hasPrefix("RV"))
+            let b = Bin(name: s.0, location: s.1, code: s.2, items: s.3, trip: s.1.hasPrefix("RV"), kind: s.2 == "HS-02" ? "box" : "bin")
             store.upsert(b)
             store.addPhoto(image(symbol: s.4, color: s.5, label: s.6), to: b.id, analyze: true)
         }

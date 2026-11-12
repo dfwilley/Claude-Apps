@@ -27,6 +27,7 @@ struct ContentView: View {
                 case .bin(let id): BinDetailView(binID: id)
                 case .place(let p): PlaceView(place: p)
                 case .trip: TripView()
+                case .items: AllItemsView()
                 }
             }
             .toolbar {
@@ -37,7 +38,7 @@ struct ContentView: View {
                         .disabled(store.bins.isEmpty)
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: addBin) { Label("New bin", systemImage: "plus.circle.fill").font(.title3) }
+                    Button(action: addBin) { Label("New bin or box", systemImage: "plus.circle.fill").font(.title3) }
                         .accessibilityIdentifier("addBin")
                 }
             }
@@ -120,6 +121,14 @@ struct ContentView: View {
                     }
                 }
                 .accessibilityIdentifier("tripChecklist")
+                NavigationLink(value: Route.items) {
+                    HStack {
+                        Label("All items", systemImage: "list.bullet")
+                        Spacer()
+                        Text("\(store.bins.reduce(0) { $0 + $1.items.count })").foregroundStyle(.secondary)
+                    }
+                }
+                .accessibilityIdentifier("allItems")
             }
             ForEach(grouped, id: \.0) { loc, bins in
                 Section {
@@ -170,7 +179,7 @@ struct EmptyStart: View {
             Text("Photograph each bin once.").font(.title2.bold())
             Text("Take a picture of what's inside each bin, shelf or RV compartment and list a few things. Later, just type what you're looking for.")
                 .multilineTextAlignment(.center).foregroundStyle(.secondary).padding(.horizontal, 32)
-            Button(action: add) { Label("Add your first bin", systemImage: "plus").font(.headline).padding(.horizontal, 12).padding(.vertical, 6) }
+            Button(action: add) { Label("Add your first bin or box", systemImage: "plus").font(.headline).padding(.horizontal, 12).padding(.vertical, 6) }
                 .buttonStyle(.borderedProminent)
             Spacer(); Spacer()
         }
@@ -189,7 +198,7 @@ struct BinRow: View {
             Thumb(name: bin.photos.first, side: 64)
             VStack(alignment: .leading, spacing: 3) {
                 Text(bin.displayName).font(.headline).lineLimit(2)
-                Text([bin.code, under.map { BinPlaces.below(bin.location, $0) } ?? BinPlaces.tidy(bin.location)].filter { !$0.isEmpty }.joined(separator: " · "))
+                Text([bin.kindWord, bin.code, under.map { BinPlaces.below(bin.location, $0) } ?? BinPlaces.tidy(bin.location)].filter { !$0.isEmpty }.joined(separator: " · "))
                     .font(.subheadline.monospacedDigit()).foregroundStyle(.secondary)
                 if !reasons.isEmpty {
                     Text(reasons.joined(separator: " · ")).font(.footnote.weight(.medium)).foregroundStyle(.tint).lineLimit(2)

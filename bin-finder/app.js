@@ -37,6 +37,7 @@ async function putBin(b) {
   b.items = (b.items || []).map((x) => x.trim()).filter(Boolean);
   b.location = S.tidyPlace(b.location);
   b.trip = !!b.trip;
+  b.kind = S.kindOf(b);
   if (!String(b.code || "").trim()) b.code = S.nextCode(b.location, BINS.filter((x) => x.id !== b.id));
   await tx("bins", "readwrite", (s) => s.put(b));
   const i = BINS.findIndex((x) => x.id === b.id); if (i >= 0) BINS[i] = b; else BINS.push(b);
@@ -67,7 +68,7 @@ async function thumbURL(name) {
   return (urlCache[name] = URL.createObjectURL(b));
 }
 const newID = () => (crypto.randomUUID ? crypto.randomUUID() : "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => { const r = Math.random() * 16 | 0; return (c === "x" ? r : (r & 3 | 8)).toString(16); })).toUpperCase();
-const newBin = () => ({ id: newID(), name: "", location: "", code: "", items: [], notes: "", photos: [], autoWords: [], trip: false, created: S.isoNow(), updated: S.isoNow() });
+const newBin = () => ({ id: newID(), name: "", kind: "bin", location: "", code: "", items: [], notes: "", photos: [], autoWords: [], trip: false, created: S.isoNow(), updated: S.isoNow() });
 const locations = () => S.allPlaces(BINS);
 const topPlace = (b) => S.placeParts(b.location)[0] || "";
 const placeLink = (p) => "#/place?p=" + encodeURIComponent(p);
@@ -197,6 +198,7 @@ function render() {
   if (r.name === "more") return renderMore();
   if (r.name === "place") return renderPlace(r.params.p || "");
   if (r.name === "trip") return renderTrip();
+  if (r.name === "items") return renderItems();
   if (r.name === "tripchoose") return renderTripChoose();
   return renderHome();
 }
@@ -209,7 +211,7 @@ function renderHome() {
     app.innerHTML = `<div class="page"><div class="empty"><div class="big" aria-hidden="true">📦</div>
       <h2>Photograph each bin once.</h2>
       <p>Take a picture of what's inside each bin, shelf or RV compartment and list a few things. Later, just type what you're looking for.</p>
-      <p><button class="btn primary" id="first">＋ Add your first bin</button></p>
+      <p><button class="btn primary" id="first">＋ Add your first bin or box</button></p>
       <p><button class="btn plain" id="restore0">Restore from a backup</button></p></div></div>`;
     $("first").onclick = () => go("#/new");
     $("restore0").onclick = () => $("pickBackup").click();
@@ -231,7 +233,7 @@ function renderHome() {
 }
 function rowHTML(b, reasons, under) {
   const where = under === undefined ? S.tidyPlace(b.location) : S.placeBelow(b.location, under);
-  const sub = [b.code, where].filter(Boolean).join(" · ");
+  const sub = [S.kindWord(b), b.code, where].filter(Boolean).join(" · ");
   const line = reasons && reasons.length ? `<div class="why">${esc(reasons.join(" · "))}</div>` : (b.items.length ? `<div class="list">${esc(b.items.join(", "))}</div>` : "");
   return `<a class="row thumbrow" href="#/bin/${b.id}"><span class="thumb" data-thumb="${esc(b.photos[0] || "")}">📦</span>
     <span class="grow"><div class="title">${esc(S.displayName(b))}</div><div class="sub2">${esc(sub)}</div>${line}</span><span class="chev" aria-hidden="true">›</span></a>`;
@@ -248,7 +250,8 @@ function drawList() {
     BINS.forEach((b) => (groups[topPlace(b) || "No location"] ||= []).push(b));
     const keys = Object.keys(groups).sort((a, b) => a === "No location" ? 1 : b === "No location" ? -1 : a.localeCompare(b, undefined, { sensitivity: "base" }));
     const tp = S.tripProgress(BINS, tripChecked);
-    box.innerHTML = `<div class="group"><a class="row act" href="#/trip">🧳&nbsp; Trip checklist<span class="grow"></span><span class="val">${tp.total ? `${tp.done} of ${tp.total} packed` : "Set up"}</span><span class="chev" aria-hidden="true">›</span></a></div>`
+    box.innerHTML = `<div class="group"><a class="row act" href="#/trip">🧳&nbsp; Trip checklist<span class="grow"></span><span class="val">${tp.total ? `${tp.done} of ${tp.total} packed` : "Set up"}</span><span class="chev" aria-hidden="true">›</span></a>
+      <a class="row act" href="#/items">📋&nbsp; All items<span class="grow"></span><span class="val">${BINS.reduce((t, b) => t + b.items.length, 0)}</span><span class="chev" aria-hidden="true">›</span></a></div>`
       + keys.map((k) => `${k === "No location" ? `<div class="sechead">${esc(k)} · ${groups[k].length}</div>` : `<a class="sechead headlink" href="${placeLink(k)}">${esc(k)} · ${groups[k].length} <span aria-hidden="true">›</span></a>`}<div class="group">${groups[k].sort(byPlaceThenCode).map((b) => rowHTML(b, null, k === "No location" ? undefined : k)).join("")}</div>`).join("");
   }
   fillThumbs(box);
@@ -280,6 +283,7 @@ async function renderBin(id, params) {
     </div>
     ${b.photos.length > 1 ? `<div class="photohint">Swipe for more photos · tap one to view or delete it</div>` : ""}
     <div class="group" style="margin-top:22px">
+      <div class="row"><span class="grow">Container</span><span class="val">${S.kindOf(b) === "box" ? "Box (cardboard)" : "Bin (plastic)"}</span></div>
       <div class="row"><span class="grow">Label</span><span class="val">${esc(b.code)}</span></div>
       ${(b.location || "").trim() ? `<a class="row" href="${placeLink(b.location)}"><span class="grow">Location</span><span class="val">${esc(S.tidyPlace(b.location))}</span><span class="chev" aria-hidden="true">›</span></a>` : `<div class="row"><span class="grow">Location</span><span class="val">None</span></div>`}
       <label class="row"><span class="grow">Pack for trips</span><input type="checkbox" class="switch" id="tripT" ${b.trip ? "checked" : ""}></label>
@@ -294,8 +298,8 @@ async function renderBin(id, params) {
     ${(b.notes || "").trim() ? `<div class="sechead">Notes</div><div class="group"><div class="row" style="white-space:pre-wrap">${esc(b.notes)}</div></div>` : ""}
     <div class="group" style="margin-top:22px">
       <a class="row act" href="#/label/${b.id}">▦&nbsp; Show QR label</a>
-      <a class="row act" href="#/edit/${b.id}">✎&nbsp; Edit name, location or notes</a>
-      <button class="row danger" id="del">🗑&nbsp; Delete this bin</button>
+      <a class="row act" href="#/edit/${b.id}">✎&nbsp; Edit name, type, location or notes</a>
+      <button class="row danger" id="del">🗑&nbsp; Delete this ${S.kindOf(b)}</button>
     </div></div>`;
   for (const img of app.querySelectorAll("[data-photo]")) {
     const blob = await getPhoto(img.dataset.photo); if (blob) img.src = URL.createObjectURL(blob);
@@ -337,12 +341,13 @@ function renderEdit(id, presetLoc) {
   if (isNew && !b.code) b.code = S.nextCode(b.location, BINS);
   let codeTouched = !isNew; const pending = [];
   app.innerHTML = `<div class="page">
-    <div class="bar"><button class="link" id="cancel">Cancel</button><span class="center">${isNew ? "New bin" : "Edit bin"}</span><button class="link strong" id="save">Save</button></div>
+    <div class="bar"><button class="link" id="cancel">Cancel</button><span class="center">${isNew ? "New bin or box" : "Edit " + S.kindOf(b)}</span><button class="link strong" id="save">Save</button></div>
     ${isNew ? `<div class="sechead">Photos of what's inside</div><div class="group"><div class="pending" id="pend"></div>
       <div class="btnrow"><button class="btn" id="cam">📷 Take photo</button><button class="btn" id="lib">🖼 Add from Photos</button></div></div>
       <div class="secfoot">Bin Finder reads printed words in the photos (labels, packaging), so search can find them even if you don't list them.</div>` : ""}
-    <div class="sechead">Bin</div><div class="group">
+    <div class="sechead">Bin or box</div><div class="group">
       <label class="row"><input id="name" placeholder="Name, like Electrical spares" value="${esc(b.name)}" autocapitalize="sentences"></label>
+      <label class="row"><span class="grow">Container</span><select id="kind" aria-label="Bin or box"><option value="bin"${S.kindOf(b) === "bin" ? " selected" : ""}>Bin (plastic)</option><option value="box"${S.kindOf(b) === "box" ? " selected" : ""}>Box (cardboard)</option></select></label>
       <label class="row"><input id="loc" placeholder="Location, like Hangar › Shelf 2" value="${esc(b.location)}" list="locs" autocapitalize="words"></label>
       <label class="row"><span class="grow">Label</span><input id="code" class="code" value="${esc(b.code)}" autocapitalize="characters" autocorrect="off" aria-label="Label code"></label>
       <label class="row"><span class="grow">Pack for trips</span><input type="checkbox" class="switch" id="tripE" ${b.trip ? "checked" : ""}></label>
@@ -367,6 +372,7 @@ function renderEdit(id, presetLoc) {
     $("save").disabled = true;
     const target = isNew ? b : (binById(id) || b); // start from the stored copy so words read in the background aren't lost
     target.name = $("name").value.trim();
+    target.kind = $("kind").value;
     target.location = S.tidyPlace($("loc").value);
     target.trip = $("tripE").checked;
     target.code = $("code").value.trim().toUpperCase() || S.nextCode(target.location, BINS);
@@ -413,6 +419,34 @@ function renderPlace(place) {
     toast(`Moved ${inside.length} ${inside.length === 1 ? "bin" : "bins"}.`);
     location.replace(placeLink(t));
   };
+}
+
+/* ---------- All items: everything in every bin and box, A to Z ---------- */
+let itemFilter = "";
+function renderItems() {
+  const all = S.allItems(BINS);
+  app.innerHTML = `<div class="page">
+    <div class="bar"><a class="link" href="#/">‹ Bin Finder</a><span class="center">All items</span><span style="width:60px"></span></div>
+    <label class="search" style="margin-top:8px">${searchIcon}<input id="iq" type="text" inputmode="search" placeholder="Narrow the list" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" aria-label="Narrow the list of items"></label>
+    <div id="ilist"></div>
+    <div class="secfoot">Everything you've listed in every bin and box. Tap an item to open the bin or box it's in.</div></div>`;
+  const draw = () => {
+    const f = S.normalize(itemFilter).trim();
+    const rows = f ? all.filter((x) => S.normalize(x.item).includes(f)) : all;
+    if (!rows.length) { $("ilist").innerHTML = `<div class="group"><div class="row"><span class="grow sub">${all.length ? "No items match." : "No items yet. Open a bin or box and add what's inside."}</span></div></div>`; return; }
+    const groups = []; let cur = null;
+    for (const x of rows) {
+      const ch = S.normalize(x.item)[0] || "#"; const head = /[a-z]/.test(ch) ? ch.toUpperCase() : "#";
+      if (!cur || cur.head !== head) groups.push(cur = { head, rows: [] });
+      cur.rows.push(x);
+    }
+    $("ilist").innerHTML = `<div class="sechead">${rows.length === 1 ? "1 item" : rows.length + " items"}</div>` + groups.map((g) => `<div class="sechead">${g.head}</div><div class="group">${g.rows.map((x) =>
+      `<a class="row" href="#/bin/${x.bin.id}"><span class="grow"><div class="title">${esc(x.item)}</div><div class="sub2">${esc([(x.bin.name || "").trim() || S.kindWord(x.bin), x.bin.code, S.tidyPlace(x.bin.location)].filter(Boolean).join(" · "))}</div></span><span class="chev" aria-hidden="true">›</span></a>`).join("")}</div>`).join("");
+  };
+  const q = $("iq"); q.value = itemFilter;
+  q.addEventListener("input", () => { itemFilter = q.value; draw(); });
+  q.addEventListener("keydown", (e) => { if (e.key === "Enter") q.blur(); });
+  draw();
 }
 
 /* ---------- Trip checklist ---------- */

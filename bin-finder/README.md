@@ -10,6 +10,8 @@ Install it with Sideloadly (USB or Wi-Fi). With a free Apple ID, re-install ever
 ## What it does
 
 - **Bins** grouped by location (Garage, Hangar, RV Rear Bay…), each with photos, a list of what's inside, notes and a short label code like `G-03`.
+- **Bin or box**: mark each container as a Bin (plastic) or a Box (cardboard). They work the same; the word shows in the lists.
+- **All items**: one A-to-Z list of everything in every bin and box. Tap an item to open the bin or box it's in.
 - **Search** across names, items, labels, locations and notes. It handles plurals ("fuses" finds "fuse"), and it searches words the phone **read in your photos** (printed labels and recognized objects), all on the phone with no internet.
 - **Places inside places**: type a location like `Hangar / Shelf 2 / Left`. The main list groups by the top place; tap a group heading to open it and see the places inside. Rename or move a place and every bin inside follows. Labels can be printed for everything in a place.
 - **Trip checklist**: switch on "Pack for trips" for the bins that get loaded for an RV trip. The checklist shows each thing in those bins to check off as it goes in the rig, with a "Start a new trip" button to uncheck everything.

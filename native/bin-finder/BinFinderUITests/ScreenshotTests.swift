@@ -60,6 +60,13 @@ final class ScreenshotTests: XCTestCase {
             snap(app, "9-trip-checklist")
             app.navigationBars.buttons.firstMatch.tap(); sleep(1)
         }
+        // All items
+        let items = app.buttons["allItems"]
+        if items.waitForExistence(timeout: 3) {
+            items.tap(); sleep(1)
+            snap(app, "11-all-items")
+            app.navigationBars.buttons.firstMatch.tap(); sleep(1)
+        }
         // A place with places inside it
         let hangar = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Hangar'")).firstMatch
         if !hangar.exists { app.swipeUp(); sleep(1) }
