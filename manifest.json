@@ -1,0 +1,134 @@
+[
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "8F571767-87A3-448E-AF82-29C992EC2D5E",
+        "deviceName" : "iPhone 16 Pro",
+        "exportedFileName" : "F3AFD808-6806-4149-A8C2-46AB12F33100.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "8-new-bin_0_206998B0-E7E7-44A7-B3A3-19F84DDD5640.png",
+        "timestamp" : 1794586101.626
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "8F571767-87A3-448E-AF82-29C992EC2D5E",
+        "deviceName" : "iPhone 16 Pro",
+        "exportedFileName" : "7D8B4DB5-7AC3-4322-8B0E-0C53D20C27DF.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "15-about_0_5D74F5B1-CBCF-49D2-AFE9-1D5B25F55627.png",
+        "timestamp" : 1794586093.654
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "8F571767-87A3-448E-AF82-29C992EC2D5E",
+        "deviceName" : "iPhone 16 Pro",
+        "exportedFileName" : "E941079B-D508-4D41-83D6-620B3596D0DF.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "14-location-hangar-shelf-1_0_CE4FF79A-B291-4AD8-9A6A-9CF6AE467700.png",
+        "timestamp" : 1794586085.769
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "8F571767-87A3-448E-AF82-29C992EC2D5E",
+        "deviceName" : "iPhone 16 Pro",
+        "exportedFileName" : "1C9EB316-F833-49FC-A747-DEE1FB39C4C9.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "13-location-hangar_0_2A515DBD-4027-4439-820F-BBBD58782F23.png",
+        "timestamp" : 1794586078.806
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "8F571767-87A3-448E-AF82-29C992EC2D5E",
+        "deviceName" : "iPhone 16 Pro",
+        "exportedFileName" : "FC7753FF-0A22-4449-A634-7437614FC33B.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "12-bin-with-box-inside_0_93F465D8-3E20-4255-8078-2B3DF3BD7A0D.png",
+        "timestamp" : 1794586058.649
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "8F571767-87A3-448E-AF82-29C992EC2D5E",
+        "deviceName" : "iPhone 16 Pro",
+        "exportedFileName" : "BBD5F8B7-F9D2-44F9-B032-62AF3E50DE98.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "11-all-items_0_7627D341-71AD-4CD8-B0FF-1E922215B53F.png",
+        "timestamp" : 1794586049.344
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "8F571767-87A3-448E-AF82-29C992EC2D5E",
+        "deviceName" : "iPhone 16 Pro",
+        "exportedFileName" : "DB31A119-4407-408A-A688-478C76493DD5.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "9-trip-checklist_0_56849B61-F2A4-4D49-BDA3-83D2954AF9A8.png",
+        "timestamp" : 1794586044.003
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "8F571767-87A3-448E-AF82-29C992EC2D5E",
+        "deviceName" : "iPhone 16 Pro",
+        "exportedFileName" : "918272B7-7E05-45C1-9BA8-A7002C53E973.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "7-leveling-blocks-detail_0_68BD8274-C476-46DD-98F7-0CF65BD9A602.png",
+        "timestamp" : 1794586034.544
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "8F571767-87A3-448E-AF82-29C992EC2D5E",
+        "deviceName" : "iPhone 16 Pro",
+        "exportedFileName" : "D5D4021A-545F-450D-B46C-102FE22EF577.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "6-search-photo-word_0_65B7B1C9-0530-40F1-8D45-FCA95B1E601C.png",
+        "timestamp" : 1794586023.097
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "8F571767-87A3-448E-AF82-29C992EC2D5E",
+        "deviceName" : "iPhone 16 Pro",
+        "exportedFileName" : "3F4481B0-0A65-4DA0-BC5D-F6A8FAF4DD57.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "5-qr-label_0_A025EA08-161C-45DB-BBD4-9857AEFD208C.png",
+        "timestamp" : 1794586000.135
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "8F571767-87A3-448E-AF82-29C992EC2D5E",
+        "deviceName" : "iPhone 16 Pro",
+        "exportedFileName" : "60509AB0-CEFE-4C46-BE64-72FF5C7FB7C5.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "4-bin-detail-lower_0_2951C55A-C88C-4A9F-829A-7238C73752C9.png",
+        "timestamp" : 1794585993.849
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "8F571767-87A3-448E-AF82-29C992EC2D5E",
+        "deviceName" : "iPhone 16 Pro",
+        "exportedFileName" : "431F6AC5-F832-4E60-8F2A-9E6457EACAF5.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "3-bin-detail_0_BFF12D54-A3B2-4E61-BE18-3F55306E5432.png",
+        "timestamp" : 1794585991.009
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "8F571767-87A3-448E-AF82-29C992EC2D5E",
+        "deviceName" : "iPhone 16 Pro",
+        "exportedFileName" : "29B90E61-BA78-47BF-9FCA-AD3601AFE58F.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "2-search-spare-fuses_0_E383639D-B66C-4BAE-93B0-62B712F0E376.png",
+        "timestamp" : 1794585983.668
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "8F571767-87A3-448E-AF82-29C992EC2D5E",
+        "deviceName" : "iPhone 16 Pro",
+        "exportedFileName" : "00388B61-08F7-4E0C-A3F9-FF2621C2D6D3.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "1-home_0_00D9D7CB-7724-4394-B47E-3B0667824851.png",
+        "timestamp" : 1794585974.692
+      }
+    ],
+    "testIdentifier" : "ScreenshotTests/testMainScreens()",
+    "testIdentifierURL" : "test://com.apple.xcode/BinFinder/BinFinderUITests/ScreenshotTests/testMainScreens"
+  }
+]
