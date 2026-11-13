@@ -111,8 +111,8 @@ struct ContentView: View {
 
     /// Nothing chosen: every bin, by top place. A place chosen: the places inside it, then the bins right there.
     private func groups(place: String, none: Bool, noLoc: [Bin]) -> [BinGroup] {
-        func under(_ p: String) -> [Bin] { store.bins.filter { BinPlaces.isUnder($0.location, p) }.sorted(by: Bin.byPlaceThenCode) }
-        let loose = BinGroup(title: Self.noLocation, place: "", bins: noLoc.sorted(by: Bin.byPlaceThenCode))
+        func under(_ p: String) -> [Bin] { store.bins.filter { BinPlaces.isUnder($0.location, p) }.sorted(by: Bin.byName) }
+        let loose = BinGroup(title: Self.noLocation, place: "", bins: noLoc.sorted(by: Bin.byName))
         if none { return [loose] }
         var out = BinPlaces.children(of: place, in: store.bins).map { BinGroup(title: $0.name, place: $0.place, bins: under($0.place)) }
         if place.isEmpty { return noLoc.isEmpty ? out : out + [loose] }
@@ -270,6 +270,11 @@ struct ShareItem: Identifiable {
 }
 
 extension Bin {
+    /// A to Z by name, with Shelf 2 before Shelf 10.
+    static func byName(_ a: Bin, _ b: Bin) -> Bool {
+        let c = a.displayName.compare(b.displayName, options: [.caseInsensitive, .diacriticInsensitive, .numeric])
+        return c != .orderedSame ? c == .orderedAscending : a.code.localizedStandardCompare(b.code) == .orderedAscending
+    }
     static func byPlaceThenCode(_ a: Bin, _ b: Bin) -> Bool {
         let pa = BinPlaces.tidy(a.location), pb = BinPlaces.tidy(b.location)
         if pa.localizedCaseInsensitiveCompare(pb) != .orderedSame { return pa.localizedStandardCompare(pb) == .orderedAscending }

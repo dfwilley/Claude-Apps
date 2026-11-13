@@ -19,6 +19,7 @@ assert.equal(S.codePrefix("Garage"), "G"); assert.equal(S.codePrefix("RV Rear Ba
 assert.equal(S.nextCode("Garage", bins), "G-BIN-1"); assert.equal(S.nextCode("Shed", bins, "box"), "S-BOX-1"); assert.equal(S.nextCode("Hangar", bins, "none"), "H-4");
 {
   const mixed = [{ code: "G-BIN-2" }, { code: "g-bin-7" }, { code: "G-BOX-3" }, { code: "G-4" }, { code: "GX-BIN-9" }, { code: "G-BIN-X" }];
+  assert(S.isAutoCode({ code: "h-bin-12", location: "Hangar" })); assert(S.isAutoCode({ code: "H-3", location: "Hangar", kind: "none" })); assert(!S.isAutoCode({ code: "H-3", location: "Hangar" })); assert(!S.isAutoCode({ code: "TOOLS", location: "Hangar" }));
   assert.equal(S.nextCode("Garage", mixed, "bin"), "G-BIN-8"); assert.equal(S.nextCode("Garage", mixed, "box"), "G-BOX-4"); assert.equal(S.nextCode("Garage", mixed, "none"), "G-5");
   const old = [{ code: "G-02", location: "Garage", created: "2026-01-02T00:00:00Z" }, { code: "G-01", location: "Garage", kind: "box", created: "2026-01-01T00:00:00Z" },
     { code: "G-03", location: "Garage", created: "2026-01-01T00:00:00Z" }, { code: "H-01", location: "Hangar", kind: "none", created: "2026-01-03T00:00:00Z" }, { code: "X", location: "Hangar › Shelf 2", kind: "box", created: "2026-01-04T00:00:00Z" }];

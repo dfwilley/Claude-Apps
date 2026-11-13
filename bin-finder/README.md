@@ -10,11 +10,12 @@ Install it with Sideloadly (USB or Wi-Fi). With a free Apple ID, re-install ever
 ## What it does
 
 - **Bins** grouped by location (Garage, Hangar, RV Rear Bay…), each with photos, a list of what's inside, notes and a short label code like `G-BIN-3`.
-- **Label codes** count each type on its own within each location: `G-BIN-1`, `G-BIN-2`, `G-BOX-1`, and plain `G-1` for a None entry. Version 1.6 renumbers every saved one this way once, oldest first; you can still type your own code.
+- **Label codes** count each type on its own within each location: `G-BIN-1`, `G-BIN-2`, `G-BOX-1`, and plain `G-1` for a None entry. Version 1.6 renumbers every saved one this way once, oldest first; you can still type your own code. Change a container's type or location and its code follows (a Bin switched to None goes from `H-BIN-4` to `H-2`), unless you typed the code yourself.
 - **Bin or box**: mark each container as a Bin (plastic), a Box (cardboard), or None (for a shelf, drawer or compartment). They work the same; the word shows in the lists.
 - **Bins inside bins**: open a bin or box and choose **Add a saved bin or box** to put another saved one inside it (a box on a shelf, a small bin in a big one). It shows in the list of what's inside; tap it to open it. Search results say which bin or box it's in.
 - **All items**: one A-to-Z list of everything in every bin and box. Tap an item to open the bin or box it's in.
 - **Search** across names, items, labels, locations and notes. It handles plurals ("fuses" finds "fuse"), and it searches words the phone **read in your photos** (printed labels and recognized objects), all on the phone with no internet.
+- Lists of bins are in **A-to-Z order by name** (Shelf 2 comes before Shelf 10).
 - **Location pull-downs** on the main list: choose a location (Hangar) to see just that place, grouped by the places inside it (its shelves). A second pull-down then lists those shelves; choose one to see only what is on that shelf. It keeps going for places inside those.
 - **Places inside places**: type a location like `Hangar / Shelf 2 / Left`. The main list groups by the top place; tap a group heading to open it and see the places inside. Rename or move a place and every bin inside follows. Labels can be printed for everything in a place.
 - **Trip checklist**: switch on "Pack for trips" for the bins that get loaded for an RV trip. The checklist shows each thing in those bins to check off as it goes in the rig, with a "Start a new trip" button to uncheck everything.

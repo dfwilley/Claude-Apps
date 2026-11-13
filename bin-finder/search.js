@@ -158,6 +158,8 @@
   }
   // Label codes count each type on its own within each location: "G-BIN-1", "G-BIN-2", "G-BOX-1", and "G-1" for kind none.
   const codeStem = (location, kind) => [codePrefix(location), { bin: "BIN", box: "BOX", none: "" }[kindOf({ kind })]].filter(Boolean).join("-");
+  // Is this still the code the app would give it (so it may follow a change of type or location), not one typed by hand?
+  const isAutoCode = (b) => { const stem = codeStem(b.location, b.kind) + "-", c = String(b.code || "").toUpperCase(); return c.startsWith(stem) && /^\d+$/.test(c.slice(stem.length)); };
   function nextCode(location, bins, kind) {
     const stem = codeStem(location, kind) + "-";
     const used = bins.map((b) => String(b.code || "").toUpperCase()).filter((c) => c.startsWith(stem) && /^\d+$/.test(c.slice(stem.length))).map((c) => parseInt(c.slice(stem.length), 10));
@@ -189,7 +191,7 @@
   // Dates as the native app writes them (ISO 8601 without fractions of a second), so backups move between both apps.
   const isoNow = (d = new Date()) => d.toISOString().replace(/\.\d{3}Z$/, "Z");
 
-  const api = { normalize, stem, terms, search, codePrefix, codeStem, nextCode, renumber, photoWords, displayName, isoNow,
+  const api = { normalize, stem, terms, search, codePrefix, codeStem, isAutoCode, nextCode, renumber, photoWords, displayName, isoNow,
     kindOf, kindWord, kindNoun, kindLabel, allItems, holderOf, heldBy, canHold, placeParts, tidyPlace, isUnder, allPlaces, childPlaces, nearestPlace, placeLevels, placeBelow, renamePlace, tripKeys, tripProgress };
   if (typeof module !== "undefined" && module.exports) module.exports = api; else root.BinSearch = api;
 })(typeof window !== "undefined" ? window : globalThis);

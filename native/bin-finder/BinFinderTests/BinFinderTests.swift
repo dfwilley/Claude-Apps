@@ -66,6 +66,10 @@ final class BinFinderTests: XCTestCase {
         XCTAssertEqual(BinCodes.next(for: "Shed", kind: "box", existing: sample), "S-BOX-1")
         XCTAssertEqual(BinCodes.next(for: "Hangar", kind: "none", existing: sample), "H-4")
         let mixed = ["G-BIN-2", "g-bin-7", "G-BOX-3", "G-4", "GX-BIN-9", "G-BIN-X"].map { Bin(code: $0) }
+        XCTAssertTrue(BinCodes.isAuto(Bin(location: "Hangar", code: "h-bin-12")))
+        XCTAssertTrue(BinCodes.isAuto(Bin(location: "Hangar", code: "H-3", kind: "none")))
+        XCTAssertFalse(BinCodes.isAuto(Bin(location: "Hangar", code: "H-3")))
+        XCTAssertFalse(BinCodes.isAuto(Bin(location: "Hangar", code: "TOOLS")))
         XCTAssertEqual(BinCodes.next(for: "Garage", kind: "bin", existing: mixed), "G-BIN-8")
         XCTAssertEqual(BinCodes.next(for: "Garage", kind: "box", existing: mixed), "G-BOX-4")
         XCTAssertEqual(BinCodes.next(for: "Garage", kind: "none", existing: mixed), "G-5")

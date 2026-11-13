@@ -82,6 +82,7 @@ let tripChecked = new Set(); try { tripChecked = new Set(JSON.parse(localStorage
 const saveTrip = () => { try { localStorage.setItem(TRIP_KEY, JSON.stringify([...tripChecked])); } catch {} };
 const tripBins = () => BINS.filter((b) => b.trip);
 const byCode = (a, b) => String(a.code).localeCompare(String(b.code), undefined, { numeric: true });
+const byName = (a, b) => S.displayName(a).localeCompare(S.displayName(b), undefined, { sensitivity: "base", numeric: true }) || byCode(a, b); // A to Z, with Shelf 2 before Shelf 10
 const byPlaceThenCode = (a, b) => S.tidyPlace(a.location).localeCompare(S.tidyPlace(b.location), undefined, { sensitivity: "base", numeric: true }) || byCode(a, b);
 
 /* ---------- Photos: shrink, save, read words ---------- */
@@ -246,7 +247,7 @@ function browseHTML() {
       <option value="">${i ? "Everything in " + esc(l.name) : "All locations"}</option>
       ${l.choices.map((c) => `<option value="${esc(c.place)}"${c.place === l.selected ? " selected" : ""}>${esc(c.name)} · ${count(c.count)}</option>`).join("")}
       ${!i && noLoc.length ? `<option value="${NO_PLACE}"${none ? " selected" : ""}>No location · ${count(noLoc.length)}</option>` : ""}</select></label>`).join("");
-  const sec = (title, place, bins, under) => `${place ? `<a class="sechead headlink" href="${placeLink(place)}">${esc(title)} · ${bins.length} <span aria-hidden="true">›</span></a>` : `<div class="sechead">${esc(title)} · ${bins.length}</div>`}<div class="group">${bins.sort(byPlaceThenCode).map((b) => rowHTML(b, null, under)).join("")}</div>`;
+  const sec = (title, place, bins, under) => `${place ? `<a class="sechead headlink" href="${placeLink(place)}">${esc(title)} · ${bins.length} <span aria-hidden="true">›</span></a>` : `<div class="sechead">${esc(title)} · ${bins.length}</div>`}<div class="group">${bins.sort(byName).map((b) => rowHTML(b, null, under)).join("")}</div>`;
   let list;
   if (none) list = sec("No location", "", noLoc);
   else if (!homePlace) list = S.childPlaces("", BINS).map((k) => sec(k.name, k.place, BINS.filter((b) => S.isUnder(b.location, k.place)), k.place)).join("") + (noLoc.length ? sec("No location", "", noLoc) : "");
@@ -376,7 +377,7 @@ function renderEdit(id, presetLoc) {
   const b = JSON.parse(JSON.stringify(orig));
   if (isNew && presetLoc) b.location = S.tidyPlace(presetLoc);
   if (isNew && !b.code) b.code = S.nextCode(b.location, BINS, b.kind);
-  let codeTouched = !isNew; const pending = [];
+  let codeTouched = !isNew && !S.isAutoCode(orig); const pending = []; // an existing code follows a change of type or location unless it was typed by hand
   app.innerHTML = `<div class="page">
     <div class="bar"><button class="link" id="cancel">Cancel</button><span class="center">${isNew ? "New bin or box" : "Edit " + S.kindNoun(b)}</span><button class="link strong" id="save">Save</button></div>
     ${isNew ? `<div class="sechead">Photos of what's inside</div><div class="group"><div class="pending" id="pend"></div>
@@ -403,7 +404,10 @@ function renderEdit(id, presetLoc) {
   const addPending = (files) => { files.forEach((f) => pending.push({ file: f, url: URL.createObjectURL(f) })); drawPending(); };
   if (isNew) { $("cam").onclick = () => pick("camera", addPending); $("lib").onclick = () => pick("library", addPending); }
   $("code").addEventListener("input", () => { codeTouched = true; });
-  const autoCode = () => { if (!codeTouched) $("code").value = S.nextCode($("loc").value, BINS, $("kind").value); };
+  const autoCode = () => {
+    if (codeTouched) return; const loc = $("loc").value, kind = $("kind").value;
+    $("code").value = !isNew && S.codeStem(loc, kind) === S.codeStem(orig.location, orig.kind) ? orig.code : S.nextCode(loc, BINS.filter((x) => x.id !== b.id), kind);
+  };
   $("loc").addEventListener("input", autoCode); $("kind").addEventListener("change", autoCode);
   $("cancel").onclick = () => history.length > 1 ? history.back() : go("#/");
   $("save").onclick = async () => {
@@ -432,7 +436,7 @@ function renderPlace(place) {
   const parts = S.placeParts(place);
   if (!parts.length) return go("#/");
   const inside = BINS.filter((b) => S.isUnder(b.location, place));
-  const here = inside.filter((b) => S.placeParts(b.location).length === parts.length).sort(byCode);
+  const here = inside.filter((b) => S.placeParts(b.location).length === parts.length).sort(byName);
   const kids = S.childPlaces(place, BINS);
   const parent = parts.slice(0, -1).join(" › ");
   app.innerHTML = `<div class="page">

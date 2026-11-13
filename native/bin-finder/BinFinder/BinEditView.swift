@@ -76,11 +76,11 @@ struct BinEditView: View {
                     }
                     .pickerStyle(.segmented)
                     .accessibilityIdentifier("binKind")
-                    .onChange(of: bin.kind) { kind in if isNew && !codeTouched { bin.code = store.nextCode(for: bin.location, kind: kind) } }
+                    .onChange(of: bin.kind) { _ in autoCode() }
                     HStack {
                         TextField("Location, like Hangar / Shelf 2", text: $bin.location)
                             .textInputAutocapitalization(.words)
-                            .onChange(of: bin.location) { loc in if isNew && !codeTouched { bin.code = store.nextCode(for: loc, kind: bin.kind) } }
+                            .onChange(of: bin.location) { _ in autoCode() }
                         if !store.locations.isEmpty {
                             Menu {
                                 ForEach(store.locations, id: \.self) { l in Button(l) { bin.location = l } }
@@ -143,6 +143,15 @@ struct BinEditView: View {
 
     static func parseItems(_ text: String) -> [String] {
         text.split(whereSeparator: { $0 == "\n" || $0 == "," || $0 == ";" }).map { String($0).trimmed }.filter { !$0.isEmpty }
+    }
+
+    /// The label code follows a change of type or location, unless it was typed by hand.
+    private func autoCode() {
+        guard !codeTouched else { return }
+        if isNew { bin.code = store.nextCode(for: bin.location, kind: bin.kind); return }
+        guard let orig = store.bin(bin.id), BinCodes.isAuto(orig) else { return }
+        bin.code = BinCodes.stem(for: bin.location, kind: bin.kind) == BinCodes.stem(for: orig.location, kind: orig.kind)
+            ? orig.code : store.nextCode(for: bin.location, kind: bin.kind, skipping: bin.id)
     }
 
     private func save() {

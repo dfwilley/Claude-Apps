@@ -195,6 +195,14 @@ enum BinCodes {
         return [prefix(for: location), k == "box" ? "BOX" : k == "none" ? "" : "BIN"].filter { !$0.isEmpty }.joined(separator: "-")
     }
 
+    /// Is this still the code the app would give it (so it may follow a change of type or location), not one typed by hand?
+    static func isAuto(_ b: Bin) -> Bool {
+        let s = stem(for: b.location, kind: b.kind) + "-", c = b.code.uppercased()
+        guard c.hasPrefix(s) else { return false }
+        let rest = c.dropFirst(s.count)
+        return !rest.isEmpty && rest.allSatisfy { $0.isASCII && $0.isNumber }
+    }
+
     static func next(for location: String, kind: String = "bin", existing: [Bin]) -> String {
         let s = stem(for: location, kind: kind) + "-"
         let used = existing.compactMap { b -> Int? in

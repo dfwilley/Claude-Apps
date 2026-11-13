@@ -16,8 +16,7 @@ struct PlaceView: View {
     private var name: String { parts.last ?? place }
     private var inside: [Bin] { store.bins.filter { BinPlaces.isUnder($0.location, place) } }
     private var here: [Bin] {
-        inside.filter { BinPlaces.parts($0.location).count == parts.count }
-            .sorted { $0.code.localizedStandardCompare($1.code) == .orderedAscending }
+        inside.filter { BinPlaces.parts($0.location).count == parts.count }.sorted(by: Bin.byName)
     }
     private var kids: [BinPlaces.Child] { BinPlaces.children(of: place, in: store.bins) }
 
