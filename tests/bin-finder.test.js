@@ -24,6 +24,8 @@ for (const q of ["battery", "batteries", "aa battery", "clamp", "hose clamps", "
 assert.equal(S.search("butter", power).length, 0);
 // Bin or box, and the list of all items
 assert.equal(S.kindOf({}), "bin"); assert.equal(S.kindOf({ kind: "box" }), "box"); assert.equal(S.kindOf({ kind: "crate" }), "bin");
+assert.equal(S.kindOf({ kind: "none" }), "none"); assert.equal(S.kindWord({ kind: "none" }), ""); assert.equal(S.kindLabel({ kind: "none" }), "None"); assert.equal(S.kindLabel({}), "Bin (plastic)");
+assert.equal(S.displayName({ name: "", code: "H-01", kind: "none" }), "H-01"); assert.equal(S.displayName({ name: "Shelf 1", code: "H-01", kind: "none" }), "Shelf 1");
 assert.equal(S.displayName({ name: " ", code: "G-07", kind: "box" }), "Box G-07"); assert.equal(S.displayName({ name: "", code: "G-08" }), "Bin G-08");
 assert.deepEqual(S.allItems(bins.slice(0, 2)).map((x) => [x.item, x.bin.code]),
   [["Cordless drill", "G-02"], ["Electrical tape", "G-01"], ["Fuses (ATC)", "G-01"], ["Step bits", "G-02"], ["Zip ties", "G-01"]]);

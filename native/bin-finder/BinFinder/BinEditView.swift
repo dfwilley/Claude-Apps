@@ -70,8 +70,9 @@ struct BinEditView: View {
                         .textInputAutocapitalization(.sentences)
                         .accessibilityIdentifier("binName")
                     Picker("Container", selection: $bin.kind) {
-                        Text("Bin (plastic)").tag("bin")
-                        Text("Box (cardboard)").tag("box")
+                        Text("Bin").tag("bin")
+                        Text("Box").tag("box")
+                        Text("None").tag("none")
                     }
                     .pickerStyle(.segmented)
                     .accessibilityIdentifier("binKind")
@@ -98,7 +99,7 @@ struct BinEditView: View {
                 } header: {
                     Text("Bin or box")
                 } footer: {
-                    Text("For a place inside a place, use / or ›, like Hangar / Shelf 2 or RV / Front bay / Left.")
+                    Text("Bin is a plastic container, Box is cardboard, and None is for a shelf, drawer or compartment. For a place inside a place, use / or ›, like Hangar / Shelf 2 or RV / Front bay / Left.")
                 }
 
                 Section {
@@ -115,7 +116,7 @@ struct BinEditView: View {
                     TextField("Anything else", text: $bin.notes, axis: .vertical).lineLimit(2...6)
                 }
             }
-            .navigationTitle(isNew ? "New bin or box" : (bin.isBox ? "Edit box" : "Edit bin"))
+            .navigationTitle(isNew ? "New bin or box" : "Edit \(bin.kindNoun)")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }

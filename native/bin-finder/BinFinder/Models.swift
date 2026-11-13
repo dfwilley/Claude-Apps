@@ -15,22 +15,27 @@ struct Bin: Identifiable, Codable, Hashable {
     var autoWords: [String] = []
     /// On the trip checklist (things that get loaded for an RV trip).
     var trip: Bool = false
-    /// "bin" (plastic) or "box" (cardboard). They work the same; the word just matches what's on the shelf.
+    /// "bin" (plastic), "box" (cardboard) or "none" (a shelf, drawer or compartment). They all work the same.
     var kind: String = "bin"
     /// The bin or box this one sits inside (a box on a shelf, a small bin in a big one), if any.
     var inside: UUID? = nil
     var created: Date = Date()
     var updated: Date = Date()
 
-    var isBox: Bool { kind == "box" }
-    /// "Bin" or "Box".
-    var kindWord: String { isBox ? "Box" : "Bin" }
-    var displayName: String { name.trimmingCharacters(in: .whitespaces).isEmpty ? "\(kindWord) \(code)" : name }
+    static func tidyKind(_ k: String?) -> String { k == "box" || k == "none" ? k! : "bin" }
+    /// "Bin" or "Box" for lists; blank for "none".
+    var kindWord: String { kind == "box" ? "Box" : kind == "none" ? "" : "Bin" }
+    /// For sentences: "Delete this box".
+    var kindNoun: String { kind == "box" ? "box" : kind == "none" ? "entry" : "bin" }
+    var kindLabel: String { kind == "box" ? "Box (cardboard)" : kind == "none" ? "None" : "Bin (plastic)" }
+    var displayName: String {
+        name.trimmingCharacters(in: .whitespaces).isEmpty ? [kindWord, code].filter { !$0.isEmpty }.joined(separator: " ") : name
+    }
 
     init(id: UUID = UUID(), name: String = "", location: String = "", code: String = "", items: [String] = [],
          notes: String = "", photos: [String] = [], autoWords: [String] = [], trip: Bool = false, kind: String = "bin", inside: UUID? = nil, created: Date = Date(), updated: Date = Date()) {
         self.id = id; self.name = name; self.location = location; self.code = code; self.items = items
-        self.notes = notes; self.photos = photos; self.autoWords = autoWords; self.trip = trip; self.kind = kind == "box" ? "box" : "bin"; self.inside = inside; self.created = created; self.updated = updated
+        self.notes = notes; self.photos = photos; self.autoWords = autoWords; self.trip = trip; self.kind = Bin.tidyKind(kind); self.inside = inside; self.created = created; self.updated = updated
     }
 
     // Tolerant decoding so older or hand-edited files still open.
@@ -45,7 +50,7 @@ struct Bin: Identifiable, Codable, Hashable {
         photos = try c.decodeIfPresent([String].self, forKey: .photos) ?? []
         autoWords = try c.decodeIfPresent([String].self, forKey: .autoWords) ?? []
         trip = try c.decodeIfPresent(Bool.self, forKey: .trip) ?? false
-        kind = (try? c.decodeIfPresent(String.self, forKey: .kind)) == "box" ? "box" : "bin"
+        kind = Bin.tidyKind(try? c.decodeIfPresent(String.self, forKey: .kind))
         inside = (try? c.decodeIfPresent(String.self, forKey: .inside)).flatMap { UUID(uuidString: $0) }
         created = try c.decodeIfPresent(Date.self, forKey: .created) ?? Date()
         updated = try c.decodeIfPresent(Date.self, forKey: .updated) ?? Date()

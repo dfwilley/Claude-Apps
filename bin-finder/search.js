@@ -28,9 +28,12 @@
   const has = (text, t) => normalize(text).includes(t) || singular(text).includes(t);
 
   // A container is a bin (plastic) or a box (cardboard). They work the same; the word just matches what's on the shelf.
-  const kindOf = (b) => (b && b.kind === "box" ? "box" : "bin");
-  const kindWord = (b) => (kindOf(b) === "box" ? "Box" : "Bin");
-  const displayName = (b) => (b.name || "").trim() || `${kindWord(b)} ${b.code}`;
+  // "none" is for something that is neither, like a shelf, a drawer or an RV compartment.
+  const kindOf = (b) => (b && (b.kind === "box" || b.kind === "none") ? b.kind : "bin");
+  const kindWord = (b) => ({ box: "Box", none: "" })[kindOf(b)] ?? "Bin";          // shown in lists; blank for "none"
+  const kindNoun = (b) => ({ box: "box", none: "entry" })[kindOf(b)] ?? "bin";     // "Delete this box"
+  const kindLabel = (b) => ({ box: "Box (cardboard)", none: "None" })[kindOf(b)] ?? "Bin (plastic)";
+  const displayName = (b) => (b.name || "").trim() || [kindWord(b), b.code].filter(Boolean).join(" ");
   // A bin or box can sit inside another one (a box on a shelf, a small bin in a big one). `inside` holds the holder's id.
   const sameID = (a, b) => !!a && !!b && String(a).toLowerCase() === String(b).toLowerCase();
   // The bin or box this one sits inside, or null.
@@ -158,6 +161,6 @@
   const isoNow = (d = new Date()) => d.toISOString().replace(/\.\d{3}Z$/, "Z");
 
   const api = { normalize, stem, terms, search, codePrefix, nextCode, photoWords, displayName, isoNow,
-    kindOf, kindWord, allItems, holderOf, heldBy, canHold, placeParts, tidyPlace, isUnder, allPlaces, childPlaces, placeBelow, renamePlace, tripKeys, tripProgress };
+    kindOf, kindWord, kindNoun, kindLabel, allItems, holderOf, heldBy, canHold, placeParts, tidyPlace, isUnder, allPlaces, childPlaces, placeBelow, renamePlace, tripKeys, tripProgress };
   if (typeof module !== "undefined" && module.exports) module.exports = api; else root.BinSearch = api;
 })(typeof window !== "undefined" ? window : globalThis);

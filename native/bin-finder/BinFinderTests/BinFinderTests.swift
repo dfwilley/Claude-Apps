@@ -190,6 +190,14 @@ final class BinFinderTests: XCTestCase {
         XCTAssertEqual(b.bins.first { $0.code == "G-07" }?.kind, "box")
         XCTAssertEqual(b.bins.first { $0.code == "G-08" }?.displayName, "Bin G-08")
         XCTAssertEqual(Bin(name: " ", code: "G-09", kind: "box").displayName, "Box G-09")
+        let shelf = Bin(name: "", code: "H-01", kind: "none")
+        XCTAssertEqual(shelf.kind, "none"); XCTAssertEqual(shelf.kindWord, ""); XCTAssertEqual(shelf.kindLabel, "None"); XCTAssertEqual(shelf.displayName, "H-01")
+        XCTAssertEqual(Bin(name: "Shelf 1", code: "H-01", kind: "none").displayName, "Shelf 1")
+        XCTAssertEqual(Bin(kind: "crate").kindLabel, "Bin (plastic)")
+        a.upsert(Bin(name: "Shelf 1", code: "H-01", kind: "none"))
+        let c = tempStore()
+        try c.restore(from: try a.makeBackup())
+        XCTAssertEqual(c.bins.first { $0.code == "H-01" }?.kind, "none")
         let old = #"[{"id":"6F9619FF-8B86-D011-B42D-00C04FC964FF","name":"Old"},{"id":"6F9619FF-8B86-D011-B42D-00C04FC964FE","name":"Odd","kind":"crate"}]"#.data(using: .utf8)!
         XCTAssertEqual(try JSONDecoder().decode([Bin].self, from: old).map(\.kind), ["bin", "bin"])
     }

@@ -289,7 +289,7 @@ async function renderBin(id, params) {
     </div>
     ${b.photos.length > 1 ? `<div class="photohint">Swipe for more photos · tap one to view or delete it</div>` : ""}
     <div class="group" style="margin-top:22px">
-      <div class="row"><span class="grow">Container</span><span class="val">${S.kindOf(b) === "box" ? "Box (cardboard)" : "Bin (plastic)"}</span></div>
+      <div class="row"><span class="grow">Container</span><span class="val">${S.kindLabel(b)}</span></div>
       <div class="row"><span class="grow">Label</span><span class="val">${esc(b.code)}</span></div>
       ${(b.location || "").trim() ? `<a class="row" href="${placeLink(b.location)}"><span class="grow">Location</span><span class="val">${esc(S.tidyPlace(b.location))}</span><span class="chev" aria-hidden="true">›</span></a>` : `<div class="row"><span class="grow">Location</span><span class="val">None</span></div>`}
       ${holder ? `<a class="row" href="#/bin/${holder.id}"><span class="grow">Inside</span><span class="val">${esc(S.displayName(holder))}</span><span class="chev" aria-hidden="true">›</span></a>` : ""}
@@ -297,7 +297,7 @@ async function renderBin(id, params) {
     </div>
     <div class="sechead">What's inside · ${kids.length + b.items.length}</div>
     <div class="group">
-      ${kids.map((k) => `<div class="row"><a class="grow kid" href="#/bin/${k.id}"><span aria-hidden="true">📦&nbsp; </span><span class="title">${esc(S.displayName(k))}</span><div class="sub2">${esc([S.kindWord(k), k.code, k.items.length === 1 ? "1 item" : k.items.length + " items"].join(" · "))}</div></a><button class="x" data-out="${k.id}" aria-label="Take ${esc(S.displayName(k))} out">⊖</button></div>`).join("")}
+      ${kids.map((k) => `<div class="row"><a class="grow kid" href="#/bin/${k.id}"><span aria-hidden="true">📦&nbsp; </span><span class="title">${esc(S.displayName(k))}</span><div class="sub2">${esc([S.kindWord(k), k.code, k.items.length === 1 ? "1 item" : k.items.length + " items"].filter(Boolean).join(" · "))}</div></a><button class="x" data-out="${k.id}" aria-label="Take ${esc(S.displayName(k))} out">⊖</button></div>`).join("")}
       ${b.items.map((it, i) => `<div class="row"><span class="grow">${esc(it)}</span><button class="x" data-del="${i}" aria-label="Remove ${esc(it)}">⊖</button></div>`).join("")}
       <form class="row" id="addItem"><input id="newItem" placeholder="Add an item" enterkeyhint="done" autocomplete="off" aria-label="Add an item"><button class="icon" aria-label="Add item">⊕</button></form>
       ${canAdd.length ? `<label class="row act"><span class="grow">📦&nbsp; Add a saved bin or box</span><select id="addKid" aria-label="Add a saved bin or box"><option value="">Choose</option>${canAdd.map((x) => { const h = S.holderOf(x, BINS); return `<option value="${x.id}">${esc([S.displayName(x), x.code].join(" · ") + (h ? ` (now in ${S.displayName(h)})` : ""))}</option>`; }).join("")}</select></label>` : ""}
@@ -309,7 +309,7 @@ async function renderBin(id, params) {
     <div class="group" style="margin-top:22px">
       <a class="row act" href="#/label/${b.id}">▦&nbsp; Show QR label</a>
       <a class="row act" href="#/edit/${b.id}">✎&nbsp; Edit name, type, location or notes</a>
-      <button class="row danger" id="del">🗑&nbsp; Delete this ${S.kindOf(b)}</button>
+      <button class="row danger" id="del">🗑&nbsp; Delete this ${S.kindNoun(b)}</button>
     </div></div>`;
   for (const img of app.querySelectorAll("[data-photo]")) {
     const blob = await getPhoto(img.dataset.photo); if (blob) img.src = URL.createObjectURL(blob);
@@ -357,13 +357,13 @@ function renderEdit(id, presetLoc) {
   if (isNew && !b.code) b.code = S.nextCode(b.location, BINS);
   let codeTouched = !isNew; const pending = [];
   app.innerHTML = `<div class="page">
-    <div class="bar"><button class="link" id="cancel">Cancel</button><span class="center">${isNew ? "New bin or box" : "Edit " + S.kindOf(b)}</span><button class="link strong" id="save">Save</button></div>
+    <div class="bar"><button class="link" id="cancel">Cancel</button><span class="center">${isNew ? "New bin or box" : "Edit " + S.kindNoun(b)}</span><button class="link strong" id="save">Save</button></div>
     ${isNew ? `<div class="sechead">Photos of what's inside</div><div class="group"><div class="pending" id="pend"></div>
       <div class="btnrow"><button class="btn" id="cam">📷 Take photo</button><button class="btn" id="lib">🖼 Add from Photos</button></div></div>
       <div class="secfoot">Bin Finder reads printed words in the photos (labels, packaging), so search can find them even if you don't list them.</div>` : ""}
     <div class="sechead">Bin or box</div><div class="group">
       <label class="row"><input id="name" placeholder="Name, like Electrical spares" value="${esc(b.name)}" autocapitalize="sentences"></label>
-      <label class="row"><span class="grow">Container</span><select id="kind" aria-label="Bin or box"><option value="bin"${S.kindOf(b) === "bin" ? " selected" : ""}>Bin (plastic)</option><option value="box"${S.kindOf(b) === "box" ? " selected" : ""}>Box (cardboard)</option></select></label>
+      <label class="row"><span class="grow">Container</span><select id="kind" aria-label="Bin, box or none">${[["bin", "Bin (plastic)"], ["box", "Box (cardboard)"], ["none", "None (shelf, drawer, compartment)"]].map(([v, t]) => `<option value="${v}"${S.kindOf(b) === v ? " selected" : ""}>${t}</option>`).join("")}</select></label>
       <label class="row"><input id="loc" placeholder="Location, like Hangar › Shelf 2" value="${esc(b.location)}" list="locs" autocapitalize="words"></label>
       <label class="row"><span class="grow">Label</span><input id="code" class="code" value="${esc(b.code)}" autocapitalize="characters" autocorrect="off" aria-label="Label code"></label>
       <label class="row"><span class="grow">Pack for trips</span><input type="checkbox" class="switch" id="tripE" ${b.trip ? "checked" : ""}></label>

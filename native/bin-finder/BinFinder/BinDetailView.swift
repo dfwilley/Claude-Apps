@@ -63,7 +63,7 @@ struct BinDetailView: View {
 
             // Label line
             Section {
-                LabeledContent("Container", value: bin.isBox ? "Box (cardboard)" : "Bin (plastic)")
+                LabeledContent("Container", value: bin.kindLabel)
                 LabeledContent("Label", value: bin.code)
                 if bin.location.trimmed.isEmpty {
                     LabeledContent("Location", value: "None")
@@ -89,7 +89,7 @@ struct BinDetailView: View {
                         Label {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(k.displayName)
-                                Text("\(k.kindWord) · \(k.code) · \(k.items.count == 1 ? "1 item" : "\(k.items.count) items")")
+                                Text([k.kindWord, k.code, k.items.count == 1 ? "1 item" : "\(k.items.count) items"].filter { !$0.isEmpty }.joined(separator: " · "))
                                     .font(.subheadline.monospacedDigit()).foregroundStyle(.secondary)
                             }
                         } icon: { Image(systemName: "shippingbox.fill") }
@@ -147,7 +147,7 @@ struct BinDetailView: View {
             Section {
                 Button { showLabel = true } label: { Label("Show QR label", systemImage: "qrcode") }
                 Button { editing = bin } label: { Label("Edit name, type, location or notes", systemImage: "pencil") }
-                Button(role: .destructive) { confirmDelete = true } label: { Label(bin.isBox ? "Delete this box" : "Delete this bin", systemImage: "trash") }
+                Button(role: .destructive) { confirmDelete = true } label: { Label("Delete this \(bin.kindNoun)", systemImage: "trash") }
             }
         }
         .listStyle(.insetGrouped)
@@ -174,7 +174,7 @@ struct BinDetailView: View {
             }
         }
         .confirmationDialog("Delete “\(bin.displayName)”?", isPresented: $confirmDelete, titleVisibility: .visible) {
-            Button(bin.isBox ? "Delete box and its photos" : "Delete bin and its photos", role: .destructive) {
+            Button("Delete \(bin.kindNoun) and its photos", role: .destructive) {
                 router.path.removeAll { $0 == .bin(binID) }
                 store.delete(binID)
             }
