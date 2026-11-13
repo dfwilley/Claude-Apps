@@ -88,17 +88,6 @@ final class ScreenshotTests: XCTestCase {
         app.swipeDown(); sleep(1)
         XCTAssertTrue(app.buttons["voiceSearch"].exists, "voice search button")
 
-        // About, from the ⋯ menu
-        let more = app.buttons["More"]
-        if more.waitForExistence(timeout: 3) {
-            more.tap(); sleep(1)
-            let about = app.buttons["About Bin Finder"]
-            if about.waitForExistence(timeout: 3) {
-                about.tap(); sleep(1)
-                snap(app, "15-about")
-                app.buttons["Done"].firstMatch.tap(); sleep(1)
-            } else { app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.9)).tap(); sleep(1) } // close the menu
-        }
         // Location pull-downs: choose Hangar, then a shelf inside it
         let picker = app.buttons["placePicker0"]
         if picker.waitForExistence(timeout: 3) {
@@ -116,6 +105,17 @@ final class ScreenshotTests: XCTestCase {
                     else { app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.08)).tap(); sleep(1) } // close the menu
                 }
             }
+        }
+        // About, from the ⋯ menu
+        let more = app.buttons["More"]
+        if more.waitForExistence(timeout: 3) {
+            more.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap(); sleep(1) // a plain tap at its spot; never fails the run
+            let about = app.buttons["About Bin Finder"]
+            if about.waitForExistence(timeout: 3) {
+                about.tap(); sleep(1)
+                snap(app, "15-about")
+                if app.buttons["Done"].firstMatch.exists { app.buttons["Done"].firstMatch.tap(); sleep(1) }
+            } else { app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.9)).tap(); sleep(1) } // close the menu
         }
         let add = app.buttons["addBin"]
         if add.waitForExistence(timeout: 3) { add.tap(); sleep(1); snap(app, "8-new-bin") }
