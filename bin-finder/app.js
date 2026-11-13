@@ -189,6 +189,8 @@ function route() {
 const go = (h) => { location.hash = h; };
 window.addEventListener("hashchange", render);
 let query = "";
+let homePlace = ""; // the place chosen in the Location pull-downs on the main list ("" = all)
+const NO_PLACE = "\u0001none";
 
 function render() {
   const r = route();
@@ -234,6 +236,28 @@ function renderHome() {
   $("clr").hidden = !query; $("clr").onclick = (e) => { e.preventDefault(); query = ""; q.value = ""; $("clr").hidden = true; drawList(); q.focus(); };
   drawList();
 }
+// The Location pull-downs and the bins for the chosen place. Nothing chosen: every bin, grouped by top place.
+function browseHTML() {
+  const count = (n) => `${n} ${n === 1 ? "bin" : "bins"}`;
+  const noLoc = BINS.filter((b) => !topPlace(b));
+  if (homePlace === NO_PLACE) { if (!noLoc.length) homePlace = ""; } else homePlace = S.nearestPlace(homePlace, BINS);
+  const none = homePlace === NO_PLACE, levels = S.placeLevels(none ? "" : homePlace, BINS);
+  const picks = levels.map((l, i) => `<label class="row"><span class="grow">${i ? "Inside " + esc(l.name) : "Location"}</span><select data-parent="${esc(l.parent)}" aria-label="${i ? "Place inside " + esc(l.name) : "Location"}">
+      <option value="">${i ? "Everything in " + esc(l.name) : "All locations"}</option>
+      ${l.choices.map((c) => `<option value="${esc(c.place)}"${c.place === l.selected ? " selected" : ""}>${esc(c.name)} · ${count(c.count)}</option>`).join("")}
+      ${!i && noLoc.length ? `<option value="${NO_PLACE}"${none ? " selected" : ""}>No location · ${count(noLoc.length)}</option>` : ""}</select></label>`).join("");
+  const sec = (title, place, bins, under) => `${place ? `<a class="sechead headlink" href="${placeLink(place)}">${esc(title)} · ${bins.length} <span aria-hidden="true">›</span></a>` : `<div class="sechead">${esc(title)} · ${bins.length}</div>`}<div class="group">${bins.sort(byPlaceThenCode).map((b) => rowHTML(b, null, under)).join("")}</div>`;
+  let list;
+  if (none) list = sec("No location", "", noLoc);
+  else if (!homePlace) list = S.childPlaces("", BINS).map((k) => sec(k.name, k.place, BINS.filter((b) => S.isUnder(b.location, k.place)), k.place)).join("") + (noLoc.length ? sec("No location", "", noLoc) : "");
+  else {
+    const parts = S.placeParts(homePlace), name = parts[parts.length - 1], kids = S.childPlaces(homePlace, BINS);
+    const here = BINS.filter((b) => S.isUnder(b.location, homePlace) && S.placeParts(b.location).length === parts.length);
+    list = kids.map((k) => sec(k.name, k.place, BINS.filter((b) => S.isUnder(b.location, k.place)), k.place)).join("")
+      + (here.length || !kids.length ? sec(kids.length ? "Right in " + name : name, homePlace, here, homePlace) : "");
+  }
+  return (picks ? `<div class="group picks">${picks}</div>` : "") + list;
+}
 function rowHTML(b, reasons, under) {
   const where = under === undefined ? S.tidyPlace(b.location) : S.placeBelow(b.location, under);
   const holder = S.holderOf(b, BINS);
@@ -250,13 +274,10 @@ function drawList() {
       ? `<div class="sechead">${hits.length === 1 ? "1 bin" : hits.length + " bins"}</div><div class="group">${hits.map((h) => rowHTML(h.bin, h.reasons)).join("")}</div>`
       : `<div class="group"><div class="row"><span class="grow"><div class="title">Nothing found for “${esc(query.trim())}”</div><div class="sub2">Try a simpler word, like “fuse” or “drill”. Search looks at bin names, items, labels, locations, notes and words read in your photos.</div></span></div></div>`;
   } else {
-    const groups = {};
-    BINS.forEach((b) => (groups[topPlace(b) || "No location"] ||= []).push(b));
-    const keys = Object.keys(groups).sort((a, b) => a === "No location" ? 1 : b === "No location" ? -1 : a.localeCompare(b, undefined, { sensitivity: "base" }));
     const tp = S.tripProgress(BINS, tripChecked);
     box.innerHTML = `<div class="group"><a class="row act" href="#/trip">🧳&nbsp; Trip checklist<span class="grow"></span><span class="val">${tp.total ? `${tp.done} of ${tp.total} packed` : "Set up"}</span><span class="chev" aria-hidden="true">›</span></a>
-      <a class="row act" href="#/items">📋&nbsp; All items<span class="grow"></span><span class="val">${BINS.reduce((t, b) => t + b.items.length, 0)}</span><span class="chev" aria-hidden="true">›</span></a></div>`
-      + keys.map((k) => `${k === "No location" ? `<div class="sechead">${esc(k)} · ${groups[k].length}</div>` : `<a class="sechead headlink" href="${placeLink(k)}">${esc(k)} · ${groups[k].length} <span aria-hidden="true">›</span></a>`}<div class="group">${groups[k].sort(byPlaceThenCode).map((b) => rowHTML(b, null, k === "No location" ? undefined : k)).join("")}</div>`).join("");
+      <a class="row act" href="#/items">📋&nbsp; All items<span class="grow"></span><span class="val">${BINS.reduce((t, b) => t + b.items.length, 0)}</span><span class="chev" aria-hidden="true">›</span></a></div>` + browseHTML();
+    box.querySelectorAll("select[data-parent]").forEach((sel) => sel.onchange = () => { homePlace = sel.value || sel.dataset.parent; keepScroll(drawList); });
   }
   fillThumbs(box);
 }

@@ -10,6 +10,8 @@ struct ContentView: View {
     @State private var importing = false
     @State private var message: String?
     @State private var listening = false
+    /// The place chosen in the Location pull-downs ("" = all locations).
+    @State private var homePlace = ""
 
     var body: some View {
         NavigationStack(path: $router.path) {
@@ -98,19 +100,34 @@ struct ContentView: View {
     // MARK: Lists
 
     static let noLocation = "No location"
+    /// Pull-down value for bins that have no location.
+    static let noPlace = "\u{1}none"
+    private var chosen: String { homePlace }
 
-    /// Bins grouped by their top-level place (Garage, Hangar, RV…).
-    private var grouped: [(String, [Bin])] {
-        let d = Dictionary(grouping: store.bins) { b -> String in let t = BinPlaces.top(b.location); return t.isEmpty ? Self.noLocation : t }
-        return d.keys.sorted { a, b in
-            if a == Self.noLocation { return false }
-            if b == Self.noLocation { return true }
-            return a.localizedCaseInsensitiveCompare(b) == .orderedAscending
-        }.map { ($0, d[$0]!.sorted(by: Bin.byPlaceThenCode)) }
+    private static func count(_ n: Int) -> String { n == 1 ? "1 bin" : "\(n) bins" }
+
+    /// One group of bins on the main list. The heading opens that place (rename, labels, new bin here).
+    private struct BinGroup: Identifiable { let title: String; let place: String; let bins: [Bin]; var id: String { title + "|" + place } }
+
+    /// Nothing chosen: every bin, by top place. A place chosen: the places inside it, then the bins right there.
+    private func groups(place: String, none: Bool, noLoc: [Bin]) -> [BinGroup] {
+        func under(_ p: String) -> [Bin] { store.bins.filter { BinPlaces.isUnder($0.location, p) }.sorted(by: Bin.byPlaceThenCode) }
+        let loose = BinGroup(title: Self.noLocation, place: "", bins: noLoc.sorted(by: Bin.byPlaceThenCode))
+        if none { return [loose] }
+        var out = BinPlaces.children(of: place, in: store.bins).map { BinGroup(title: $0.name, place: $0.place, bins: under($0.place)) }
+        if place.isEmpty { return noLoc.isEmpty ? out : out + [loose] }
+        let depth = BinPlaces.parts(place).count, name = BinPlaces.parts(place).last ?? place
+        let here = under(place).filter { BinPlaces.parts($0.location).count == depth }
+        if !here.isEmpty || out.isEmpty { out.append(BinGroup(title: out.isEmpty ? name : "Right in \(name)", place: place, bins: here)) }
+        return out
     }
 
     private var browseList: some View {
         let trip = TripList.progress(store.bins, checked: store.tripChecked)
+        let noLoc = store.bins.filter { BinPlaces.top($0.location).isEmpty }
+        let none = chosen == Self.noPlace && !noLoc.isEmpty
+        let place = chosen == Self.noPlace ? "" : BinPlaces.nearest(chosen, in: store.bins)
+        let levels = BinPlaces.levels(for: place, in: store.bins)
         return List {
             Section {
                 NavigationLink(value: Route.trip) {
@@ -130,17 +147,32 @@ struct ContentView: View {
                 }
                 .accessibilityIdentifier("allItems")
             }
-            ForEach(grouped, id: \.0) { loc, bins in
+            if !levels.isEmpty {
                 Section {
-                    ForEach(bins) { b in NavigationLink(value: Route.bin(b.id)) { BinRow(bin: b, under: loc == Self.noLocation ? nil : loc) } }
-                } header: {
-                    if loc == Self.noLocation {
-                        Text("\(loc) · \(bins.count)")
-                    } else {
-                        Button { router.path.append(.place(loc)) } label: {
-                            HStack(spacing: 4) { Text("\(loc) · \(bins.count)"); Image(systemName: "chevron.right").font(.caption2.weight(.bold)) }
+                    ForEach(Array(levels.enumerated()), id: \.offset) { i, level in
+                        Picker(i == 0 ? "Location" : "Inside \(level.name)", selection: Binding(
+                            get: { i == 0 && none ? Self.noPlace : level.selected },
+                            set: { homePlace = $0.isEmpty ? level.parent : $0 })) {
+                            Text(i == 0 ? "All locations" : "Everything in \(level.name)").tag("")
+                            ForEach(level.choices, id: \.self) { c in Text("\(c.name) · \(Self.count(c.count))").tag(c.place) }
+                            if i == 0 && !noLoc.isEmpty { Text("\(Self.noLocation) · \(Self.count(noLoc.count))").tag(Self.noPlace) }
                         }
-                        .accessibilityHint("Shows the places inside \(loc)")
+                        .pickerStyle(.menu)
+                        .accessibilityIdentifier("placePicker\(i)")
+                    }
+                }
+            }
+            ForEach(groups(place: place, none: none, noLoc: noLoc)) { g in
+                Section {
+                    ForEach(g.bins) { b in NavigationLink(value: Route.bin(b.id)) { BinRow(bin: b, under: g.place.isEmpty ? nil : g.place) } }
+                } header: {
+                    if g.place.isEmpty {
+                        Text("\(g.title) · \(g.bins.count)")
+                    } else {
+                        Button { router.path.append(.place(g.place)) } label: {
+                            HStack(spacing: 4) { Text("\(g.title) · \(g.bins.count)"); Image(systemName: "chevron.right").font(.caption2.weight(.bold)) }
+                        }
+                        .accessibilityHint("Opens \(g.title): rename it, print its labels or add a bin there")
                     }
                 }
             }

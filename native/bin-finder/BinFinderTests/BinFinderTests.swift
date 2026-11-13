@@ -140,6 +140,15 @@ final class BinFinderTests: XCTestCase {
         XCTAssertEqual(BinPlaces.children(of: "", in: nested).map { "\($0.name) \($0.count)" }, ["Garage 1", "Hangar 3"])
         XCTAssertEqual(BinPlaces.children(of: "Hangar", in: nested).map { "\($0.place) \($0.count)" }, ["Hangar › Shelf 1 1", "Hangar › Shelf 2 2"])
         XCTAssertEqual(BinPlaces.below("Hangar › Shelf 2 › Left", "Hangar"), "Shelf 2 › Left")
+        // Location pull-downs on the main list
+        XCTAssertEqual(BinPlaces.levels(for: "", in: nested).map { "\($0.parent)|\($0.selected)|\($0.choices.count)" }, ["||2"])
+        XCTAssertEqual(BinPlaces.levels(for: "hangar", in: nested).map { "\($0.parent)|\($0.name)|\($0.selected)|\($0.choices.count)" }, ["||Hangar|2", "hangar|hangar||2"])
+        XCTAssertEqual(BinPlaces.levels(for: "Hangar › Shelf 2", in: nested).map { "\($0.selected)|\($0.choices.map(\.name).joined(separator: ","))" },
+                       ["Hangar|Garage,Hangar", "Hangar › Shelf 2|Shelf 1,Shelf 2", "|Left"])
+        XCTAssertEqual(BinPlaces.levels(for: "Garage", in: nested).map(\.selected), ["Garage"])
+        XCTAssertEqual(BinPlaces.nearest("hangar › shelf 2 › Right", in: nested), "Hangar › Shelf 2")
+        XCTAssertEqual(BinPlaces.nearest("Shed › Top", in: nested), "")
+        XCTAssertEqual(BinPlaces.nearest("", in: nested), "")
         XCTAssertEqual(BinPlaces.rename("RV Rear Bay › Left", from: "RV Rear Bay", to: "RV › Rear bay"), "RV › Rear bay › Left")
         XCTAssertEqual(BinPlaces.rename("Garage", from: "RV Rear Bay", to: "RV › Rear bay"), "Garage")
         XCTAssertEqual(BinSearch.search("shelf 2", in: [Bin(name: "Oil", location: "Hangar › Shelf 2", code: "HS-01")]).first?.reasons, ["Location: Hangar › Shelf 2"])

@@ -109,6 +109,28 @@
     }
     return [...out.values()].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base", numeric: true }));
   }
+  // The deepest part of `place` that still has a bin in or under it ("" if none), spelled the way the bins spell it.
+  function nearestPlace(place, bins) {
+    const parts = placeParts(place);
+    for (let n = parts.length; n > 0; n--) {
+      const b = bins.find((x) => isUnder(x.location, parts.slice(0, n).join(" › ")));
+      if (b) return placeParts(b.location).slice(0, n).join(" › ");
+    }
+    return "";
+  }
+  // The pull-downs on the main list for the chosen place: one per level that has places to choose from.
+  // ("Hangar") → [{ parent: "", choices: Garage/Hangar, selected: "Hangar" }, { parent: "Hangar", choices: its shelves, selected: "" }].
+  function placeLevels(place, bins) {
+    const parts = placeParts(place), out = [];
+    for (let i = 0; i <= parts.length; i++) {
+      const parent = parts.slice(0, i).join(" › "), choices = childPlaces(parent, bins);
+      if (!choices.length) break;
+      const want = normalize(parts.slice(0, i + 1).join(" › "));
+      const hit = i < parts.length ? choices.find((c) => normalize(c.place) === want) : null;
+      out.push({ parent, name: i ? parts[i - 1] : "", choices, selected: hit ? hit.place : "" });
+    }
+    return out;
+  }
   // The rest of the location below `place`: ("Hangar › Shelf 2 › Left", "Hangar") → "Shelf 2 › Left".
   const placeBelow = (location, place) => placeParts(location).slice(placeParts(place).length).join(" › ");
   // Rename or move a place: every bin inside it follows.
@@ -161,6 +183,6 @@
   const isoNow = (d = new Date()) => d.toISOString().replace(/\.\d{3}Z$/, "Z");
 
   const api = { normalize, stem, terms, search, codePrefix, nextCode, photoWords, displayName, isoNow,
-    kindOf, kindWord, kindNoun, kindLabel, allItems, holderOf, heldBy, canHold, placeParts, tidyPlace, isUnder, allPlaces, childPlaces, placeBelow, renamePlace, tripKeys, tripProgress };
+    kindOf, kindWord, kindNoun, kindLabel, allItems, holderOf, heldBy, canHold, placeParts, tidyPlace, isUnder, allPlaces, childPlaces, nearestPlace, placeLevels, placeBelow, renamePlace, tripKeys, tripProgress };
   if (typeof module !== "undefined" && module.exports) module.exports = api; else root.BinSearch = api;
 })(typeof window !== "undefined" ? window : globalThis);

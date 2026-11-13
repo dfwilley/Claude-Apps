@@ -64,6 +64,12 @@ assert.deepEqual(S.allPlaces(nested), ["Garage", "Hangar", "Hangar › Shelf 1",
 assert.deepEqual(S.childPlaces("", nested).map((c) => [c.name, c.count]), [["Garage", 1], ["Hangar", 3]]);
 assert.deepEqual(S.childPlaces("Hangar", nested).map((c) => [c.place, c.count]), [["Hangar › Shelf 1", 1], ["Hangar › Shelf 2", 2]]);
 assert.equal(S.placeBelow("Hangar › Shelf 2 › Left", "Hangar"), "Shelf 2 › Left");
+// Location pull-downs on the main list
+assert.deepEqual(S.placeLevels("", nested).map((l) => [l.parent, l.selected, l.choices.length]), [["", "", 2]]);
+assert.deepEqual(S.placeLevels("hangar", nested).map((l) => [l.parent, l.name, l.selected, l.choices.length]), [["", "", "Hangar", 2], ["hangar", "hangar", "", 2]]);
+assert.deepEqual(S.placeLevels("Hangar › Shelf 2", nested).map((l) => [l.selected, l.choices.map((c) => c.name).join()]), [["Hangar", "Garage,Hangar"], ["Hangar › Shelf 2", "Shelf 1,Shelf 2"], ["", "Left"]]);
+assert.deepEqual(S.placeLevels("Garage", nested).map((l) => l.selected), ["Garage"]);
+assert.equal(S.nearestPlace("hangar › shelf 2 › Right", nested), "Hangar › Shelf 2"); assert.equal(S.nearestPlace("Shed › Top", nested), ""); assert.equal(S.nearestPlace("", nested), "");
 assert.equal(S.renamePlace("RV Rear Bay › Left", "RV Rear Bay", "RV › Rear bay"), "RV › Rear bay › Left");
 assert.equal(S.renamePlace("Garage", "RV Rear Bay", "RV › Rear bay"), "Garage");
 assert.deepEqual(S.search("shelf 2", [{ name: "Oil", code: "HS-01", location: "Hangar › Shelf 2", items: [] }])[0].reasons, ["Location: Hangar › Shelf 2"]);

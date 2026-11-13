@@ -88,6 +88,22 @@ final class ScreenshotTests: XCTestCase {
         app.swipeDown(); sleep(1)
         XCTAssertTrue(app.buttons["voiceSearch"].exists, "voice search button")
 
+        // Location pull-downs: choose Hangar, then a shelf inside it
+        let picker = app.buttons["placePicker0"]
+        if picker.waitForExistence(timeout: 3) {
+            picker.tap(); sleep(1)
+            let hangarChoice = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Hangar ·'")).firstMatch
+            if hangarChoice.waitForExistence(timeout: 3) {
+                hangarChoice.tap(); sleep(1)
+                snap(app, "13-location-hangar")
+                let inner = app.buttons["placePicker1"]
+                if inner.waitForExistence(timeout: 3) {
+                    inner.tap(); sleep(1)
+                    let shelf = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Shelf 2 ·'")).firstMatch
+                    if shelf.waitForExistence(timeout: 3) { shelf.tap(); sleep(1); snap(app, "14-location-hangar-shelf-2") }
+                }
+            }
+        }
         let add = app.buttons["addBin"]
         if add.waitForExistence(timeout: 3) { add.tap(); sleep(1); snap(app, "8-new-bin") }
         XCTAssertTrue(foundByPhoto, "photo word search should find the leveling blocks bin")

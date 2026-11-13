@@ -240,6 +240,31 @@ enum BinPlaces {
         }
         return out.values.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
     }
+    /// The deepest part of `place` that still has a bin in or under it ("" if none), spelled the way the bins spell it.
+    static func nearest(_ place: String, in bins: [Bin]) -> String {
+        let ps = parts(place)
+        for n in stride(from: ps.count, to: 0, by: -1) {
+            if let b = bins.first(where: { isUnder($0.location, ps.prefix(n).joined(separator: " › ")) }) {
+                return parts(b.location).prefix(n).joined(separator: " › ")
+            }
+        }
+        return ""
+    }
+    struct Level: Hashable { let parent: String; let name: String; let choices: [Child]; let selected: String }
+    /// The pull-downs on the main list for the chosen place: one per level that has places to choose from.
+    static func levels(for place: String, in bins: [Bin]) -> [Level] {
+        let ps = parts(place)
+        var out: [Level] = []
+        for i in 0...ps.count {
+            let parent = ps.prefix(i).joined(separator: " › ")
+            let choices = children(of: parent, in: bins)
+            if choices.isEmpty { break }
+            let want = BinSearch.normalize(ps.prefix(i + 1).joined(separator: " › "))
+            let hit = i < ps.count ? choices.first { BinSearch.normalize($0.place) == want } : nil
+            out.append(Level(parent: parent, name: i > 0 ? ps[i - 1] : "", choices: choices, selected: hit?.place ?? ""))
+        }
+        return out
+    }
     /// ("Hangar › Shelf 2 › Left", "Hangar") → "Shelf 2 › Left".
     static func below(_ location: String, _ place: String) -> String {
         parts(location).dropFirst(parts(place).count).joined(separator: " › ")
