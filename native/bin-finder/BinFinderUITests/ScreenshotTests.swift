@@ -92,15 +92,17 @@ final class ScreenshotTests: XCTestCase {
         let picker = app.buttons["placePicker0"]
         if picker.waitForExistence(timeout: 3) {
             picker.tap(); sleep(1)
-            let hangarChoice = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Hangar ·'")).firstMatch
+            let hangarChoice = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Hangar · 2 bin'")).firstMatch
             if hangarChoice.waitForExistence(timeout: 3) {
                 hangarChoice.tap(); sleep(1)
                 snap(app, "13-location-hangar")
                 let inner = app.buttons["placePicker1"]
                 if inner.waitForExistence(timeout: 3) {
                     inner.tap(); sleep(1)
-                    let shelf = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Shelf 2 ·'")).firstMatch
-                    if shelf.waitForExistence(timeout: 3) { shelf.tap(); sleep(1); snap(app, "14-location-hangar-shelf-2") }
+                    // The choice in the open menu ends in "bins"; the group heading behind it does not.
+                    let shelf = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Shelf 1 · 2 bin'")).firstMatch
+                    if shelf.waitForExistence(timeout: 3) { shelf.tap(); sleep(1); snap(app, "14-location-hangar-shelf-1") }
+                    else { app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.08)).tap(); sleep(1) } // close the menu
                 }
             }
         }
