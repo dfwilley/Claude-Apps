@@ -70,6 +70,10 @@ struct BinDetailView: View {
                 } else {
                     NavigationLink(value: Route.place(bin.location)) { LabeledContent("Location", value: BinPlaces.tidy(bin.location)) }
                 }
+                if let holder = store.holder(of: bin) {
+                    NavigationLink(value: Route.bin(holder.id)) { LabeledContent("Inside", value: holder.displayName) }
+                        .accessibilityIdentifier("insideHolder")
+                }
                 Toggle("Pack for trips", isOn: Binding(get: { store.bin(binID)?.trip ?? false }, set: { store.setTrip($0, for: binID) }))
                     .accessibilityIdentifier("packForTrips")
             } footer: {
@@ -77,7 +81,23 @@ struct BinDetailView: View {
             }
 
             // Items
+            let kids = store.held(by: bin)
+            let canAdd = store.canGoInside(bin)
             Section {
+                ForEach(kids) { k in
+                    NavigationLink(value: Route.bin(k.id)) {
+                        Label {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(k.displayName)
+                                Text("\(k.kindWord) · \(k.code) · \(k.items.count == 1 ? "1 item" : "\(k.items.count) items")")
+                                    .font(.subheadline.monospacedDigit()).foregroundStyle(.secondary)
+                            }
+                        } icon: { Image(systemName: "shippingbox.fill") }
+                    }
+                    .swipeActions(edge: .trailing) {
+                        Button("Take out") { store.put(k.id, inside: nil) }.tint(.orange)
+                    }
+                }
                 ForEach(Array(bin.items.enumerated()), id: \.offset) { _, item in Text(item) }
                     .onDelete { store.removeItems(at: $0, from: binID) }
                 HStack {
@@ -91,10 +111,20 @@ struct BinDetailView: View {
                         .disabled(newItem.trimmed.isEmpty)
                         .accessibilityLabel("Add item")
                 }
+                if !canAdd.isEmpty {
+                    Menu {
+                        ForEach(canAdd) { c in
+                            Button { store.put(c.id, inside: binID) } label: {
+                                Text([c.displayName, c.code].joined(separator: " · ") + (store.holder(of: c).map { " (now in \($0.displayName))" } ?? ""))
+                            }
+                        }
+                    } label: { Label("Add a saved bin or box", systemImage: "shippingbox") }
+                    .accessibilityIdentifier("addSavedBin")
+                }
             } header: {
-                Text("What's inside · \(bin.items.count)")
+                Text("What's inside · \(kids.count + bin.items.count)")
             } footer: {
-                Text("Swipe left on an item to remove it.")
+                Text(kids.isEmpty ? "Swipe left on an item to remove it." : "Tap a bin or box to open it. Swipe left to take it out (it isn't deleted) or to remove an item.")
             }
 
             // Words found in photos

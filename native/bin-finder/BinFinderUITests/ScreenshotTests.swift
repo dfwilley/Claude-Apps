@@ -67,6 +67,16 @@ final class ScreenshotTests: XCTestCase {
             snap(app, "11-all-items")
             app.navigationBars.buttons.firstMatch.tap(); sleep(1)
         }
+        // A bin with a saved box inside it
+        let rivets = app.staticTexts["Rivet supplies"].firstMatch
+        if !rivets.exists { app.swipeUp(); sleep(1) }
+        if rivets.waitForExistence(timeout: 3) {
+            rivets.tap(); sleep(1)
+            app.swipeUp(); sleep(1)
+            snap(app, "12-bin-with-box-inside")
+            app.navigationBars.buttons.firstMatch.tap(); sleep(1)
+            app.swipeDown(); sleep(1)
+        }
         // A place with places inside it
         let hangar = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Hangar'")).firstMatch
         if !hangar.exists { app.swipeUp(); sleep(1) }

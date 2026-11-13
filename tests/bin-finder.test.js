@@ -29,6 +29,25 @@ assert.deepEqual(S.allItems(bins.slice(0, 2)).map((x) => [x.item, x.bin.code]),
   [["Cordless drill", "G-02"], ["Electrical tape", "G-01"], ["Fuses (ATC)", "G-01"], ["Step bits", "G-02"], ["Zip ties", "G-01"]]);
 assert.deepEqual(S.allItems([{ name: "B", code: "B-02", items: ["tape", " "] }, { name: "A", code: "B-01", items: ["Tape", "10 mm socket", "9 mm socket"] }]).map((x) => [x.item, x.bin.code]),
   [["9 mm socket", "B-01"], ["10 mm socket", "B-01"], ["Tape", "B-01"], ["tape", "B-02"]]);
+// Bins and boxes inside other bins and boxes
+{
+  const shelf = { id: "A1", name: "Shelf 1", code: "H-01", location: "Hangar", items: [] };
+  const kit = { id: "b2", name: "Cowl Louver Kit", kind: "box", code: "H-02", location: "Hangar", items: ["Louvers", "Rivets"], inside: "a1" };
+  const bag = { id: "c3", name: "Hardware bag", code: "H-03", items: ["Screws"], inside: "B2" };
+  const lost = { id: "d4", name: "Orphan", code: "H-04", items: [], inside: "gone" };
+  const self = { id: "e5", name: "Self", code: "H-05", items: [], inside: "e5" };
+  const all = [shelf, kit, bag, lost, self];
+  assert.equal(S.holderOf(kit, all), shelf); assert.equal(S.holderOf(bag, all), kit);
+  assert.equal(S.holderOf(shelf, all), null); assert.equal(S.holderOf(lost, all), null); assert.equal(S.holderOf(self, all), null);
+  assert.deepEqual(S.heldBy(shelf, all).map((b) => b.name), ["Cowl Louver Kit"]); assert.deepEqual(S.heldBy(bag, all), []);
+  assert.equal(S.canHold(shelf, lost, all), true); assert.equal(S.canHold(bag, lost, all), true);
+  assert.equal(S.canHold(shelf, shelf, all), false);   // not inside itself
+  assert.equal(S.canHold(kit, shelf, all), false);     // the shelf can't go in a box that's on the shelf
+  assert.equal(S.canHold(bag, shelf, all), false);     // ...or in a bag that's in that box
+  assert.deepEqual(S.search("rivets", all)[0].reasons, ["Item: Rivets", "In Shelf 1"]);
+  assert.deepEqual(S.search("screws", all)[0].reasons, ["Item: Screws", "In Cowl Louver Kit"]);
+  assert.deepEqual(S.search("shelf 1", all).map((h) => h.bin.name), ["Shelf 1"]);
+}
 // Spoken searches
 assert.deepEqual(S.terms("Where's my spare fuses?"), ["spare", "fus"]);
 assert.equal(S.search("where did I put the drill bits", bins)[0].bin.code, "G-02");

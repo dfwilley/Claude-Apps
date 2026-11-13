@@ -16,6 +16,8 @@ enum DemoData {
             store.upsert(b)
             store.addPhoto(image(symbol: s.4, color: s.5, label: s.6), to: b.id, analyze: true)
         }
+        // A box sitting inside another bin, to show bins inside bins.
+        if let oil = store.bins.first(where: { $0.code == "HS-02" }), let rivets = store.bins.first(where: { $0.code == "HS-01" }) { store.put(oil.id, inside: rivets.id) }
         // One thing already packed, to show the checklist part-way done.
         if let sewer = store.bins.first(where: { $0.code == "RR-01" }) { store.setChecked(["\(sewer.id.uuidString)|Sewer hose"], true) }
     }

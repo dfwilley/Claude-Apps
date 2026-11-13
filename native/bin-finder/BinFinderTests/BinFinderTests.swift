@@ -202,6 +202,54 @@ final class BinFinderTests: XCTestCase {
                        ["9 mm socket|B-01", "10 mm socket|B-01", "Tape|B-01", "tape|B-02"])
     }
 
+    func testBinsInsideBinsRules() {
+        let shelf = Bin(name: "Shelf 1", location: "Hangar", code: "H-01")
+        let kit = Bin(name: "Cowl Louver Kit", location: "Hangar", code: "H-02", items: ["Louvers", "Rivets"], kind: "box", inside: shelf.id)
+        let bag = Bin(name: "Hardware bag", code: "H-03", items: ["Screws"], inside: kit.id)
+        let lost = Bin(name: "Orphan", code: "H-04", inside: UUID())
+        var me = Bin(name: "Self", code: "H-05"); me.inside = me.id
+        let all = [shelf, kit, bag, lost, me]
+        XCTAssertEqual(BinNesting.holder(of: kit, in: all)?.id, shelf.id)
+        XCTAssertEqual(BinNesting.holder(of: bag, in: all)?.id, kit.id)
+        XCTAssertNil(BinNesting.holder(of: shelf, in: all)); XCTAssertNil(BinNesting.holder(of: lost, in: all)); XCTAssertNil(BinNesting.holder(of: me, in: all))
+        XCTAssertEqual(BinNesting.held(by: shelf, in: all).map(\.name), ["Cowl Louver Kit"])
+        XCTAssertTrue(BinNesting.held(by: bag, in: all).isEmpty)
+        XCTAssertTrue(BinNesting.canHold(shelf, lost, in: all)); XCTAssertTrue(BinNesting.canHold(bag, lost, in: all))
+        XCTAssertFalse(BinNesting.canHold(shelf, shelf, in: all))
+        XCTAssertFalse(BinNesting.canHold(kit, shelf, in: all))
+        XCTAssertFalse(BinNesting.canHold(bag, shelf, in: all))
+        XCTAssertEqual(BinSearch.search("rivets", in: all).first?.reasons, ["Item: Rivets", "In Shelf 1"])
+        XCTAssertEqual(BinSearch.search("screws", in: all).first?.reasons, ["Item: Screws", "In Cowl Louver Kit"])
+        XCTAssertEqual(BinSearch.search("shelf 1", in: all).map(\.bin.name), ["Shelf 1"])
+    }
+
+    func testPuttingABoxInsideABinMovesAndSurvivesBackup() throws {
+        let s = tempStore()
+        s.upsert(Bin(name: "Shelf 1", location: "Hangar", code: "H-01"))
+        s.upsert(Bin(name: "Cowl Louver Kit", code: "B-01", items: ["Louvers"], kind: "box"))
+        let shelf = try XCTUnwrap(s.bins.first { $0.code == "H-01" }), kit = try XCTUnwrap(s.bins.first { $0.code == "B-01" })
+        XCTAssertEqual(s.canGoInside(shelf).map(\.name), ["Cowl Louver Kit"])
+        s.put(kit.id, inside: shelf.id)
+        XCTAssertEqual(s.bin(kit.id)?.location, "Hangar")
+        XCTAssertEqual(s.held(by: shelf).map(\.name), ["Cowl Louver Kit"])
+        XCTAssertTrue(s.canGoInside(shelf).isEmpty)
+        s.put(shelf.id, inside: kit.id) // refused: the shelf can't go inside a box that's on it
+        XCTAssertNil(s.bin(shelf.id)?.inside)
+        var moved = try XCTUnwrap(s.bin(shelf.id)); moved.location = "Hangar / North wall"; s.upsert(moved)
+        XCTAssertEqual(s.bin(kit.id)?.location, "Hangar › North wall")
+        let b = tempStore()
+        try b.restore(from: try s.makeBackup())
+        XCTAssertEqual(b.bin(kit.id)?.inside, shelf.id)
+        // A web backup writes "" for "not inside anything".
+        let web = #"[{"id":"6F9619FF-8B86-D011-B42D-00C04FC964FF","name":"Web","inside":""},{"id":"6F9619FF-8B86-D011-B42D-00C04FC964FE","name":"Kid","inside":"6f9619ff-8b86-d011-b42d-00c04fc964ff"}]"#.data(using: .utf8)!
+        let bins = try JSONDecoder().decode([Bin].self, from: web)
+        XCTAssertNil(bins[0].inside); XCTAssertEqual(bins[1].inside, bins[0].id)
+        s.put(kit.id, inside: nil)
+        XCTAssertNil(s.bin(kit.id)?.inside)
+        s.put(kit.id, inside: shelf.id); s.delete(shelf.id)
+        XCTAssertNil(s.bin(kit.id)?.inside)
+    }
+
     func testItemParsing() {
         XCTAssertEqual(BinEditView.parseItems("zip ties, tape\n\n fuses ;wire"), ["zip ties", "tape", "fuses", "wire"])
     }

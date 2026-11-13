@@ -198,7 +198,8 @@ struct BinRow: View {
             Thumb(name: bin.photos.first, side: 64)
             VStack(alignment: .leading, spacing: 3) {
                 Text(bin.displayName).font(.headline).lineLimit(2)
-                Text([bin.kindWord, bin.code, under.map { BinPlaces.below(bin.location, $0) } ?? BinPlaces.tidy(bin.location)].filter { !$0.isEmpty }.joined(separator: " · "))
+                Text([bin.kindWord, bin.code, under.map { BinPlaces.below(bin.location, $0) } ?? BinPlaces.tidy(bin.location),
+                      reasons.isEmpty ? (store.holder(of: bin).map { "in \($0.displayName)" } ?? "") : ""].filter { !$0.isEmpty }.joined(separator: " · "))
                     .font(.subheadline.monospacedDigit()).foregroundStyle(.secondary)
                 if !reasons.isEmpty {
                     Text(reasons.joined(separator: " · ")).font(.footnote.weight(.medium)).foregroundStyle(.tint).lineLimit(2)

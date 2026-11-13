@@ -11,6 +11,7 @@ Install it with Sideloadly (USB or Wi-Fi). With a free Apple ID, re-install ever
 
 - **Bins** grouped by location (Garage, Hangar, RV Rear Bay…), each with photos, a list of what's inside, notes and a short label code like `G-03`.
 - **Bin or box**: mark each container as a Bin (plastic) or a Box (cardboard). They work the same; the word shows in the lists.
+- **Bins inside bins**: open a bin or box and choose **Add a saved bin or box** to put another saved one inside it (a box on a shelf, a small bin in a big one). It shows in the list of what's inside; tap it to open it. Search results say which bin or box it's in.
 - **All items**: one A-to-Z list of everything in every bin and box. Tap an item to open the bin or box it's in.
 - **Search** across names, items, labels, locations and notes. It handles plurals ("fuses" finds "fuse"), and it searches words the phone **read in your photos** (printed labels and recognized objects), all on the phone with no internet.
 - **Places inside places**: type a location like `Hangar / Shelf 2 / Left`. The main list groups by the top place; tap a group heading to open it and see the places inside. Rename or move a place and every bin inside follows. Labels can be printed for everything in a place.

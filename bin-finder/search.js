@@ -31,6 +31,20 @@
   const kindOf = (b) => (b && b.kind === "box" ? "box" : "bin");
   const kindWord = (b) => (kindOf(b) === "box" ? "Box" : "Bin");
   const displayName = (b) => (b.name || "").trim() || `${kindWord(b)} ${b.code}`;
+  // A bin or box can sit inside another one (a box on a shelf, a small bin in a big one). `inside` holds the holder's id.
+  const sameID = (a, b) => !!a && !!b && String(a).toLowerCase() === String(b).toLowerCase();
+  // The bin or box this one sits inside, or null.
+  const holderOf = (bin, bins) => (bin && bin.inside && !sameID(bin.inside, bin.id) && bins.find((x) => sameID(x.id, bin.inside))) || null;
+  // The bins and boxes sitting directly inside this one, by name.
+  const heldBy = (bin, bins) => bins.filter((x) => holderOf(x, bins) === bin)
+    .sort((a, b) => displayName(a).localeCompare(displayName(b), undefined, { sensitivity: "base", numeric: true }));
+  // Could `bin` go inside `holder`? Not inside itself, and not inside something that is already inside it.
+  function canHold(holder, bin, bins) {
+    if (!holder || !bin || sameID(holder.id, bin.id)) return false;
+    let p = holder;
+    for (let n = 0; n < 100 && (p = holderOf(p, bins)); n++) if (sameID(p.id, bin.id)) return false;
+    return true;
+  }
   // Every item in every bin and box, A to Z, each with the container it's in.
   function allItems(bins) {
     const out = [];
@@ -57,6 +71,8 @@
         const w = (bin.autoWords || []).find((x) => has(x, t));
         if (w) { score += 1; matched++; add(`Seen in photo: ${w}`); continue; }
       }
+      const holder = holderOf(bin, bins);
+      if (matched > 0 && holder) add(`In ${displayName(holder)}`);
       if (matched > 0) hits.push({ bin, score, matchedTerms: matched, reasons });
     }
     const best = Math.max(0, ...hits.map((h) => h.matchedTerms));
@@ -142,6 +158,6 @@
   const isoNow = (d = new Date()) => d.toISOString().replace(/\.\d{3}Z$/, "Z");
 
   const api = { normalize, stem, terms, search, codePrefix, nextCode, photoWords, displayName, isoNow,
-    kindOf, kindWord, allItems, placeParts, tidyPlace, isUnder, allPlaces, childPlaces, placeBelow, renamePlace, tripKeys, tripProgress };
+    kindOf, kindWord, allItems, holderOf, heldBy, canHold, placeParts, tidyPlace, isUnder, allPlaces, childPlaces, placeBelow, renamePlace, tripKeys, tripProgress };
   if (typeof module !== "undefined" && module.exports) module.exports = api; else root.BinSearch = api;
 })(typeof window !== "undefined" ? window : globalThis);

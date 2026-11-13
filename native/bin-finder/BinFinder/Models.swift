@@ -17,6 +17,8 @@ struct Bin: Identifiable, Codable, Hashable {
     var trip: Bool = false
     /// "bin" (plastic) or "box" (cardboard). They work the same; the word just matches what's on the shelf.
     var kind: String = "bin"
+    /// The bin or box this one sits inside (a box on a shelf, a small bin in a big one), if any.
+    var inside: UUID? = nil
     var created: Date = Date()
     var updated: Date = Date()
 
@@ -26,9 +28,9 @@ struct Bin: Identifiable, Codable, Hashable {
     var displayName: String { name.trimmingCharacters(in: .whitespaces).isEmpty ? "\(kindWord) \(code)" : name }
 
     init(id: UUID = UUID(), name: String = "", location: String = "", code: String = "", items: [String] = [],
-         notes: String = "", photos: [String] = [], autoWords: [String] = [], trip: Bool = false, kind: String = "bin", created: Date = Date(), updated: Date = Date()) {
+         notes: String = "", photos: [String] = [], autoWords: [String] = [], trip: Bool = false, kind: String = "bin", inside: UUID? = nil, created: Date = Date(), updated: Date = Date()) {
         self.id = id; self.name = name; self.location = location; self.code = code; self.items = items
-        self.notes = notes; self.photos = photos; self.autoWords = autoWords; self.trip = trip; self.kind = kind == "box" ? "box" : "bin"; self.created = created; self.updated = updated
+        self.notes = notes; self.photos = photos; self.autoWords = autoWords; self.trip = trip; self.kind = kind == "box" ? "box" : "bin"; self.inside = inside; self.created = created; self.updated = updated
     }
 
     // Tolerant decoding so older or hand-edited files still open.
@@ -44,8 +46,34 @@ struct Bin: Identifiable, Codable, Hashable {
         autoWords = try c.decodeIfPresent([String].self, forKey: .autoWords) ?? []
         trip = try c.decodeIfPresent(Bool.self, forKey: .trip) ?? false
         kind = (try? c.decodeIfPresent(String.self, forKey: .kind)) == "box" ? "box" : "bin"
+        inside = (try? c.decodeIfPresent(String.self, forKey: .inside)).flatMap { UUID(uuidString: $0) }
         created = try c.decodeIfPresent(Date.self, forKey: .created) ?? Date()
         updated = try c.decodeIfPresent(Date.self, forKey: .updated) ?? Date()
+    }
+}
+
+/// Bins and boxes inside other bins and boxes.
+enum BinNesting {
+    /// The bin or box this one sits inside, or nil.
+    static func holder(of bin: Bin, in bins: [Bin]) -> Bin? {
+        guard let h = bin.inside, h != bin.id else { return nil }
+        return bins.first { $0.id == h }
+    }
+    /// The bins and boxes sitting directly inside this one, by name.
+    static func held(by bin: Bin, in bins: [Bin]) -> [Bin] {
+        bins.filter { holder(of: $0, in: bins)?.id == bin.id }
+            .sorted { $0.displayName.compare($1.displayName, options: [.caseInsensitive, .diacriticInsensitive, .numeric]) == .orderedAscending }
+    }
+    /// Could `bin` go inside `holder`? Not inside itself, and not inside something that is already inside it.
+    static func canHold(_ holder: Bin, _ bin: Bin, in bins: [Bin]) -> Bool {
+        if holder.id == bin.id { return false }
+        var p = holder
+        for _ in 0..<100 {
+            guard let up = self.holder(of: p, in: bins) else { break }
+            if up.id == bin.id { return false }
+            p = up
+        }
+        return true
     }
 }
 
@@ -136,6 +164,7 @@ enum BinSearch {
                 if has(bin.notes, t) { score += 2; matched += 1; add("Notes"); continue }
                 if let w = bin.autoWords.first(where: { has($0, t) }) { score += 1; matched += 1; add("Seen in photo: \(w)"); continue }
             }
+            if matched > 0, let holder = BinNesting.holder(of: bin, in: bins) { add("In \(holder.displayName)") }
             if matched > 0 { hits.append(SearchHit(bin: bin, score: score, matchedTerms: matched, reasons: reasons)) }
         }
         let best = hits.map(\.matchedTerms).max() ?? 0

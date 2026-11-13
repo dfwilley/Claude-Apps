@@ -93,13 +93,42 @@ final class BinStore: ObservableObject {
         if b.code.trimmed.isEmpty { b.code = nextCode(for: b.location) }
         if let i = bins.firstIndex(where: { $0.id == b.id }) { bins[i] = b } else { bins.append(b) }
         save()
+        // Bins and boxes sitting inside this one move with it.
+        if !b.location.isEmpty {
+            for var c in BinNesting.held(by: b, in: bins) where BinPlaces.tidy(c.location) != b.location { c.location = b.location; upsert(c) }
+        }
     }
 
     func delete(_ id: UUID) {
         guard let b = bin(id) else { return }
         b.photos.forEach { try? FileManager.default.removeItem(at: photoURL($0)) }
+        // What was inside stays, on its own.
+        for i in bins.indices where bins[i].inside == id { bins[i].inside = nil }
         bins.removeAll { $0.id == id }
         save()
+    }
+
+    // MARK: Bins and boxes inside other bins and boxes
+
+    func holder(of bin: Bin) -> Bin? { BinNesting.holder(of: bin, in: bins) }
+    func held(by bin: Bin) -> [Bin] { BinNesting.held(by: bin, in: bins) }
+    /// Saved bins and boxes that could be put inside this one and aren't already.
+    func canGoInside(_ holder: Bin) -> [Bin] {
+        bins.filter { BinNesting.canHold(holder, $0, in: bins) && $0.inside != holder.id }
+            .sorted { $0.displayName.compare($1.displayName, options: [.caseInsensitive, .diacriticInsensitive, .numeric]) == .orderedAscending }
+    }
+
+    /// Puts a saved bin or box inside another one (nil takes it out). It takes on the holder's location.
+    func put(_ id: UUID, inside holderID: UUID?) {
+        guard var b = bin(id) else { return }
+        if let holderID {
+            guard let h = bin(holderID), BinNesting.canHold(h, b, in: bins) else { return }
+            b.inside = holderID
+            if !h.location.isEmpty { b.location = h.location }
+        } else {
+            b.inside = nil
+        }
+        upsert(b)
     }
 
     func addItem(_ text: String, to id: UUID) {

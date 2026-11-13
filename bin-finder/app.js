@@ -41,11 +41,14 @@ async function putBin(b) {
   if (!String(b.code || "").trim()) b.code = S.nextCode(b.location, BINS.filter((x) => x.id !== b.id));
   await tx("bins", "readwrite", (s) => s.put(b));
   const i = BINS.findIndex((x) => x.id === b.id); if (i >= 0) BINS[i] = b; else BINS.push(b);
+  // Bins and boxes sitting inside this one move with it.
+  if (b.location) for (const c of S.heldBy(b, BINS)) if (S.tidyPlace(c.location) !== b.location) { c.location = b.location; await putBin(c); }
   return b;
 }
 async function deleteBin(id) {
   const b = binById(id); if (!b) return;
   for (const p of b.photos) await deletePhotoFiles(p);
+  for (const c of S.heldBy(b, BINS)) { c.inside = ""; await putBin(c); } // what was inside stays, on its own
   await tx("bins", "readwrite", (s) => s.delete(id));
   BINS = BINS.filter((x) => x.id !== id);
 }
@@ -68,7 +71,7 @@ async function thumbURL(name) {
   return (urlCache[name] = URL.createObjectURL(b));
 }
 const newID = () => (crypto.randomUUID ? crypto.randomUUID() : "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => { const r = Math.random() * 16 | 0; return (c === "x" ? r : (r & 3 | 8)).toString(16); })).toUpperCase();
-const newBin = () => ({ id: newID(), name: "", kind: "bin", location: "", code: "", items: [], notes: "", photos: [], autoWords: [], trip: false, created: S.isoNow(), updated: S.isoNow() });
+const newBin = () => ({ id: newID(), name: "", kind: "bin", inside: "", location: "", code: "", items: [], notes: "", photos: [], autoWords: [], trip: false, created: S.isoNow(), updated: S.isoNow() });
 const locations = () => S.allPlaces(BINS);
 const topPlace = (b) => S.placeParts(b.location)[0] || "";
 const placeLink = (p) => "#/place?p=" + encodeURIComponent(p);
@@ -233,7 +236,8 @@ function renderHome() {
 }
 function rowHTML(b, reasons, under) {
   const where = under === undefined ? S.tidyPlace(b.location) : S.placeBelow(b.location, under);
-  const sub = [S.kindWord(b), b.code, where].filter(Boolean).join(" · ");
+  const holder = S.holderOf(b, BINS);
+  const sub = [S.kindWord(b), b.code, where, holder && !(reasons && reasons.length) ? "in " + S.displayName(holder) : ""].filter(Boolean).join(" · ");
   const line = reasons && reasons.length ? `<div class="why">${esc(reasons.join(" · "))}</div>` : (b.items.length ? `<div class="list">${esc(b.items.join(", "))}</div>` : "");
   return `<a class="row thumbrow" href="#/bin/${b.id}"><span class="thumb" data-thumb="${esc(b.photos[0] || "")}">📦</span>
     <span class="grow"><div class="title">${esc(S.displayName(b))}</div><div class="sub2">${esc(sub)}</div>${line}</span><span class="chev" aria-hidden="true">›</span></a>`;
@@ -273,6 +277,8 @@ async function renderBin(id, params) {
       <p>On iPhone, Bin Finder on your Home Screen and Bin Finder in Safari keep separate copies of your bins. If you added your bins from the Home Screen app, open it there and search for <b>${esc(params.c || "the label code")}</b>.</p></div></div>`;
     return;
   }
+  const holder = S.holderOf(b, BINS), kids = S.heldBy(b, BINS);
+  const canAdd = BINS.filter((x) => S.canHold(b, x, BINS) && !kids.includes(x)).sort((x, y) => S.displayName(x).localeCompare(S.displayName(y), undefined, { sensitivity: "base", numeric: true }));
   const have = new Set(b.items.map(S.normalize));
   const suggestions = (b.autoWords || []).filter((w) => ![...have].some((i) => i.includes(S.normalize(w)))).slice(0, 24);
   app.innerHTML = `<div class="page">
@@ -286,13 +292,17 @@ async function renderBin(id, params) {
       <div class="row"><span class="grow">Container</span><span class="val">${S.kindOf(b) === "box" ? "Box (cardboard)" : "Bin (plastic)"}</span></div>
       <div class="row"><span class="grow">Label</span><span class="val">${esc(b.code)}</span></div>
       ${(b.location || "").trim() ? `<a class="row" href="${placeLink(b.location)}"><span class="grow">Location</span><span class="val">${esc(S.tidyPlace(b.location))}</span><span class="chev" aria-hidden="true">›</span></a>` : `<div class="row"><span class="grow">Location</span><span class="val">None</span></div>`}
+      ${holder ? `<a class="row" href="#/bin/${holder.id}"><span class="grow">Inside</span><span class="val">${esc(S.displayName(holder))}</span><span class="chev" aria-hidden="true">›</span></a>` : ""}
       <label class="row"><span class="grow">Pack for trips</span><input type="checkbox" class="switch" id="tripT" ${b.trip ? "checked" : ""}></label>
     </div>
-    <div class="sechead">What's inside · ${b.items.length}</div>
+    <div class="sechead">What's inside · ${kids.length + b.items.length}</div>
     <div class="group">
+      ${kids.map((k) => `<div class="row"><a class="grow kid" href="#/bin/${k.id}"><span aria-hidden="true">📦&nbsp; </span><span class="title">${esc(S.displayName(k))}</span><div class="sub2">${esc([S.kindWord(k), k.code, k.items.length === 1 ? "1 item" : k.items.length + " items"].join(" · "))}</div></a><button class="x" data-out="${k.id}" aria-label="Take ${esc(S.displayName(k))} out">⊖</button></div>`).join("")}
       ${b.items.map((it, i) => `<div class="row"><span class="grow">${esc(it)}</span><button class="x" data-del="${i}" aria-label="Remove ${esc(it)}">⊖</button></div>`).join("")}
       <form class="row" id="addItem"><input id="newItem" placeholder="Add an item" enterkeyhint="done" autocomplete="off" aria-label="Add an item"><button class="icon" aria-label="Add item">⊕</button></form>
+      ${canAdd.length ? `<label class="row act"><span class="grow">📦&nbsp; Add a saved bin or box</span><select id="addKid" aria-label="Add a saved bin or box"><option value="">Choose</option>${canAdd.map((x) => { const h = S.holderOf(x, BINS); return `<option value="${x.id}">${esc([S.displayName(x), x.code].join(" · ") + (h ? ` (now in ${S.displayName(h)})` : ""))}</option>`; }).join("")}</select></label>` : ""}
     </div>
+    ${kids.length ? `<div class="secfoot">Tap a bin or box in the list to open it. ⊖ takes it out without deleting it.</div>` : ""}
     ${suggestions.length ? `<div class="sechead">Seen in the photos</div><div class="group"><div class="chips">${suggestions.map((w) => `<button class="chip" data-word="${esc(w)}" aria-label="Add ${esc(w)} to items">${esc(w)}</button>`).join("")}</div></div>
       <div class="secfoot">Read from your photos. Search finds these anyway; tap one to add it to the list.</div>` : ""}
     ${(b.notes || "").trim() ? `<div class="sechead">Notes</div><div class="group"><div class="row" style="white-space:pre-wrap">${esc(b.notes)}</div></div>` : ""}
@@ -309,6 +319,12 @@ async function renderBin(id, params) {
   $("lib").onclick = () => pick("library", async (f) => { const n = await addPhotos(b.id, f); render(); if (n) toast(n === 1 ? "Photo added." : `${n} photos added.`); });
   $("tripT").onchange = async (e) => { b.trip = e.target.checked; await putBin(b); toast(b.trip ? "Added to the trip checklist." : "Off the trip checklist."); };
   app.querySelectorAll("[data-del]").forEach((x) => x.onclick = async () => { b.items.splice(+x.dataset.del, 1); await putBin(b); render(); });
+  app.querySelectorAll("[data-out]").forEach((x) => x.onclick = async () => { const k = binById(x.dataset.out); if (!k) return; k.inside = ""; await putBin(k); toast(`${S.displayName(k)} taken out.`); render(); });
+  if ($("addKid")) $("addKid").onchange = async (e) => {
+    const k = binById(e.target.value); if (!k || !S.canHold(b, k, BINS)) return;
+    k.inside = b.id; if (b.location) k.location = b.location;
+    await putBin(k); toast(`${S.displayName(k)} is now in ${S.displayName(b)}.`); render();
+  };
   app.querySelectorAll("[data-word]").forEach((x) => x.onclick = async () => { b.items.push(x.dataset.word); await putBin(b); render(); });
   $("addItem").onsubmit = async (e) => {
     e.preventDefault(); const t = $("newItem").value.trim(); if (!t) return;
