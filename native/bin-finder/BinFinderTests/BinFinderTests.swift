@@ -61,8 +61,20 @@ final class BinFinderTests: XCTestCase {
         XCTAssertEqual(BinCodes.prefix(for: "Garage"), "G")
         XCTAssertEqual(BinCodes.prefix(for: "RV Rear Bay"), "RR")
         XCTAssertEqual(BinCodes.prefix(for: ""), "B")
-        XCTAssertEqual(BinCodes.next(for: "Garage", existing: sample), "G-03")
-        XCTAssertEqual(BinCodes.next(for: "Shed", existing: sample), "S-01")
+        // Label codes: each type counted on its own within each location
+        XCTAssertEqual(BinCodes.next(for: "Garage", existing: sample), "G-BIN-1")
+        XCTAssertEqual(BinCodes.next(for: "Shed", kind: "box", existing: sample), "S-BOX-1")
+        XCTAssertEqual(BinCodes.next(for: "Hangar", kind: "none", existing: sample), "H-4")
+        let mixed = ["G-BIN-2", "g-bin-7", "G-BOX-3", "G-4", "GX-BIN-9", "G-BIN-X"].map { Bin(code: $0) }
+        XCTAssertEqual(BinCodes.next(for: "Garage", kind: "bin", existing: mixed), "G-BIN-8")
+        XCTAssertEqual(BinCodes.next(for: "Garage", kind: "box", existing: mixed), "G-BOX-4")
+        XCTAssertEqual(BinCodes.next(for: "Garage", kind: "none", existing: mixed), "G-5")
+        let day = { (n: Double) in Date(timeIntervalSince1970: 1_767_225_600 + n * 86_400) }
+        let old = [Bin(location: "Garage", code: "G-02", created: day(1)), Bin(location: "Garage", code: "G-01", kind: "box", created: day(0)),
+                   Bin(location: "Garage", code: "G-03", created: day(0)), Bin(location: "Hangar", code: "H-01", kind: "none", created: day(2)),
+                   Bin(location: "Hangar › Shelf 2", code: "X", kind: "box", created: day(3))]
+        let byID = Dictionary(uniqueKeysWithValues: old.map { ($0.id, $0.code) })
+        XCTAssertEqual(BinCodes.renumber(old).map { "\(byID[$0.id]!)>\($0.code)" }, ["G-01>G-BOX-1", "G-03>G-BIN-1", "G-02>G-BIN-2", "H-01>H-1", "X>HS-BOX-1"])
     }
 
     func testQRLinks() {
@@ -78,7 +90,7 @@ final class BinFinderTests: XCTestCase {
         var b = Bin(name: "Test", location: "Garage")
         s.upsert(b)
         b = try XCTUnwrap(s.bins.first)
-        XCTAssertEqual(b.code, "G-01")
+        XCTAssertEqual(b.code, "G-BIN-1")
         s.addItem("  Spare fuses ", to: b.id)
         s.addItem("spare fuses", to: b.id) // duplicate ignored
         let img = DemoData.image(symbol: "bolt.fill", color: .orange, label: "FUSES")

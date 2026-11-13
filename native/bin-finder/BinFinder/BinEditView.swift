@@ -76,10 +76,11 @@ struct BinEditView: View {
                     }
                     .pickerStyle(.segmented)
                     .accessibilityIdentifier("binKind")
+                    .onChange(of: bin.kind) { kind in if isNew && !codeTouched { bin.code = store.nextCode(for: bin.location, kind: kind) } }
                     HStack {
                         TextField("Location, like Hangar / Shelf 2", text: $bin.location)
                             .textInputAutocapitalization(.words)
-                            .onChange(of: bin.location) { loc in if isNew && !codeTouched { bin.code = store.nextCode(for: loc) } }
+                            .onChange(of: bin.location) { loc in if isNew && !codeTouched { bin.code = store.nextCode(for: loc, kind: bin.kind) } }
                         if !store.locations.isEmpty {
                             Menu {
                                 ForEach(store.locations, id: \.self) { l in Button(l) { bin.location = l } }
@@ -89,7 +90,7 @@ struct BinEditView: View {
                     }
                     HStack {
                         Text("Label")
-                        TextField("G-01", text: Binding(get: { bin.code }, set: { bin.code = $0.uppercased(); codeTouched = true }))
+                        TextField("G-BIN-1", text: Binding(get: { bin.code }, set: { bin.code = $0.uppercased(); codeTouched = true }))
                             .multilineTextAlignment(.trailing)
                             .font(.body.monospacedDigit())
                             .textInputAutocapitalization(.characters)
@@ -122,7 +123,7 @@ struct BinEditView: View {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) { Button("Save", action: save).fontWeight(.semibold).accessibilityIdentifier("saveBin") }
             }
-            .onAppear { if isNew && bin.code.isEmpty { bin.code = store.nextCode(for: bin.location) } }
+            .onAppear { if isNew && bin.code.isEmpty { bin.code = store.nextCode(for: bin.location, kind: bin.kind) } }
             .fullScreenCover(isPresented: $showCamera) {
                 CameraPicker { pending.append($0) }.ignoresSafeArea()
             }
@@ -151,7 +152,7 @@ struct BinEditView: View {
         b.location = BinPlaces.tidy(bin.location)
         b.trip = bin.trip
         b.kind = bin.kind
-        b.code = bin.code.trimmed.isEmpty ? store.nextCode(for: bin.location) : bin.code.trimmed
+        b.code = bin.code.trimmed.isEmpty ? store.nextCode(for: bin.location, kind: bin.kind, skipping: bin.id) : bin.code.trimmed
         b.notes = bin.notes
         b.items = Self.parseItems(itemsText)
         store.upsert(b)

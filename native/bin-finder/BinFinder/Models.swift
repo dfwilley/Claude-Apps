@@ -5,7 +5,7 @@ struct Bin: Identifiable, Codable, Hashable {
     var id: UUID = UUID()
     var name: String = ""
     var location: String = ""
-    /// Short label printed on the bin, e.g. "G-03".
+    /// Short label printed on the bin, e.g. "G-BIN-3".
     var code: String = ""
     var items: [String] = []
     var notes: String = ""
@@ -189,14 +189,34 @@ enum BinCodes {
         return letters.isEmpty ? "B" : letters.joined()
     }
 
-    static func next(for location: String, existing: [Bin]) -> String {
-        let p = prefix(for: location)
+    /// Label codes count each type on its own within each location: "G-BIN-1", "G-BOX-1", and "G-1" for kind none.
+    static func stem(for location: String, kind: String) -> String {
+        let k = Bin.tidyKind(kind)
+        return [prefix(for: location), k == "box" ? "BOX" : k == "none" ? "" : "BIN"].filter { !$0.isEmpty }.joined(separator: "-")
+    }
+
+    static func next(for location: String, kind: String = "bin", existing: [Bin]) -> String {
+        let s = stem(for: location, kind: kind) + "-"
         let used = existing.compactMap { b -> Int? in
-            let parts = b.code.uppercased().split(separator: "-")
-            guard parts.count == 2, String(parts[0]) == p else { return nil }
-            return Int(parts[1])
+            let c = b.code.uppercased()
+            guard c.hasPrefix(s) else { return nil }
+            let rest = c.dropFirst(s.count)
+            return !rest.isEmpty && rest.allSatisfy({ $0.isASCII && $0.isNumber }) ? Int(rest) : nil
         }
-        return String(format: "%@-%02d", p, (used.max() ?? 0) + 1)
+        return s + String((used.max() ?? 0) + 1)
+    }
+
+    /// Renumber everything, oldest first: each bin's id with its new code.
+    static func renumber(_ bins: [Bin]) -> [(id: UUID, code: String)] {
+        let order = bins.sorted { a, b in
+            a.created != b.created ? a.created < b.created : a.code.localizedStandardCompare(b.code) == .orderedAscending
+        }
+        var n: [String: Int] = [:]
+        return order.map { b in
+            let s = stem(for: b.location, kind: b.kind)
+            n[s, default: 0] += 1
+            return (b.id, "\(s)-\(n[s]!)")
+        }
     }
 }
 

@@ -156,11 +156,18 @@
     for (const b of bins) if (b.trip) for (const k of tripKeys(b)) { total++; if (set.has(k)) done++; }
     return { total, done };
   }
-  function nextCode(location, bins) {
-    const p = codePrefix(location);
-    const used = bins.map((b) => String(b.code || "").toUpperCase().split("-"))
-      .filter((parts) => parts.length === 2 && parts[0] === p).map((parts) => parseInt(parts[1], 10)).filter(Number.isFinite);
-    return `${p}-${String((used.length ? Math.max(...used) : 0) + 1).padStart(2, "0")}`;
+  // Label codes count each type on its own within each location: "G-BIN-1", "G-BIN-2", "G-BOX-1", and "G-1" for kind none.
+  const codeStem = (location, kind) => [codePrefix(location), { bin: "BIN", box: "BOX", none: "" }[kindOf({ kind })]].filter(Boolean).join("-");
+  function nextCode(location, bins, kind) {
+    const stem = codeStem(location, kind) + "-";
+    const used = bins.map((b) => String(b.code || "").toUpperCase()).filter((c) => c.startsWith(stem) && /^\d+$/.test(c.slice(stem.length))).map((c) => parseInt(c.slice(stem.length), 10));
+    return stem + ((used.length ? Math.max(...used) : 0) + 1);
+  }
+  // Renumber everything, oldest first: returns [[bin, new code], …].
+  function renumber(bins) {
+    const order = [...bins].sort((a, b) => String(a.created || "").localeCompare(String(b.created || "")) || String(a.code || "").localeCompare(String(b.code || ""), undefined, { numeric: true }));
+    const n = {};
+    return order.map((b) => { const stem = codeStem(b.location, b.kind); n[stem] = (n[stem] || 0) + 1; return [b, `${stem}-${n[stem]}`]; });
   }
 
   // Words worth keeping from text read in a photo.
@@ -182,7 +189,7 @@
   // Dates as the native app writes them (ISO 8601 without fractions of a second), so backups move between both apps.
   const isoNow = (d = new Date()) => d.toISOString().replace(/\.\d{3}Z$/, "Z");
 
-  const api = { normalize, stem, terms, search, codePrefix, nextCode, photoWords, displayName, isoNow,
+  const api = { normalize, stem, terms, search, codePrefix, codeStem, nextCode, renumber, photoWords, displayName, isoNow,
     kindOf, kindWord, kindNoun, kindLabel, allItems, holderOf, heldBy, canHold, placeParts, tidyPlace, isUnder, allPlaces, childPlaces, nearestPlace, placeLevels, placeBelow, renamePlace, tripKeys, tripProgress };
   if (typeof module !== "undefined" && module.exports) module.exports = api; else root.BinSearch = api;
 })(typeof window !== "undefined" ? window : globalThis);

@@ -15,7 +15,15 @@ assert.equal(S.search("rr-01", bins)[0].bin.code, "RR-01");
 assert.equal(S.search("ELT", bins)[0].bin.code, "H-03");
 assert.equal(S.search("snowboard", bins).length, 0); assert.equal(S.search("   ", bins).length, 0);
 assert.equal(S.codePrefix("Garage"), "G"); assert.equal(S.codePrefix("RV Rear Bay"), "RR"); assert.equal(S.codePrefix(""), "B");
-assert.equal(S.nextCode("Garage", bins), "G-03"); assert.equal(S.nextCode("Shed", bins), "S-01");
+// Label codes: each type counted on its own within each location
+assert.equal(S.nextCode("Garage", bins), "G-BIN-1"); assert.equal(S.nextCode("Shed", bins, "box"), "S-BOX-1"); assert.equal(S.nextCode("Hangar", bins, "none"), "H-4");
+{
+  const mixed = [{ code: "G-BIN-2" }, { code: "g-bin-7" }, { code: "G-BOX-3" }, { code: "G-4" }, { code: "GX-BIN-9" }, { code: "G-BIN-X" }];
+  assert.equal(S.nextCode("Garage", mixed, "bin"), "G-BIN-8"); assert.equal(S.nextCode("Garage", mixed, "box"), "G-BOX-4"); assert.equal(S.nextCode("Garage", mixed, "none"), "G-5");
+  const old = [{ code: "G-02", location: "Garage", created: "2026-01-02T00:00:00Z" }, { code: "G-01", location: "Garage", kind: "box", created: "2026-01-01T00:00:00Z" },
+    { code: "G-03", location: "Garage", created: "2026-01-01T00:00:00Z" }, { code: "H-01", location: "Hangar", kind: "none", created: "2026-01-03T00:00:00Z" }, { code: "X", location: "Hangar › Shelf 2", kind: "box", created: "2026-01-04T00:00:00Z" }];
+  assert.deepEqual(S.renumber(old).map(([b, c]) => [b.code, c]), [["G-01", "G-BOX-1"], ["G-03", "G-BIN-1"], ["G-02", "G-BIN-2"], ["H-01", "H-1"], ["X", "HS-BOX-1"]]);
+}
 assert.deepEqual(S.photoWords("LEVELERS  www.camco.com  lll 1234 Aeroshell 15W-50 nnm"), ["levelers", "camco", "aeroshell"]);
 assert.match(S.isoNow(new Date("2026-10-31T10:00:00.123Z")), /^2026-10-31T10:00:00Z$/);
 // Singular and plural find each other

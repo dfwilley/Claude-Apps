@@ -38,7 +38,7 @@ async function putBin(b) {
   b.location = S.tidyPlace(b.location);
   b.trip = !!b.trip;
   b.kind = S.kindOf(b);
-  if (!String(b.code || "").trim()) b.code = S.nextCode(b.location, BINS.filter((x) => x.id !== b.id));
+  if (!String(b.code || "").trim()) b.code = S.nextCode(b.location, BINS.filter((x) => x.id !== b.id), b.kind);
   await tx("bins", "readwrite", (s) => s.put(b));
   const i = BINS.findIndex((x) => x.id === b.id); if (i >= 0) BINS[i] = b; else BINS.push(b);
   // Bins and boxes sitting inside this one move with it.
@@ -375,7 +375,7 @@ function renderEdit(id, presetLoc) {
   if (!orig) return go("#/");
   const b = JSON.parse(JSON.stringify(orig));
   if (isNew && presetLoc) b.location = S.tidyPlace(presetLoc);
-  if (isNew && !b.code) b.code = S.nextCode(b.location, BINS);
+  if (isNew && !b.code) b.code = S.nextCode(b.location, BINS, b.kind);
   let codeTouched = !isNew; const pending = [];
   app.innerHTML = `<div class="page">
     <div class="bar"><button class="link" id="cancel">Cancel</button><span class="center">${isNew ? "New bin or box" : "Edit " + S.kindNoun(b)}</span><button class="link strong" id="save">Save</button></div>
@@ -403,7 +403,8 @@ function renderEdit(id, presetLoc) {
   const addPending = (files) => { files.forEach((f) => pending.push({ file: f, url: URL.createObjectURL(f) })); drawPending(); };
   if (isNew) { $("cam").onclick = () => pick("camera", addPending); $("lib").onclick = () => pick("library", addPending); }
   $("code").addEventListener("input", () => { codeTouched = true; });
-  $("loc").addEventListener("input", () => { if (!codeTouched) $("code").value = S.nextCode($("loc").value, BINS); });
+  const autoCode = () => { if (!codeTouched) $("code").value = S.nextCode($("loc").value, BINS, $("kind").value); };
+  $("loc").addEventListener("input", autoCode); $("kind").addEventListener("change", autoCode);
   $("cancel").onclick = () => history.length > 1 ? history.back() : go("#/");
   $("save").onclick = async () => {
     $("save").disabled = true;
@@ -412,7 +413,7 @@ function renderEdit(id, presetLoc) {
     target.kind = $("kind").value;
     target.location = S.tidyPlace($("loc").value);
     target.trip = $("tripE").checked;
-    target.code = $("code").value.trim().toUpperCase() || S.nextCode(target.location, BINS);
+    target.code = $("code").value.trim().toUpperCase() || S.nextCode(target.location, BINS.filter((x) => x.id !== target.id), target.kind);
     target.notes = $("notes").value;
     target.items = $("items").value.split(/[\n,;]+/).map((s) => s.trim()).filter(Boolean);
     try {
@@ -667,6 +668,13 @@ $("pickBackup").addEventListener("change", async (e) => {
 (async () => {
   try { db = await openDB(); await loadBins(); }
   catch (e) { app.innerHTML = `<div class="page"><div class="empty"><h2>Bin Finder can't store anything here.</h2><p>${esc(e.message)} Private Browsing blocks storage; open it in a normal Safari tab.</p></div></div>`; return; }
+  // One time: renumber every label code to the per-type style (G-BIN-1, G-BOX-1, G-1), oldest first.
+  try {
+    if (localStorage.getItem("bf-codes") !== "2") {
+      for (const [b, code] of S.renumber(BINS)) if (b.code !== code) { b.code = code; await tx("bins", "readwrite", (s) => s.put(b)); }
+      localStorage.setItem("bf-codes", "2");
+    }
+  } catch {}
   render();
   // Read any photos that weren't finished last time.
   for (const b of BINS) for (const p of b.photos) if (!readSet.has(p)) queueRead(p, b.id);

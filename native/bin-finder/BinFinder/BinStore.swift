@@ -11,6 +11,8 @@ final class BinStore: ObservableObject {
     var photosDir: URL { root.appendingPathComponent("Photos", isDirectory: true) }
     var dataFile: URL { root.appendingPathComponent("bins.json") }
     var tripFile: URL { root.appendingPathComponent("trip.json") }
+    /// Present once every label code has been renumbered to the per-type style (G-BIN-1, G-BOX-1, G-1).
+    var codesMarker: URL { root.appendingPathComponent("codes-v2") }
     private let thumbCache = NSCache<NSString, UIImage>()
 
     static func documents() -> URL {
@@ -34,10 +36,17 @@ final class BinStore: ObservableObject {
 
     func load() {
         guard let data = try? Data(contentsOf: dataFile),
-              let list = try? Self.decoder.decode([Bin].self, from: data) else { bins = []; return }
+              let list = try? Self.decoder.decode([Bin].self, from: data) else { bins = []; markCodesDone(); return }
         bins = list
+        // One time: renumber every label code, oldest first.
+        if !FileManager.default.fileExists(atPath: codesMarker.path) {
+            for (id, code) in BinCodes.renumber(bins) { if let i = bins.firstIndex(where: { $0.id == id }) { bins[i].code = code } }
+            save(); markCodesDone()
+        }
         if let d = try? Data(contentsOf: tripFile), let keys = try? JSONDecoder().decode([String].self, from: d) { tripChecked = Set(keys) }
     }
+
+    private func markCodesDone() { try? Data().write(to: codesMarker) }
 
     private func save() {
         if let data = try? Self.encoder.encode(bins) { try? data.write(to: dataFile, options: .atomic) }
@@ -82,7 +91,9 @@ final class BinStore: ObservableObject {
         if let d = try? JSONEncoder().encode(tripChecked.sorted()) { try? d.write(to: tripFile, options: .atomic) }
     }
 
-    func nextCode(for location: String) -> String { BinCodes.next(for: location, existing: bins) }
+    func nextCode(for location: String, kind: String = "bin", skipping id: UUID? = nil) -> String {
+        BinCodes.next(for: location, kind: kind, existing: bins.filter { $0.id != id })
+    }
 
     func upsert(_ bin: Bin) {
         var b = bin
@@ -90,7 +101,7 @@ final class BinStore: ObservableObject {
         b.items = b.items.map(\.trimmed).filter { !$0.isEmpty }
         b.location = BinPlaces.tidy(b.location)
         b.kind = Bin.tidyKind(b.kind)
-        if b.code.trimmed.isEmpty { b.code = nextCode(for: b.location) }
+        if b.code.trimmed.isEmpty { b.code = nextCode(for: b.location, kind: b.kind, skipping: b.id) }
         if let i = bins.firstIndex(where: { $0.id == b.id }) { bins[i] = b } else { bins.append(b) }
         save()
         // Bins and boxes sitting inside this one move with it.
