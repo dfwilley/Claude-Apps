@@ -189,6 +189,15 @@ function route() {
 }
 const go = (h) => { location.hash = h; };
 window.addEventListener("hashchange", render);
+const VERSION = "1.8", BUILD = 9; // BUILD is the number in sw.js's cache name; VERSION matches the iPhone app (tests check both)
+const CHANGES = [
+  { v: "1.8", date: "November 13, 2026", notes: ["About screen with the version, build number and what changed."] },
+  { v: "1.7", date: "November 13, 2026", notes: ["Lists of bins are in A-to-Z order by name.", "Change a container's type or location and its label code follows."] },
+  { v: "1.6", date: "November 13, 2026", notes: ["Location pull-downs on the main list: choose a place, then a shelf inside it.", "Label codes count each type on its own in each location: G-BIN-1, G-BOX-1, G-1."] },
+  { v: "1.5", date: "November 12, 2026", notes: ["Container can be None, for a shelf, drawer or compartment."] },
+  { v: "1.4", date: "November 12, 2026", notes: ["Put a saved bin or box inside another one."] },
+  { v: "1.3", date: "November 12, 2026", notes: ["Mark each container as a bin or a box.", "All items: one A-to-Z list of everything."] },
+];
 let query = "";
 let homePlace = ""; // the place chosen in the Location pull-downs on the main list ("" = all)
 const NO_PLACE = "\u0001none";
@@ -202,6 +211,7 @@ function render() {
   if (r.name === "label") return renderLabel(r.id);
   if (r.name === "print") return renderPrint(r.params);
   if (r.name === "more") return renderMore();
+  if (r.name === "about") return renderAbout();
   if (r.name === "place") return renderPlace(r.params.p || "");
   if (r.name === "trip") return renderTrip();
   if (r.name === "items") return renderItems();
@@ -615,7 +625,7 @@ function renderPrint(p) {
 function renderMore() {
   const locs = locations();
   app.innerHTML = `<div class="page">
-    <div class="bar"><a class="link" href="#/">‹ Bin Finder</a><span class="center">Labels and backup</span><span style="width:60px"></span></div>
+    <div class="bar"><a class="link" href="#/">‹ Bin Finder</a><span class="center">More</span><span style="width:60px"></span></div>
     <div class="sechead">Print QR labels (Avery 5163, 4 × 2 in)</div>
     <div class="group"><a class="row act" href="#/print?all=1">All bins · ${BINS.length}</a>
       ${locs.map((l) => `<a class="row act" href="#/print?loc=${encodeURIComponent(l)}">${esc(l)} · ${BINS.filter((b) => S.isUnder(b.location, l)).length}</a>`).join("")}</div>
@@ -626,10 +636,21 @@ function renderMore() {
     <div class="sechead">Good to know</div>
     <div class="group"><div class="row"><span class="grow sub">Your bins and photos are stored only in this browser on this phone; nothing is uploaded. Add Bin Finder to your Home Screen (Share › Add to Home Screen) so iOS keeps its storage. Note that the Home Screen copy and Safari keep separate bins — pick one and stick with it. QR labels open in Safari.</span></div>
       <div class="row"><span class="grow sub" id="store"></span></div></div>
+    <div class="group" style="margin-top:22px"><a class="row act" href="#/about">ⓘ&nbsp; About Bin Finder<span class="grow"></span><span class="val">Version ${VERSION}</span><span class="chev" aria-hidden="true">›</span></a></div>
   </div>`;
   $("backup").onclick = backup;
   $("restore").onclick = () => $("pickBackup").click();
   (async () => { try { const e = await navigator.storage?.estimate?.(); const p = await navigator.storage?.persisted?.(); $("store").textContent = `${BINS.length} bins, ${BINS.reduce((t, b) => t + b.photos.length, 0)} photos${e ? `, about ${(e.usage / 1048576).toFixed(1)} MB` : ""}.${p ? " Storage is protected from automatic clean-up." : ""}`; } catch {} })();
+}
+function renderAbout() {
+  app.innerHTML = `<div class="page">
+    <div class="bar"><a class="link" href="#/more">‹ More</a><span class="center">About</span><span style="width:60px"></span></div>
+    <div class="group"><div class="row"><span class="grow">Version</span><span class="val">${VERSION}</span></div>
+      <div class="row"><span class="grow">Build</span><span class="val">${BUILD} (web)</span></div></div>
+    <div class="secfoot">Bin Finder helps you find things in storage bins. Everything stays on this phone.</div>
+    <div class="sechead">What changed</div>
+    ${CHANGES.map((c) => `<div class="group" style="margin-bottom:12px"><div class="row"><span class="grow"><div class="title">Version ${esc(c.v)}</div><div class="sub2">${esc(c.date)}</div>${c.notes.map((n) => `<div class="list">• ${esc(n)}</div>`).join("")}</span></div></div>`).join("")}
+  </div>`;
 }
 async function requestPersist() { try { await navigator.storage?.persist?.(); } catch {} }
 

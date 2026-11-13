@@ -64,6 +64,7 @@ For anything larger than a small fix, work on a branch and merge to `main` only 
 ## Things that are easy to get wrong
 
 - **Offline caching.** Every web app has a service worker (`sw.js`) with a named cache (for example `jj-v2`) and a list of files to keep for offline use. When you add, rename or remove a file the app needs, update that list, and raise the cache version so phones drop the old copy.
+- **Bin Finder's About screen.** Each Bin Finder release needs a new entry in `CHANGES` in `bin-finder/app.js` and in `native/bin-finder/BinFinder/AboutView.swift`, with `VERSION` and `BUILD` in `app.js` matching `MARKETING_VERSION` in `project.yml` and the cache number in `sw.js`. `tests/bin-finder.test.js` fails if they drift.
 - **Personal data never goes in this repository.** It is public. HGVC Binder reads its data file from the owner's Dropbox (layout in `hgvc-binder/DATA-FORMAT.md`). Blue Book, Bin Finder, Ask Me Tomorrow and The Job Jar! keep everything on the device. Test data must be made up.
 - **Everything stays on the device** is a promise made in several apps' descriptions. Don't add analytics, accounts or cloud storage without the owner asking.
 - The Job Jar! is used by young children. It links a kid's device to a grown-up's over home Wi-Fi only, with no internet or cloud. Keep it that way.

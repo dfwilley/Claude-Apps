@@ -21,6 +21,7 @@ Install it with Sideloadly (USB or Wi-Fi). With a free Apple ID, re-install ever
 - **Trip checklist**: switch on "Pack for trips" for the bins that get loaded for an RV trip. The checklist shows each thing in those bins to check off as it goes in the rig, with a "Start a new trip" button to uncheck everything.
 - **Voice search**: tap the microphone and say "where's the spare fuses". Filler words like *where's*, *did I put* are ignored. The native app listens on the phone itself when it can; the web version uses Safari's speech recognition (falls back to the keyboard microphone).
 - **QR labels** on Avery 5163 sheets (4 × 2 in, 10 per sheet), for one bin or a whole location. Scan a label with the iPhone Camera to open that bin.
+- **About**: tap ⋯ then About Bin Finder for the version, build number and a short list of what changed.
 - **Backup and restore**: one file with every bin and photo, to keep in iCloud Drive or Dropbox. Your data is also visible in the Files app under *On My iPhone › Bin Finder*.
 
 ## First test on the phone (about 15 minutes)

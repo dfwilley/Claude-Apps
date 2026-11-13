@@ -10,6 +10,7 @@ struct ContentView: View {
     @State private var importing = false
     @State private var message: String?
     @State private var listening = false
+    @State private var showAbout = false
     /// The place chosen in the Location pull-downs ("" = all locations).
     @State private var homePlace = ""
 
@@ -51,6 +52,7 @@ struct ContentView: View {
                 .presentationDetents([.height(260)])
         }
         .sheet(item: $share) { ActivityView(items: [$0.url]) }
+        .sheet(isPresented: $showAbout) { AboutView() }
         .fileImporter(isPresented: $importing, allowedContentTypes: [.json]) { result in
             do {
                 let url = try result.get()
@@ -80,6 +82,9 @@ struct ContentView: View {
             Section("Backup") {
                 Button { backup() } label: { Label("Back up everything", systemImage: "square.and.arrow.up") }
                 Button { importing = true } label: { Label("Restore from a backup", systemImage: "square.and.arrow.down") }
+            }
+            Section {
+                Button { showAbout = true } label: { Label("About Bin Finder", systemImage: "info.circle") }
             }
         } label: { Image(systemName: "ellipsis.circle").font(.title3) }
         .accessibilityLabel("More")

@@ -82,6 +82,15 @@ assert.equal(S.nearestPlace("hangar › shelf 2 › Right", nested), "Hangar ›
 assert.equal(S.renamePlace("RV Rear Bay › Left", "RV Rear Bay", "RV › Rear bay"), "RV › Rear bay › Left");
 assert.equal(S.renamePlace("Garage", "RV Rear Bay", "RV › Rear bay"), "Garage");
 assert.deepEqual(S.search("shelf 2", [{ name: "Oil", code: "HS-01", location: "Hangar › Shelf 2", items: [] }])[0].reasons, ["Location: Hangar › Shelf 2"]);
+// About screen: the web version and build numbers match the iPhone app's version and the offline cache name
+{
+  const fs = require("fs"), path = require("path"), read = (f) => fs.readFileSync(path.join(__dirname, "..", f), "utf8");
+  const [, ver, build] = read("bin-finder/app.js").match(/const VERSION = "([\d.]+)", BUILD = (\d+);/);
+  assert.equal(read("bin-finder/sw.js").match(/const CACHE = "bf-v(\d+)"/)[1], build);
+  assert.equal(read("native/bin-finder/project.yml").match(/MARKETING_VERSION: "([\d.]+)"/)[1], ver);
+  assert(read("bin-finder/app.js").includes(`{ v: "${ver}",`), "CHANGES has an entry for the current version");
+  assert(read("native/bin-finder/BinFinder/AboutView.swift").includes(`Change(version: "${ver}",`), "the iPhone app's list has it too");
+}
 // Trip checklist
 const trip = [{ id: "A", trip: true, items: ["Sewer hose", "Gloves"] }, { id: "B", trip: true, items: [] }, { id: "C", trip: false, items: ["Drill"] }];
 assert.deepEqual(S.tripKeys(trip[0]), ["A|Sewer hose", "A|Gloves"]); assert.deepEqual(S.tripKeys(trip[1]), ["B"]);
