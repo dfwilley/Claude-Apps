@@ -215,7 +215,12 @@
       const confOf = k => cell[k] ? Math.min(...cell[k].map(w => w.conf == null ? 100 : w.conf)) : 100;
       const allText = keys.map(textOf).join(' ');
       // Monthly totals / brought-forward lines are checks, not flights.
-      if (/TOTAL|FWD|FORWARD|BROUGHT|CARRIED|SUM/i.test(allText)) {
+      // The label has to be a whole word, and a word in the remarks only counts when the line has no date or aircraft
+      // (so a flight whose remarks say "resumed" or "FWD" stays a flight).
+      const TOTALS = /\b(TOTALS?|FWD|FORWARD|BROUGHT|CARRIED|SUM)\b/i;
+      const labelText = keys.filter(k => k !== 'remarks').map(textOf).join(' ');
+      const looksLikeFlight = ['day', 'date', 'type', 'buno'].some(k => /[A-Za-z0-9]/.test(textOf(k)) && !TOTALS.test(textOf(k)));
+      if (TOTALS.test(labelText) || (TOTALS.test(allText) && !looksLikeFlight)) {
         const t = { rowType: 'totals', band, raw: {} }; keys.forEach(k => { t.raw[k] = textOf(k); });
         const h = parseHours(textOf('total')); t.total = h.value; rows.push(t); return;
       }

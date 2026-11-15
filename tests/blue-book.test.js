@@ -5,6 +5,7 @@ const fs = require('fs');
 const X = require('../blue-book/js/extract.js');
 const C = require('../blue-book/js/career.js');
 const F = require('../blue-book/js/files.js');
+const E = require('../blue-book/js/export.js');
 let passed = 0;
 const test = (name, fn) => { try { fn(); passed++; console.log('ok -', name); } catch (e) { console.error('FAIL -', name, '\n', e); process.exitCode = 1; } };
 
@@ -135,6 +136,34 @@ test('zip round trip and Excel file', () => {
   const out = path.join(require('os').tmpdir(), 'bluebook-test.xlsx'); fs.writeFileSync(out, x);
   assert.strictEqual(F.csv([['a', 'b,c', '=1+1']]), 'a,"b,c","=1+1"\r\n');
   console.log('   wrote', out);
+});
+
+test('a flight whose remarks contain "resumed" or "FWD" is still a flight', () => {
+  for (const word of ['resumed', 'FWD', 'summer', 'Totally']) {
+    const r = X.extractPage([W('5', 0.04, 0), W('AV-8B', 0.14, 0), W('163853', 0.26, 0), W('1.5', 0.37, 0), W(word, 0.8, 0),
+      W('6', 0.04, 1), W('AV-8B', 0.14, 1), W('163853', 0.26, 1), W('1.0', 0.37, 1)], tpl, { year: 1988, month: 3 }, { ruledLines: lines });
+    assert.strictEqual(r.rows.filter(x => x.rowType === 'flight').length, 2, word);
+  }
+  // real totals lines are still recognized: label in the left columns, or in the remarks with no date or aircraft
+  for (const [text, x] of [['TOTAL', 0.14], ['FWD', 0.14], ['TOTALS', 0.8]]) {
+    const r = X.extractPage([W('5', 0.04, 0), W('AV-8B', 0.14, 0), W('163853', 0.26, 0), W('1.5', 0.37, 0), W(text, x, 1), W('1.5', 0.37, 1)], tpl, { year: 1988, month: 3 }, { ruledLines: lines });
+    assert.strictEqual(r.rows.filter(x => x.rowType === 'totals').length, 1, text); assert.ok(/match/.test(r.notes[0]), text);
+  }
+});
+
+test('MyFlightbook import file', () => {
+  const db = { pages: [{ status: 'review' }], flights: [
+    { date: '1988-03-06', type: 'AV-8B', buno: '163853', kind: '1A1', squadron: 'VMA-231', ship: 'USS Nassau (LHA-4)', total: 1.5, night: 0.7, instActual: 0.3, approaches: 2,
+      dayLand: 1, nightLand: 1, dayShip: 2, nightShip: 1, dayTraps: 1, nightTraps: 1, cats: 2, remarks: 'CQ, "bolter"', flags: [{ field: 'night', reason: 'x' }] },
+    { date: '1988-03-05', type: 'AV-8B', buno: '', total: 1.0, dayLand: 1 },
+    { date: null, type: 'AV-8B', buno: '163853', total: 1.0 }, { date: '1988-03-07', type: 'AV-8B', buno: '163853', total: null } ] };
+  const m = E.myFlightbook(db); const rows = m.csv.trim().split('\r\n');
+  assert.strictEqual(rows[0], 'Date,Tail Number,Model,Total Flight Time,Night,IMC,Simulated Instrument,Approaches,Landings,Landings - Night (unspecified),Landings - Carrier,Landings - Arrestments (Carrier),"Landings - Arrestments (Carrier), Night",Takeoffs - Catapult,Military: Kind Of Flight Code (Navy/Marine Corps),Comments');
+  assert.strictEqual(rows.length, 3, 'two flights have a date and a time');
+  assert.strictEqual(rows[1], '3/5/1988,,AV-8B,1,,,,,1,,,,,,,');
+  assert.strictEqual(rows[2], '3/6/1988,163853,AV-8B,1.5,0.7,0.3,,2,7,3,5,2,1,2,1A1,"CQ, ""bolter"" | VMA-231 | USS Nassau (LHA-4)"');
+  assert.deepStrictEqual([m.included, m.leftOut, m.noTail, m.flagged, m.pagesInReview], [2, 2, 1, 1, 1]);
+  assert.deepStrictEqual(m.aircraft, [{ tail: '163853', model: 'AV-8B' }]);
 });
 
 console.log(`${passed} tests passed`);

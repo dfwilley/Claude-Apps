@@ -575,6 +575,7 @@
         <div class="stack">
           <button class="primary" id="x-pdf">PDF summary for family</button>
           <label class="check"><input type="checkbox" id="x-pdfphotos"> Add the logbook page photos at the end (larger file)</label>
+          <button id="x-mfb">MyFlightbook import file (.csv)</button>
           <button id="x-xlsx">Excel workbook (.xlsx)</button>
           <button id="x-csv">Flights as CSV</button>
           <button id="x-zip">Full backup (.zip): Excel, CSV, data and every page photo</button>
@@ -595,6 +596,17 @@
     const stamp = E.today();
     $('#x-pdf').onclick = () => run('Making the PDF…', async set => { const b = await E.pdf(db, { photos: $('#x-pdfphotos').checked }, S, set); await S.share(`Blue Book Summary ${stamp}.pdf`, b, 'application/pdf'); });
     $('#x-xlsx').onclick = () => run('Making the Excel file…', async () => S.share(`Blue Book ${stamp}.xlsx`, E.workbook(db), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'));
+    $('#x-mfb').onclick = () => {
+      const m = E.myFlightbook(db); const s = n => n === 1 ? '' : 's';
+      if (!m.included) { toast('No flights with a date and a flight time yet.', true); return; }
+      const notes = [];
+      if (m.pagesInReview) notes.push(`${m.pagesInReview} page${s(m.pagesInReview)} not saved yet, so those flights are not in the file.`);
+      if (m.leftOut) notes.push(`${m.leftOut} flight${s(m.leftOut)} left out for lack of a date or flight time (MyFlightbook requires both).`);
+      if (m.flagged) notes.push(`${m.flagged} flight${s(m.flagged)} still marked “needs a look” (find them under Search).`);
+      if (m.noTail) notes.push(`${m.noTail} flight${s(m.noTail)} with no BuNo. MyFlightbook will ask which aircraft each one was.`);
+      if (!confirm(`${f0(m.included)} flight${s(m.included)} in ${m.aircraft.length} aircraft will go in the file.\n\n${notes.length ? notes.map(n => '• ' + n).join('\n') + '\n\n' : ''}In MyFlightbook, choose Logbook › Import and pick this file.\n\nMake the file?`)) return;
+      run('Making the MyFlightbook file…', async () => S.share(`Blue Book for MyFlightbook ${stamp}.csv`, new TextEncoder().encode(m.csv), 'text/csv'));
+    };
     $('#x-csv').onclick = () => run('Making the CSV…', async () => S.share(`Blue Book Flights ${stamp}.csv`, new TextEncoder().encode(E.flightsCSV(db)), 'text/csv'));
     $('#x-zip').onclick = () => run('Packing the backup…', async set => S.share(`Blue Book Backup ${stamp}.zip`, await E.backup(db, S, set), 'application/zip'));
     $('#m-cols').onclick = () => { const p = db.pages[db.pages.length - 1]; if (!p) toast('Add a logbook page first.'); else openColumns(p); };

@@ -1,7 +1,7 @@
 // Blue Book — Excel, CSV, backup and the printable PDF summary.
 (function (root) {
   'use strict';
-  const C = root.BBCareer, F = root.BBFiles;
+  const C = root.BBCareer || require('./career.js'), F = root.BBFiles || require('./files.js');
   const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
   const sorted = flights => flights.slice().sort((a, b) => (a.date || '9').localeCompare(b.date || '9') || (a.row || 0) - (b.row || 0));
   const photoName = (db, f) => { const p = db.pages.find(p => p.id === f.pageId); return p ? `photos/${p.photoId}.jpg` : ''; };
@@ -50,6 +50,42 @@
   function flightsCSV(db) {
     const flights = sorted(db.flights);
     return F.csv([FLIGHT_COLS.map(c => c[0]), ...flights.map(f => FLIGHT_COLS.map(([, key]) => flightValue(db, f, key)))]);
+  }
+
+  // ---------- MyFlightbook ----------
+  // A CSV that MyFlightbook's Import page reads directly. The headings are MyFlightbook's own and must stay spelled exactly this way
+  // (see myflightbook.com/logbook/mvc/pub/ImportTable); a heading it doesn't know is ignored without warning.
+  const cnt = v => (typeof v === 'number' && isFinite(v) ? v : 0);
+  const MFB_COLS = [
+    ['Date', f => { const [y, m, d] = f.date.split('-'); return `${+m}/${+d}/${y}`; }],
+    ['Tail Number', f => f.buno || ''],
+    ['Model', f => f.type || ''],
+    ['Total Flight Time', f => f.total],
+    ['Night', f => f.night],
+    ['IMC', f => f.instActual],
+    ['Simulated Instrument', f => f.instSim],
+    ['Approaches', f => f.approaches],
+    ['Landings', f => cnt(f.dayLand) + cnt(f.nightLand) + cnt(f.dayShip) + cnt(f.nightShip) + cnt(f.dayTraps) + cnt(f.nightTraps)],
+    ['Landings - Night (unspecified)', f => cnt(f.nightLand) + cnt(f.nightShip) + cnt(f.nightTraps)],
+    ['Landings - Carrier', f => cnt(f.dayShip) + cnt(f.nightShip) + cnt(f.dayTraps) + cnt(f.nightTraps)],
+    ['Landings - Arrestments (Carrier)', f => cnt(f.dayTraps) + cnt(f.nightTraps)],
+    ['Landings - Arrestments (Carrier), Night', f => cnt(f.nightTraps)],
+    ['Takeoffs - Catapult', f => f.cats],
+    ['Military: Kind Of Flight Code (Navy/Marine Corps)', f => f.kind || ''],
+    ['Comments', f => [f.remarks, f.squadron, f.ship].map(s => String(s || '').trim()).filter(Boolean).join(' | ')],
+  ];
+  // Returns the file text plus what you should know before importing it.
+  // MyFlightbook needs a date and a flight time on every line, so lines without them are left out and counted.
+  function myFlightbook(db) {
+    const all = sorted(db.flights);
+    const ok = all.filter(f => /^\d{4}-\d{2}-\d{2}$/.test(f.date || '') && typeof f.total === 'number' && f.total > 0);
+    const rows = ok.map(f => MFB_COLS.map(([, get]) => { const v = get(f); return v === 0 || v == null ? '' : v; }));
+    const aircraft = {};
+    for (const f of ok) if (f.buno) aircraft[f.buno] = f.type || aircraft[f.buno] || '';
+    return { csv: F.csv([MFB_COLS.map(c => c[0]), ...rows]), included: ok.length, leftOut: all.length - ok.length,
+      noTail: ok.filter(f => !f.buno).length, flagged: ok.filter(f => f.flags && f.flags.length).length,
+      pagesInReview: (db.pages || []).filter(p => p.status === 'review').length,
+      aircraft: Object.entries(aircraft).map(([tail, model]) => ({ tail, model })).sort((a, b) => a.tail.localeCompare(b.tail)) };
   }
 
   async function backup(db, store, onProgress) {
@@ -190,5 +226,7 @@
     return new Uint8Array(doc.output('arraybuffer'));
   }
 
-  root.BBExport = { workbook, flightsCSV, backup, pdf, today, FLIGHT_COLS };
+  const api = { workbook, flightsCSV, myFlightbook, backup, pdf, today, FLIGHT_COLS, MFB_COLS };
+  root.BBExport = api;
+  if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);
