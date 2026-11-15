@@ -7,6 +7,7 @@ Read this first, then `README.md`, which describes what each app does. This note
 - The owner is not a programmer. Claude writes all the code. Explain things in plain language and define technical terms.
 - He has a Windows PC and an iPhone. **There is no Mac.** Everything Apple-related is built on GitHub's cloud Macs (GitHub Actions). Never suggest opening Xcode.
 - He has a paid Apple Developer account. Apps reach phones by TestFlight or by Sideloadly on the PC.
+- When work is finished and its tests pass, merge it to `main` without asking (the owner's standing instruction, November 15, 2026). Still say what was released.
 - Lead with the result, then limitations. Make low-risk decisions without asking. Ask first before deleting files, publishing anything new, spending money, or any change that can't be undone.
 - Keep changes focused on what was asked. Don't add dependencies unless the task needs them.
 - Commit messages follow the existing pattern: `App name: what changed, in plain words` (see `git log`).
