@@ -23,7 +23,7 @@ Each app is a plain web app in its own top-level folder: HTML, CSS and JavaScrip
 | `ask-me-tomorrow/` | Ask Me Tomorrow | none |
 | `who-was-here/` | Who Was Here | none |
 | `gate-time-puzzles/` | Gate Time Puzzles | none |
-| `blue-book/` | Blue Book | `native/blue-book/`, web app inside a native shell |
+| `blue-book/` | Blue Book | `native/blue-book/`, web app inside a native shell (TestFlight) |
 | `hgvc-binder/` | HGVC Binder | `native/hgvc-binder/`, web app inside a native shell (TestFlight) |
 | `bin-finder/` | Bin Finder | `native/bin-finder/`, separately written in SwiftUI |
 | `job-jar/` | The Job Jar! | `native/job-jar/`, separately written in SwiftUI, iPhone and iPad (TestFlight) |
@@ -56,7 +56,7 @@ All six passed on November 12, 2026. Knot of the Day, Wire Bender and Ask Me Tom
 
 - The web apps go live on GitHub Pages as soon as they are pushed.
 - Each `...-ios.yml` workflow runs when its app's files change: it runs the tests, builds an unsigned `.ipa`, and replaces the `<app>-latest` release (for Sideloadly).
-- HGVC Binder and The Job Jar! also have `...-testflight.yml` workflows that sign and upload to TestFlight on every push that touches them. These **do not run the tests**, so a change with failing tests can still be uploaded. Check the test run before calling work finished.
+- Blue Book, HGVC Binder and The Job Jar! also have `...-testflight.yml` workflows that sign and upload to TestFlight on every push that touches them. Blue Book's runs its Node tests first; the other two **do not run the tests**, so a change with failing tests can still be uploaded. Check the test run before calling work finished.
 - Signing uses four repository secrets: `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_P8`, `APPLE_TEAM_ID`. Never print or log them. The shared helper scripts are in `.github/scripts/`.
 - Some workflows push screenshots to branches named `ci-screenshots-...`. Those branches are overwritten on every run; don't build on them.
 

@@ -30,6 +30,7 @@ targets:
         NSPhotoLibraryUsageDescription: Blue Book can import photos of logbook pages you've already taken. They stay on this iPhone.
         UIFileSharingEnabled: true
         LSSupportsOpeningDocumentsInPlace: true
+        ITSAppUsesNonExemptEncryption: false
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.dfwilley.bluebook
