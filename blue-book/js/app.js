@@ -383,17 +383,21 @@
       ui.reviewPageId = null; save(true); render(); toast('Page deleted.');
     };
     // edits
-    $('#rv-rows').addEventListener('change', e => {
-      const inp = e.target.closest('input[data-k]'); if (!inp) return;
+    // The iPhone's date wheels report every spin as a change. Redrawing the line then would close the wheels,
+    // so a date is only taken once you tap Done (when the box loses focus).
+    $('#rv-rows').addEventListener('change', e => { const inp = e.target.closest('input[data-k]'); if (!inp || (inp.dataset.k === 'date' && document.activeElement === inp)) return; commit(inp); });
+    $('#rv-rows').addEventListener('focusout', e => { const inp = e.target.closest('input[data-k="date"]'); if (inp) commit(inp); });
+    const commit = inp => {
       const r = rowsOf(page).find(x => x.id === inp.closest('[data-row]').dataset.row); const k = inp.dataset.k; const kind = (X.FIELD[k] || {}).kind;
       let v = inp.value.trim();
+      if (!r || (k === 'date' && v === (r.date || ''))) return;
       if (kind === 'hours') { const p = X.parseHours(v); v = p.value; if (p.bad) { toast('Flight times look like 1.5'); } }
       else if (kind === 'count') { const p = X.parseCount(v); v = p.value; }
       else if (k === 'type') v = X.normalizeType(v, knownTypes()).value;
       if (k === 'date') { r.day = v ? +v.slice(8, 10) : null; X.recheck(r, 'day'); }
       r[k] = v === '' ? (kind === 'hours' || kind === 'count' ? null : '') : v;
       X.recheck(r, k); save(); refreshLine(r, fields);
-    });
+    };
     $('#rv-rows').addEventListener('click', e => {
       const b = e.target.closest('button[data-act]'); if (!b) return;
       const id = b.closest('[data-row]').dataset.row; const r = rowsOf(page).find(x => x.id === id);
