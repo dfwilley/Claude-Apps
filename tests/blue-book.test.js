@@ -304,7 +304,7 @@ test('fits the columns to the lines printed on each page', () => {
 
 test('finds the first flight row and does not take the printed headings for one', () => {
   const t = X.defaultTemplate(); const ys = [0.05, 0.07, 0.093]; for (let k = 0; k <= 15; k++) ys.push(0.14 + k * 0.047); // headings, then evenly spaced rows; the page is cut short
-  const f = X.fitTemplate(t, [], ys).template; assert.ok(Math.abs(f.top - 0.14) < 1e-9, 'top ' + f.top); assert.ok(Math.abs(f.bottom - (0.14 + 15 * 0.047)) < 1e-6, 'stops at the last line there is');
+  const f = X.fitTemplate(t, [], ys).template; assert.ok(Math.abs(f.top - 0.14) < 1e-9, 'top ' + f.top); assert.ok(f.bottom >= 0.14 + 15 * 0.047 - 1e-6 && f.bottom <= 0.999, 'runs on for the full page of rows even where the photo cuts off');
   const w = (text, x, y) => ({ text, conf: 95, x0: x, x1: x + 0.03, y0: y, y1: y + 0.012 });
   const head = ['MODEL', 'SERIAL', 'NUMBER', 'FIRST', 'PILOT', 'REMARKS'].map((s, i) => w(s, 0.1 + i * 0.1, 0.155));
   const a = X.skipHeaderRows(head.concat([w('18', 0.03, 0.2), w('T-34C', 0.1, 0.2)]), f, ys); assert.ok(Math.abs(a.top - 0.187) < 1e-9, 'moved down one row: ' + a.top);
@@ -343,6 +343,23 @@ test('a line in the type box means the same aircraft as above, however the reade
   for (const junk of ['1', 'I', 'l', 'TT', '11']) { const rj = X.extractPage([w('1', 0.05, 0), w('T-34C', 0.2, 0), w('1.0', 0.35, 0), w('2', 0.05, 1), w(junk, 0.2, 1), w('1.0', 0.35, 1)], t, { year: 1983, month: 2 }, { ruledLines: ys }).rows; assert.strictEqual(rj[1].type, 'T-34C', 'a stray ' + junk + ' is the line misread'); }
   const r3 = X.extractPage([w('3', 0.05, 0), w('—', 0.2, 0), w('1.0', 0.35, 0)], t, { year: 1983, month: 3 }, { ruledLines: ys }).rows;
   assert.strictEqual(r3[0].type, ''); assert.ok(r3[0].flags.some(x => x.field === 'type'), 'nothing to copy from: asks');
+});
+
+test('each page of the open book has its own row heights, joined row for row', () => {
+  const t = Object.assign(X.defaultTemplate(), { top: 0.2, bottom: 0.2 + 5 * 0.05, rows: 5, pitch: 0.05 });
+  const left = [0.1, 0.13, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45], right = [0.11, 0.222, 0.272, 0.322, 0.372, 0.422, 0.472]; // right page sits lower by nearly half a row
+  const bands = X.rowBands([], t, { left, right, gutter: 0.525 });
+  assert.strictEqual(bands.length, 5); assert.ok(Math.abs(bands[0].y0 - 0.2) < 1e-9 && Math.abs(bands[0].ry0 - 0.222) < 1e-9 && Math.abs(bands[4].ry1 - 0.472) < 1e-9, JSON.stringify(bands[0]));
+  const day = t.columns.find(c => c.field === 'day'), rem = t.columns.find(c => c.field === 'remarks'), tot = t.columns.find(c => c.field === 'total'), typ = t.columns.find(c => c.field === 'type');
+  const w = (text, col, y) => ({ text, conf: 95, x0: (col.x0 + col.x1) / 2 - 0.005, x1: (col.x0 + col.x1) / 2 + 0.005, y0: y - 0.008, y1: y + 0.008 });
+  // remarks for the first flight are written at a height that, on the left page, would already be the second row
+  const r = X.extractPage([w('18', day, 0.225), w('T-34C', typ, 0.225), w('1.6', tot, 0.225), w('FAM1', rem, 0.262), w('23', day, 0.275), w('T-34C', typ, 0.275), w('1.5', tot, 0.275), w('FAM2', rem, 0.312)], t, { year: 1983, month: 2 }, { ruledLines: { left, right, gutter: 0.525 } });
+  assert.deepStrictEqual(r.rows.map(f => [f.day, f.remarks]), [[18, 'FAM1'], [23, 'FAM2']]);
+  // heavy writing in a row is not a printed line; nor is a wrong extra line allowed to split a row
+  assert.strictEqual(X.rowBands([], t, [0.2, 0.25, 0.276, 0.3, 0.35, 0.4, 0.45]).length, 5);
+  const g = new Uint8Array(1000 * 600).fill(255); for (let k = 0; k < 8; k++) for (let x = 40; x < 960; x++) { g[(100 + k * 50) * 1000 + x] = 60; g[(101 + k * 50) * 1000 + x] = 60; }
+  for (let k = 0; k < 7; k++) for (let y = 112 + k * 50; y < 142 + k * 50; y++) for (let x = 60; x < 940; x++) if ((x * 31 + y * 17) % 20 < 9) g[y * 1000 + x] = 30; // rows packed with heavy writing: nearly half of every pixel row is ink
+  const got = X.findRowLines(g, 1000, 600).map(v => Math.round(v * 600)); assert.strictEqual(got.length, 8, JSON.stringify(got)); got.forEach((y, k) => assert.ok(Math.abs(y - (100 + k * 50)) <= 1, `line ${k} at ${y}`));
 });
 
 console.log(`${passed} tests passed`);

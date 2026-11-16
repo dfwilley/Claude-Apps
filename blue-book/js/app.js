@@ -218,23 +218,22 @@
     try {
       if (!canvas) canvas = I.toCanvas(await I.loadURL(await S.photoURLAsync(page.photoId)), 2600);
       const prepared = I.forReading(canvas); set(0.05);
-      const small = I.toCanvas(canvas, 1600); const g = I.grayOf(small);
-      const edge = v => v > 0.015 && v < 0.985;
-      const fits = X.rowLineFits(prepared.grayWithRules, prepared.w, prepared.h); // the printed row lines
-      page.ruledLines = fits.map(f => (f.a + f.b * prepared.w / 2) / prepared.h).sort((a, b) => a - b).filter(edge);
-      // put the columns on this page's own printed lines (no two pages are scanned in quite the same place)
-      const base = db.settings.template, fitted = X.fitTemplate(base, X.findColLines(prepared.grayWithRules, prepared.w, prepared.h, base.top, base.bottom), page.ruledLines);
-      page.tpl = fitted.template; page.colsMatched = fitted.matched;
-      // Paint the row lines out so they aren't read as marks. This is done with a light hand: where writing rests on a line
-      // the line is left, because cutting the foot off a 2 or a 9 does more harm than a leftover scrap of line.
-      I.eraseLines(prepared, fits, page.tpl.top - 0.03, page.tpl.bottom + 0.03);
-      if (!X.rowPitch(page.ruledLines, page.tpl)) page.ruledLines = X.findRuledLines(g.gray, g.w, g.h, 'h', { minFrac: 0.3 }).filter(edge); // the older, stricter finder
-      const pitch = X.rowPitch(page.ruledLines, page.tpl);
+      const gray = prepared.grayWithRules, W = prepared.w, H = prepared.h, base = db.settings.template;
+      // 1. Columns: put the layout on this page's own printed column lines (no two pages are scanned in quite the same place).
+      const cols = X.findColLines(gray, W, H, base.top, base.bottom);
+      // 2. Rows: the two pages of the open book are followed separately, since one always sits a little higher or more tilted.
+      const lines = X.pageLines(gray, W, H, X.fitTemplate(base, cols, []).template.gutter);
+      if (lines.left.length < 4) { const whole = X.rowLineFits(gray, W, H); lines.left = whole.map(f => (f.a + f.b * W / 2) / H).sort((a, b) => a - b); lines.right = []; lines.fits = whole; }
+      const fitted = X.fitTemplate(base, cols, lines.left);
+      page.tpl = fitted.template; page.colsMatched = fitted.matched; page.ruledLines = { left: lines.left, right: lines.right, gutter: lines.gutter };
+      // 3. Paint the row lines out so they aren't read as marks, leaving alone any stretch that writing rests on.
+      I.eraseLines(prepared, lines.fits, page.tpl.top - 0.03, page.tpl.bottom + 0.03);
+      const pitch = page.tpl.pitch || X.rowPitch(lines.left, page.tpl);
       if (pitch) db.settings.rowPitch = pitch; // remembered for pages where the lines can't be found
       page.rowPitch = db.settings.rowPitch || 0;
       page.words = await window.BBOcr.read(page.photoId, prepared.canvas, v => set(0.05 + v * 0.75));
       page.sideways = X.looksSideways(page.words, canvas.width, canvas.height);
-      page.tpl = X.skipHeaderRows(page.words, page.tpl, page.ruledLines); // don't take the printed headings for the first flight
+      page.tpl = X.skipHeaderRows(page.words, page.tpl, page.ruledLines.left); // don't take the printed headings for the first flight
       if (page.autoDate) { const hd = X.headerDate(page.words, page.tpl.top); page.dateRead = !!(hd.month && hd.year); if (hd.month) page.month = hd.month; if (hd.year) page.year = hd.year; }
       const bands = X.rowBands(page.words, page.tpl, page.ruledLines, page.rowPitch);
       page.words = await window.BBOcr.refine(prepared, page.words, page.tpl, bands, knownTypes(), v => set(0.8 + v * 0.2));

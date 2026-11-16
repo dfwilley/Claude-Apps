@@ -51,7 +51,7 @@
     ['skip', 0.7468, 0.7666], ['fclp', 0.7666, 0.785], ['landings', 0.785, 0.8244], ['cats', 0.8244, 0.8443], ['approaches', 0.8443, 0.8643],
     ['apprType', 0.8643, 0.8838], ['simApproaches', 0.8838, 0.903], ['remarks', 0.903, 0.995],
   ];
-  function defaultTemplate() { return { columns: DEFAULT_COLUMNS.map(([field, x0, x1]) => ({ field, x0, x1 })), top: 0.148, bottom: 0.845 }; }
+  function defaultTemplate() { return { columns: DEFAULT_COLUMNS.map(([field, x0, x1]) => ({ field, x0, x1 })), top: 0.148, bottom: 0.845, rows: 19 }; }
 
   // Follow printed lines across part of a page even when they slope (a photo taken at an angle, a page that doesn't lie flat).
   // Narrow upright strips are examined between x0 and x1 (pixels); a line is followed from strip to strip by expecting it
@@ -60,16 +60,20 @@
   function trackLines(gray, w, h, opts) {
     opts = opts || {};
     const xa = Math.max(0, Math.round(opts.x0 == null ? w * 0.03 : opts.x0)), xb = Math.min(w, Math.round(opts.x1 == null ? w * 0.97 : opts.x1));
-    const S = opts.strips || 24, sw = Math.floor((xb - xa) / S), T = opts.dark || 215, need = opts.cover || 0.6; if (sw < 6) return { fits: [], counts: [] };
+    const single = !!opts.single, S = opts.strips || 24, sw = Math.floor((xb - xa) / S), T = opts.dark || 215, need = opts.cover || (single ? 0.7 : 0.6); if (sw < 6) return { fits: [], counts: [] };
     const minGap = Math.max(4, Math.round(h * 0.008)), tol0 = Math.max(5, Math.round(h * 0.012)), tol1 = Math.max(4, Math.round(h * 0.006));
     const tracks = [], counts = [];
     for (let s = 0; s < S; s++) {
       const x0 = xa + s * sw, cx = x0 + sw / 2, frac = new Float32Array(h);
       for (let y = 0; y < h; y++) { let n = 0; const o = y * w + x0; for (let x = 0; x < sw; x++) if (gray[o + x] < T) n++; frac[y] = n / sw; }
       const peaks = [];
+      // `single`: a printed line must fill one pixel row of the strip nearly end to end. Writing never does that however
+      // heavy it is, so this is the test for pages that are already level. Without it, three rows are added together,
+      // which also catches a line that slopes across the strip (a photo not yet flattened) but can be fooled by heavy writing.
+      const val = single ? (y => frac[y]) : (y => Math.min(1, frac[y - 1] + frac[y] + frac[y + 1]));
       for (let y = 1; y < h - 1; y++) {
-        const v = Math.min(1, frac[y - 1] + frac[y] + frac[y + 1]); if (v < need) continue;
-        let b = y, top = v, at = y; while (b + 1 < h - 1) { const n2 = Math.min(1, frac[b] + frac[b + 1] + frac[b + 2]); if (n2 < need) break; b++; if (frac[b] > frac[at]) at = b; if (n2 > top) top = n2; }
+        if (val(y) < need) continue;
+        let b = y, at = y; while (b + 1 < h - 1 && val(b + 1) >= need) { b++; if (frac[b] > frac[at]) at = b; }
         y = b; if (peaks.length && at - peaks[peaks.length - 1] < minGap) continue; peaks.push(at);
       }
       counts.push(peaks.length);
@@ -124,6 +128,9 @@
       // An open book is two pages, and in a photo each is a slightly different size: fit each page's columns on their own.
       // The gutter is the widest gap in the layout that has no printed line in it.
       let gi = -1, gw = 0; for (let i = 1; i < edges.length; i++) { const lo = all.s * edges[i - 1] + all.o, hi = all.s * edges[i] + all.o; if (edges[i] > 0.3 && edges[i - 1] < 0.7 && edges[i] - edges[i - 1] > gw && !xs.some(x => x > lo + 0.008 && x < hi - 0.008)) { gw = edges[i] - edges[i - 1]; gi = i; } }
+      // ...or, simply, the ignored column nearest the middle of the layout
+      const mid = cols.filter(c => c.field === 'skip' && (c.x0 + c.x1) / 2 > 0.35 && (c.x0 + c.x1) / 2 < 0.65).sort((a, b) => Math.abs((a.x0 + a.x1) / 2 - 0.5) - Math.abs((b.x0 + b.x1) / 2 - 0.5))[0];
+      if (mid) gi = edges.indexOf(mid.x1);
       const split = gi > 0 ? (edges[gi - 1] + edges[gi]) / 2 : 2, splitX = all.s * split + all.o;
       const parts = [[edges.filter(e => e < split), xs.filter(x => x < splitX)], [edges.filter(e => e >= split), xs.filter(x => x >= splitX)]];
       const moved = new Map();
@@ -132,20 +139,25 @@
         for (const e of es) { const v = f.s * e + f.o; let near = null; for (const x of lines) if (Math.abs(x - v) < 0.008 && (near == null || Math.abs(x - v) < Math.abs(near - v))) near = x; if (near != null) matched++; moved.set(e, Math.max(0, Math.min(1, near == null ? v : near))); }
       }
       for (const c of cols) { c.x0 = moved.get(c.x0); c.x1 = moved.get(c.x1); }
+      if (gi > 0) out.gutter = (moved.get(edges[gi - 1]) + moved.get(edges[gi])) / 2;
     }
     // Rows: the flight lines are the long run of evenly spaced lines; the headings above them are not evenly spaced.
     // The first line of that run is the top. The layout's own number of rows gives the bottom (a photo may cut the page short).
     ys = (ys || []).slice().sort((a, b) => a - b);
     if (ys.length >= 5) {
-      const gaps = ys.slice(1).map((v, i) => v - ys[i]).filter(g => g > 0.012), pitch = median(gaps), nRows = Math.max(1, Math.round((tpl.bottom - tpl.top) / (rowPitch(ys, tpl) || pitch)));
+      const pitch = commonGap(ys), nRows = tpl.rows || Math.max(1, Math.round((tpl.bottom - tpl.top) / (rowPitch(ys, tpl) || pitch || 1)));
       if (pitch > 0) {
         const on = (y0, k) => ys.some(y => Math.abs(y - (y0 + k * pitch)) < pitch * 0.2);
-        let bestN = 0; const scores = ys.map(y0 => { let n = 0; for (let k = 0; k <= nRows; k++) if (on(y0, k)) n++; if (n > bestN) bestN = n; return n; });
-        let top = null; ys.forEach((y0, i) => { if (scores[i] >= bestN - 1 && scores[i] >= 4 && (top == null || Math.abs(y0 - tpl.top) < Math.abs(top - tpl.top))) top = y0; });
+        // how well the lines below a candidate top keep to the row spacing, as a share of the rows the picture actually shows
+        const last = ys[ys.length - 1]; let bestS = 0;
+        const scores = ys.map(y0 => { const K = Math.min(nRows, Math.round((last - y0) / pitch)); if (K < 4) return 0; let n = 0; for (let k = 0; k <= K; k++) if (on(y0, k)) n++; const sc = n / (K + 1); if (sc > bestS) bestS = sc; return sc; });
+        let top = null; ys.forEach((y0, i) => { if (scores[i] >= Math.min(0.7, bestS * 0.9) && (top == null || Math.abs(y0 - tpl.top) < Math.abs(top - tpl.top))) top = y0; });
         if (top != null) {
+          // Measure the row height exactly: give every line its row number and fit a straight scale through them all.
+          let pitch1 = pitch; { let n = 0, sk = 0, sy = 0, skk = 0, sky = 0; for (const y of ys) { const k = Math.round((y - top) / pitch); if (k < 0 || k > nRows + 3 || Math.abs(y - (top + k * pitch)) > pitch * 0.25) continue; n++; sk += k; sy += y; skk += k * k; sky += k * y; } const den = n * skk - sk * sk; if (n >= 4 && den > 0) pitch1 = (n * sky - sk * sy) / den; }
           out.top = top; let bottom = top;
-          for (let k = 1; k <= nRows; k++) { const want = top + k * pitch; let near = null; for (const y of ys) if (Math.abs(y - want) < pitch * 0.3 && (near == null || Math.abs(y - want) < Math.abs(near - want))) near = y; if (near != null) bottom = near; else if (want < 0.995) bottom = want; }
-          out.bottom = Math.min(0.999, bottom);
+          for (let k = 1; k <= nRows; k++) { const want = top + k * pitch1; let near = null; for (const y of ys) if (Math.abs(y - want) < pitch * 0.3 && (near == null || Math.abs(y - want) < Math.abs(near - want))) near = y; if (near != null) bottom = near; else if (want < 0.995) bottom = want; }
+          out.bottom = Math.min(0.999, bottom); out.pitch = pitch1;
         }
       }
     }
@@ -192,7 +204,25 @@
   // Row bands from ruled lines (fractions of page height) — or, if no lines, from where the words sit.
   function rowBands(words, template, ruledLines, pitch) {
     const top = template.top, bottom = template.bottom;
+    if (ruledLines && !Array.isArray(ruledLines)) { // lines found on each page separately: {left, right, gutter}
+      const L = rowBands(words, template, ruledLines.left || [], pitch); const R0 = (ruledLines.right || []).slice().sort((a, b) => a - b);
+      const p = template.pitch || commonGap(ruledLines.left || []) || commonGap(R0);
+      // the right page's rows start at its own line nearest the left page's top line: the same printed row, a little higher or lower
+      let rt = null; for (const y of R0) if (Math.abs(y - top) < p * 0.6 && (rt == null || Math.abs(y - top) < Math.abs(rt - top))) rt = y;
+      if (rt == null || !L.length || !p) return L;
+      const pr = commonGap(R0) || p; const R = rowBands(words, Object.assign({}, template, { top: rt, bottom: rt + L.length * pr, pitch: pr }), R0.filter(y => y >= rt - 0.01), pitch);
+      return L.map((b, i) => R[i] ? Object.assign({}, b, { ry0: R[i].y0, ry1: R[i].y1, g: ruledLines.gutter }) : b);
+    }
     let lines = (ruledLines || []).filter(y => y >= top - 0.01 && y <= bottom + 0.01).sort((a, b) => a - b);
+    // Rows in a printed logbook are all the same height. Knowing the top line and that height, lay the rows out evenly and
+    // let each edge settle onto its printed line where one was found. A stray "line" between rows can't then split a row.
+    const p = template.pitch || commonGap(lines);
+    if (p > 0.004 && lines.length >= 3) {
+      const snap = y => { let near = null; for (const l of lines) if (Math.abs(l - y) < p * 0.25 && (near == null || Math.abs(l - y) < Math.abs(near - y))) near = l; return near == null ? y : near; };
+      const n = Math.max(1, Math.round((bottom - top) / p)), bands = []; let y0 = snap(top);
+      for (let k = 1; k <= n; k++) { const y1 = snap(y0 + p); bands.push({ y0, y1 }); y0 = y1; }
+      return bands;
+    }
     if (lines.length >= 4) {
       const gaps = []; for (let i = 1; i < lines.length; i++) gaps.push(lines[i] - lines[i - 1]);
       const med = median(gaps);
@@ -233,7 +263,10 @@
     }));
   }
   // Which words of a page reading sit in one box (a row band and a column).
-  function cellAt(words, band, col) { return words.filter(w => { const x = (w.x0 + w.x1) / 2, y = (w.y0 + w.y1) / 2; return x >= col.x0 && x < col.x1 && y >= band.y0 && y < band.y1; }); }
+  // The two pages of an open book are never scanned exactly level with each other, so a row has its own height on each
+  // page: y0..y1 on the left page and ry0..ry1 on the right (g is where the gutter is). This gives the part that applies at x.
+  function sideBand(band, x) { return band.ry0 != null && band.g != null && x >= band.g ? { y0: band.ry0, y1: band.ry1 } : band; }
+  function cellAt(words, band0, col) { const band = sideBand(band0, (col.x0 + col.x1) / 2); return words.filter(w => { const x = (w.x0 + w.x1) / 2, y = (w.y0 + w.y1) / 2; return x >= col.x0 && x < col.x1 && y >= band.y0 && y < band.y1; }); }
   const cy = w => (w.y0 + w.y1) / 2;
   // Words in one box, top line first, then left to right (a box can hold two short lines, like "1 P" over "1 NP").
   function readingOrder(ws) {
@@ -362,7 +395,7 @@
     const cells = bands.map(() => ({}));
     for (const w of words) {
       const y = cy(w), x = cx(w);
-      const r = bands.findIndex(b => y >= b.y0 && y < b.y1); if (r < 0) continue;
+      const r = bands.findIndex(b0 => { const b = sideBand(b0, x); return y >= b.y0 && y < b.y1; }); if (r < 0) continue;
       let c = cols.findIndex(col => x >= col.x0 && x < col.x1);
       if (c < 0) { // a word just outside every column: nearest one within 2% of the page
         let best = -1, bd = 0.02; cols.forEach((col, i) => { const d = Math.min(Math.abs(x - col.x0), Math.abs(x - col.x1)); if (d < bd) { bd = d; best = i; } });
@@ -558,39 +591,33 @@
   function findRowLines(gray, w, h, opts) { return rowLineFits(gray, w, h, opts).map(f => (f.a + f.b * w / 2) / h).sort((a, b) => a - b); }
   // The same lines as straight fits, y = a + b·x in pixels, so each can be followed (and painted out) across a crooked page.
   function rowLineFits(gray, w, h, opts) {
-    opts = opts || {};
-    const S = opts.strips || 8, T = opts.dark || 215, need = opts.cover || 0.6;
-    const xa = Math.round(w * 0.04), sw = Math.floor((w * 0.92) / S), tol = Math.max(3, Math.round(h * 0.007)), minGap = Math.max(4, Math.round(h * 0.008));
-    const tracks = [];
-    for (let s = 0; s < S; s++) {
-      const x0 = xa + s * sw, frac = new Float32Array(h);
-      for (let y = 0; y < h; y++) { let n = 0; const o = y * w + x0; for (let x = 0; x < sw; x++) if (gray[o + x] < T) n++; frac[y] = n / sw; }
-      // a crooked line crosses a few pixel rows inside one strip, so add up a small window
-      const win = new Float32Array(h); for (let y = 2; y < h - 2; y++) win[y] = Math.min(1, frac[y - 2] + frac[y - 1] + frac[y] + frac[y + 1] + frac[y + 2]);
-      const peaks = [];
-      for (let y = 2; y < h - 2; y++) {
-        if (win[y] < need || win[y] < win[y - 1] || win[y] < win[y + 1]) continue;
-        let a = y, b = y; while (b + 1 < h && win[b + 1] >= win[y] - 1e-6) b++; // flat top: the line is where the darkest three rows are
-        let mid = (a + b) / 2, top3 = -1; for (let k = Math.max(1, a - 2); k <= Math.min(h - 2, b + 2); k++) { const v = frac[k - 1] + frac[k] + frac[k + 1]; if (v > top3) { top3 = v; mid = k; } } y = b;
-        if (peaks.length && mid - peaks[peaks.length - 1] < minGap) continue;
-        peaks.push(mid);
-      }
-      for (const p of peaks) {
-        let t = null; for (const k of tracks) if (k.lastS < s && s - k.lastS <= 2 && Math.abs(k.lastY - p) <= tol && (!t || Math.abs(k.lastY - p) < Math.abs(t.lastY - p))) t = k;
-        const cx = x0 + sw / 2;
-        if (t) { t.ys.push(p); t.xs.push(cx); t.lastY = p; t.lastS = s; } else tracks.push({ ys: [p], xs: [cx], lastY: p, lastS: s });
-      }
-    }
-    return tracks.filter(k => k.ys.length >= Math.ceil(S * 0.6)).map(k => {
-      const mx = mean(k.xs), my = mean(k.ys); let num = 0, den = 0; k.xs.forEach((x, i) => { num += (x - mx) * (k.ys[i] - my); den += (x - mx) * (x - mx); });
-      const b = den ? num / den : 0; return { a: my - b * mx, b };
-    });
+    const o = Object.assign({ x0: w * 0.04, x1: w * 0.96, strips: 16, share: 0.6 }, opts || {}); const level = trackLines(gray, w, h, Object.assign({ single: true }, o)).fits;
+    return level.length >= 6 ? level : trackLines(gray, w, h, o).fits;
   }
+  // The distance between rows: the gap that most of the neighbouring lines share (stray extra lines don't sway it).
+  function commonGap(ys) {
+    const gaps = ys.slice(1).map((v, i) => v - ys[i]).filter(g => g > 0.012 && g < 0.2); if (!gaps.length) return 0;
+    let best = 0, bestN = 0; for (const g of gaps) { const near = gaps.filter(x => Math.abs(x - g) < g * 0.12); if (near.length > bestN) { bestN = near.length; best = mean(near); } }
+    return best;
+  }
+  // The printed row lines of each page of the open book, found separately (gutter: where the pages meet, as a fraction of
+  // the width). Returns {left, right, gutter} as heights measured at each page's middle, and `fits` for painting them out.
+  function pageLines(gray, w, h, gutter) {
+    const g = gutter > 0.3 && gutter < 0.7 ? gutter : 0.525, out = { left: [], right: [], gutter: g, fits: [] };
+    for (const [key, a, b] of [['left', 0.03, g - 0.012], ['right', g + 0.012, 0.97]]) {
+      const o = { x0: a * w, x1: b * w, strips: 12, share: 0.6 }; let fits = trackLines(gray, w, h, Object.assign({ single: true }, o)).fits; if (fits.length < 6) fits = trackLines(gray, w, h, o).fits;
+      const xc = (a + b) / 2 * w;
+      for (const f of fits) { const y = (f.a + f.b * xc) / h; if (y > 0.015 && y < 0.985) { out[key].push(y); out.fits.push({ a: f.a, b: f.b, x0: key === 'left' ? 0 : g * w, x1: key === 'left' ? g * w : w }); } }
+      out[key].sort((p, q) => p - q);
+    }
+    return out;
+  }
+
   // The usual distance between row lines inside the flight area, or 0 if too few were found.
   function rowPitch(lines, template) {
     const ys = (lines || []).filter(y => y >= template.top - 0.01 && y <= template.bottom + 0.01).sort((a, b) => a - b);
     if (ys.length < 4) return 0;
-    return median(ys.slice(1).map((v, i) => v - ys[i]));
+    return commonGap(ys);
   }
 
   // Find long dark horizontal / vertical ruled lines in a grayscale image (Uint8 array, w×h). Returns fractions.
@@ -624,7 +651,7 @@
     return ws.filter(x => (x.y1 - x.y0) * h > 1.5 * (x.x1 - x.x0) * w).length > ws.length * 0.5;
   }
 
-  const api = { skipHeaderRows, trackLines, findColLines, fitTemplate, headerDate, rowLineFits, findRowLines, rowPitch, readingOrder, fixKind, parseField, chooseReading, cellAt, looksSideways, FIELDS, FIELD, NUM_FIELDS, KNOWN_TYPES, defaultTemplate, extractPage, rowBands, parseHours, parseCount, parseBuno, parseDay, parseDate,
+  const api = { pageLines, sideBand, commonGap, skipHeaderRows, trackLines, findColLines, fitTemplate, headerDate, rowLineFits, findRowLines, rowPitch, readingOrder, fixKind, parseField, chooseReading, cellAt, looksSideways, FIELDS, FIELD, NUM_FIELDS, KNOWN_TYPES, defaultTemplate, extractPage, rowBands, parseHours, parseCount, parseBuno, parseDay, parseDate,
     normalizeType, sanity, recheck, findRuledLines, isoDate, hasShipWork };
   root.BBExtract = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

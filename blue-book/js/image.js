@@ -229,7 +229,10 @@
       if (lens.length < (xb - xa) * 0.2) continue;
       lens.sort((p, q) => p - q); const usual = lens[lens.length >> 1];
       for (let x = xa; x < xb; x++) {
-        if (lo[x] < 0 || hi[x] - lo[x] + 1 > usual + 2) continue;
+        if (lo[x] < 0 || hi[x] - lo[x] + 1 > usual + 1) continue;
+        // writing that rests on the line (the foot of a 2, a 5 or a Z lies right along it): leave the line under it
+        let rests = false; for (let dx = -3; dx <= 3 && !rests; dx++) { const xx = x + dx; if (xx >= 0 && xx < w && lo[xx] >= 3 && (gray[(lo[xx] - 2) * w + xx] < DARK || gray[(lo[xx] - 3) * w + xx] < DARK)) rests = true; }
+        if (rests) continue;
         for (let y = lo[x] - 1; y <= hi[x] + 1; y++) { const i = y * w + x; gray[i] = 255; const o = i * 4; d[o] = d[o + 1] = d[o + 2] = 255; }
       }
     }

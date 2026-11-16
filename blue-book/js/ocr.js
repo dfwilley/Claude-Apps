@@ -43,9 +43,9 @@
     if (root.BBStore.isNative) return [];
     const X = root.BBExtract; const numeric = new Set(['day', ...X.NUM_FIELDS]);
     const { gray, w: W, h: H, canvas } = prepared; const todo = [];
-    for (const b of bands) for (const c of template.columns) {
+    for (const b0 of bands) for (const c of template.columns) {
       if (!numeric.has(c.field)) continue;
-      const has = words.some(wd => { const x = (wd.x0 + wd.x1) / 2, y = (wd.y0 + wd.y1) / 2; return x >= c.x0 && x < c.x1 && y >= b.y0 && y < b.y1; });
+      const has = X.cellAt(words, b0, c).length > 0; const b = X.sideBand(b0, (c.x0 + c.x1) / 2);
       if (has) continue;
       const ix0 = Math.round((c.x0 + (c.x1 - c.x0) * 0.1) * W), ix1 = Math.round((c.x1 - (c.x1 - c.x0) * 0.1) * W);
       const iy0 = Math.round((b.y0 + (b.y1 - b.y0) * 0.12) * H), iy1 = Math.round((b.y1 - (b.y1 - b.y0) * 0.12) * H);
@@ -74,7 +74,8 @@
 
   // Ink in the middle of a box, on the cleaned-up page: how much, and how wide and tall the marks are.
   // withRules: look at the page before printed lines were painted out, staying well inside the box to miss its printed edges.
-  function inkIn(prepared, band, col, withRules) {
+  function inkIn(prepared, band0, col, withRules) {
+    const band = root.BBExtract.sideBand(band0, (col.x0 + col.x1) / 2);
     const { w: W, h: H } = prepared; const gray = withRules && prepared.grayWithRules ? prepared.grayWithRules : prepared.gray; const my = withRules ? 0.24 : 0.12;
     const ix0 = Math.round((col.x0 + (col.x1 - col.x0) * 0.1) * W), ix1 = Math.round((col.x1 - (col.x1 - col.x0) * 0.1) * W);
     const iy0 = Math.round((band.y0 + (band.y1 - band.y0) * my) * H), iy1 = Math.round((band.y1 - (band.y1 - band.y0) * my) * H); const DARK = withRules ? 170 : 120; // pencil lines are pale
@@ -93,7 +94,7 @@
       if (!(k.frac > 0.004 && k.wide >= 0.45 && k.tall <= 0.45)) continue;
       // The mark in this box is long and flat: a drawn line, whatever a reader made of it. Record it as the line.
       const here = X.cellAt(out, b, c); for (const w of here) out.splice(out.indexOf(w), 1);
-      out.push({ text: '—', conf: 90, x0: c.x0 + 0.001, x1: c.x1 - 0.001, y0: b.y0 + 0.001, y1: b.y1 - 0.001, line: true });
+      const sb = X.sideBand(b, (c.x0 + c.x1) / 2); out.push({ text: '—', conf: 90, x0: c.x0 + 0.001, x1: c.x1 - 0.001, y0: sb.y0 + 0.001, y1: sb.y1 - 0.001, line: true });
     }
     return out;
   }
@@ -101,7 +102,8 @@
   // Close-up pass (iPhone app): every box with writing in it is cut out of the cleaned-up page, enlarged, and read
   // on its own. Apple's reader gives a few alternative readings for each; the one that fits the column is used.
   const CLOSE_UP_SKIP = new Set(['skip', 'remarks', 'squadron', 'ship']);
-  function cropBox(prepared, band, col) {
+  function cropBox(prepared, band0, col) {
+    const band = root.BBExtract.sideBand(band0, (col.x0 + col.x1) / 2);
     const { canvas, w: W, h: H } = prepared; const cw = col.x1 - col.x0, bh = band.y1 - band.y0;
     void cw; const x0 = Math.max(0, Math.round(col.x0 * W) + 4), x1 = Math.min(W, Math.round(col.x1 * W) - 4); // just inside the printed column lines, so they aren't read as 1s
     const y0 = Math.max(0, Math.round((band.y0 - bh * 0.05) * H)), y1 = Math.min(H, Math.round((band.y1 + bh * 0.05) * H));
@@ -123,7 +125,7 @@
           const pick = X.chooseReading(j.c.field, pageText, (res && res[i]) || [], knownTypes);
           if (!pick) return;
           out = out.filter(w => !here.includes(w));
-          out.push({ text: pick.text, conf: Math.round(pick.conf), x0: j.c.x0 + 0.001, x1: j.c.x1 - 0.001, y0: b.y0 + 0.001, y1: b.y1 - 0.001, closeUp: true });
+          const sb = X.sideBand(b, (j.c.x0 + j.c.x1) / 2); out.push({ text: pick.text, conf: Math.round(pick.conf), x0: j.c.x0 + 0.001, x1: j.c.x1 - 0.001, y0: sb.y0 + 0.001, y1: sb.y1 - 0.001, closeUp: true });
         });
       }
       if (onProgress) onProgress((r + 1) / bands.length);
