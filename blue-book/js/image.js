@@ -216,23 +216,87 @@
     const g = canvas.getContext('2d'), img = g.getImageData(0, 0, w, h), d = img.data, DARK = 175, REACH = 16;
     const lo = new Int16Array(w), hi = new Int16Array(w);
     for (const f of fits) {
-      const mid = (f.a + f.b * w / 2) / h; if (mid < (y0 == null ? 0 : y0) || mid > (y1 == null ? 1 : y1)) continue;
+      const xa = Math.max(0, Math.round(f.x0 == null ? 0 : f.x0)), xb = Math.min(w, Math.round(f.x1 == null ? w : f.x1)); // a fit may cover one page only
+      const mid = (f.a + f.b * (xa + xb) / 2) / h; if (mid < (y0 == null ? 0 : y0) || mid > (y1 == null ? 1 : y1)) continue;
       const lens = [];
-      for (let x = 0; x < w; x++) {
+      for (let x = xa; x < xb; x++) {
         lo[x] = hi[x] = -1; const yc = Math.round(f.a + f.b * x); if (yc < REACH + 4 || yc >= h - REACH - 4) continue;
         let y = -1; for (let k = 0; k <= 3 && y < 0; k++) { if (gray[(yc - k) * w + x] < DARK) y = yc - k; else if (gray[(yc + k) * w + x] < DARK) y = yc + k; }
         if (y < 0) continue;
         let a = y, b = y; while (y - a < REACH && gray[(a - 1) * w + x] < DARK) a--; while (b - y < REACH && gray[(b + 1) * w + x] < DARK) b++;
         lo[x] = a; hi[x] = b; lens.push(b - a + 1);
       }
-      if (lens.length < w * 0.2) continue;
+      if (lens.length < (xb - xa) * 0.2) continue;
       lens.sort((p, q) => p - q); const usual = lens[lens.length >> 1];
-      for (let x = 0; x < w; x++) {
+      for (let x = xa; x < xb; x++) {
         if (lo[x] < 0 || hi[x] - lo[x] + 1 > usual + 2) continue;
         for (let y = lo[x] - 1; y <= hi[x] + 1; y++) { const i = y * w + x; gray[i] = 255; const o = i * 4; d[o] = d[o + 1] = d[o + 2] = 255; }
       }
     }
     g.putImageData(img, 0, 0);
+  }
+
+  // Flatten a photographed open book. In a photo each of the two pages leans its own way, so the printed lines slope and
+  // fan out. This follows the printed row and column lines on each page, and stretches each page so its lines run level
+  // and upright and the rows of the two pages meet across the gutter. A flat scan comes back unchanged.
+  function flattenSpread(canvas) {
+    const X = root.BBExtract, w = canvas.width, h = canvas.height; const pr = forReading(canvas), gray = pr.grayWithRules;
+    const whole = X.trackLines(gray, w, h, { strips: 48, share: 0.3 });
+    // the gutter: a run of strips near the middle where no row line is printed
+    const med = whole.counts.slice().sort((a, b) => a - b)[whole.counts.length >> 1] || 0; let g = null;
+    if (med >= 4) { let bestLen = 0, run = 0; for (let s = 16; s < 32; s++) { if (whole.counts[s] < med * 0.3) { run++; if (run > bestLen) { bestLen = run; g = whole.x0 + (s - (run - 1) / 2 + 0.5) * whole.sw; } } else run = 0; } }
+    if (g == null) return { canvas, done: false, why: 'no gutter found' };
+    const margin = whole.sw * 1.2;
+    const halves = [{ x0: w * 0.02, x1: g - margin }, { x0: g + margin, x1: w * 0.985 }].map(r => Object.assign(r, { rows: X.trackLines(gray, w, h, { x0: r.x0, x1: r.x1, strips: 22, share: 0.55 }).fits }));
+    // On one page the slope of the lines changes steadily down the page (they fan out). A line that doesn't follow that
+    // pattern is a heading or a stray mark, not a row line: drop it.
+    for (const r of halves) {
+      for (let pass = 0; pass < 2 && r.rows.length >= 4; pass++) {
+        const ys = r.rows.map(f => f.a + f.b * (r.x0 + r.x1) / 2), bs = r.rows.map(f => f.b); const my = ys.reduce((s, v) => s + v, 0) / ys.length, mb = bs.slice().sort((a, b) => a - b)[bs.length >> 1];
+        let num = 0, den = 0; ys.forEach((y, i) => { if (Math.abs(bs[i] - mb) < 0.05) { num += (y - my) * (bs[i] - mb); den += (y - my) * (y - my); } }); const q = den ? num / den : 0;
+        r.rows = r.rows.filter((f, i) => Math.abs(f.b - (mb + q * (ys[i] - my))) < (pass ? 0.008 : 0.02));
+      }
+    }
+    if (halves[0].rows.length < 6 || halves[1].rows.length < 6) return { canvas, done: false, why: 'too few row lines' };
+    const lean = rows => { const v = rows.map(f => Math.abs(f.b)).sort((a, b) => a - b); return v[v.length >> 1]; };
+    const worst = Math.max(lean(halves[0].rows), lean(halves[1].rows));
+    // pair up the rows of the two pages where they meet at the gutter
+    const at = (f, x) => f.a + f.b * x; const pitchOf = rows => { const d = rows.slice(1).map((f, i) => at(f, g) - at(rows[i], g)).sort((a, b) => a - b); return d[d.length >> 1]; };
+    const pitch = Math.min(pitchOf(halves[0].rows), pitchOf(halves[1].rows)); const pairs = [];
+    for (const L of halves[0].rows) { let best = null; for (const R of halves[1].rows) if (Math.abs(at(L, g) - at(R, g)) < pitch * 0.4 && (!best || Math.abs(at(L, g) - at(R, g)) < Math.abs(at(L, g) - at(best, g)))) best = R; if (best) pairs.push([L, best]); }
+    if (pairs.length < 5) return { canvas, done: false, why: 'rows of the two pages did not pair up' };
+    const top = pairs[0], bot = pairs[pairs.length - 1]; const yTop = (at(top[0], g) + at(top[1], g)) / 2, yBot = (at(bot[0], g) + at(bot[1], g)) / 2;
+    if (worst < 0.006) return { canvas, done: false, why: 'already flat' };
+    // column lines on each page, between the top and bottom paired rows (the page turned on its side for the same follower)
+    const out = document.createElement('canvas'); out.width = w; out.height = h; const og = out.getContext('2d'); og.fillStyle = '#fff'; og.fillRect(0, 0, w, h);
+    const sd = canvas.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, w, h).data; const img = og.getImageData(0, 0, w, h), od = img.data;
+    for (let k = 0; k < 2; k++) {
+      const r = halves[k], rowT = k ? top[1] : top[0], rowB = k ? bot[1] : bot[0];
+      const xa = Math.round(r.x0), xb = Math.round(r.x1), ww = xb - xa, mid = (xa + xb) / 2;
+      const ya = Math.max(0, Math.round(Math.min(at(rowT, xa), at(rowT, xb)))), yb = Math.min(h, Math.round(Math.max(at(rowB, xa), at(rowB, xb)))), hh = yb - ya; if (hh < 80 || ww < 80) return { canvas, done: false, why: 'page too small' };
+      const t = new Uint8Array(ww * hh); for (let y = 0; y < hh; y++) { const o = (y + ya) * w + xa; for (let x = 0; x < ww; x++) t[x * hh + y] = gray[o + x]; }
+      const cols = X.trackLines(t, hh, ww, { x0: hh * 0.08, x1: hh * 0.92, strips: 14, share: 0.6 }).fits.map(f => ({ a: xa + f.a - f.b * ya, b: f.b })); // x = a + b·y on the full page
+      if (cols.length < 3) return { canvas, done: false, why: 'too few column lines' };
+      const colL = cols[0], colR = cols[cols.length - 1]; const cross = (row, col) => { const x = (col.a + col.b * row.a) / (1 - col.b * row.b); return [x, row.a + row.b * x]; };
+      const quad = [cross(rowT, colL), cross(rowT, colR), cross(rowB, colR), cross(rowB, colL)];
+      const yMid = (yTop + yBot) / 2, xL = colL.a + colL.b * yMid, xR = colR.a + colR.b * yMid;
+      const H = homography([[xL, yTop], [xR, yTop], [xR, yBot], [xL, yBot]], quad); // where each flattened point comes from in the photo
+      const ox0 = k ? Math.round(g) : 0, ox1 = k ? w : Math.round(g);
+      for (let y = 0; y < h; y++) for (let x = ox0; x < ox1; x++) {
+        const z = H[6] * x + H[7] * y + H[8], sx = (H[0] * x + H[1] * y + H[2]) / z, sy = (H[3] * x + H[4] * y + H[5]) / z;
+        const x0 = Math.floor(sx), y0 = Math.floor(sy), o = (y * w + x) * 4; od[o + 3] = 255;
+        if (x0 < 0 || y0 < 0 || x0 >= w - 1 || y0 >= h - 1) { od[o] = od[o + 1] = od[o + 2] = 255; continue; }
+        const fx = sx - x0, fy = sy - y0, i00 = (y0 * w + x0) * 4, i10 = i00 + 4, i01 = i00 + w * 4, i11 = i01 + 4;
+        for (let c = 0; c < 3; c++) od[o + c] = (sd[i00 + c] * (1 - fx) + sd[i10 + c] * fx) * (1 - fy) + (sd[i01 + c] * (1 - fx) + sd[i11 + c] * fx) * fy;
+      }
+      void mid;
+    }
+    og.putImageData(img, 0, 0);
+    // Check the work: the lines must really be more level now, or the photo is kept as it was.
+    const after = forReading(out).grayWithRules; let left = 0;
+    for (const r of halves) { const rows = X.trackLines(after, w, h, { x0: r.x0, x1: r.x1, strips: 22, share: 0.55 }).fits; if (rows.length < 5) return { canvas, done: false, why: 'check failed' }; left = Math.max(left, lean(rows)); }
+    if (left > worst * 0.5 || left > 0.006) return { canvas, done: false, why: 'did not improve', left, worst };
+    return { canvas: out, done: true, gutter: g / w, pairs: pairs.length, worst, left };
   }
 
   function toBlob(canvas, type, q) { return new Promise(r => canvas.toBlob(r, type || 'image/jpeg', q || 0.86)); }
@@ -246,7 +310,7 @@
     c.getContext('2d').drawImage(img, 0, y0, W, y1 - y0, 0, 0, c.width, c.height); return c;
   }
 
-  const api = { eraseLines, loadImage, loadURL, toCanvas, grayOf, otsu, findPageCorners, cornersFromGray, homography, warp, rotate, forReading, toBlob, strip };
+  const api = { flattenSpread, eraseLines, loadImage, loadURL, toCanvas, grayOf, otsu, findPageCorners, cornersFromGray, homography, warp, rotate, forReading, toBlob, strip };
   root.BBImage = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

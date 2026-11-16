@@ -115,6 +115,7 @@
       let ok;
       if (same) ok = I.warp(I.rotate(canvas, same.turns), same.corners, 2600); // the rest of a batch: same edges as the first
       else { const r = await cropStep(canvas, i + 1, files.length); if (!r) continue; ok = r.canvas; if (r.all) same = r; }
+      ok = I.flattenSpread(ok).canvas; // a photographed open book: make each page's lines level and upright
       const photoId = uid('pg');
       await S.putPhoto(photoId, await I.toBlob(ok, 'image/jpeg', 0.88));
       await newPage(photoId, ok, 0, opts.auto);
@@ -127,7 +128,9 @@
     for (const id of ids || []) {
       const img = await I.loadURL(S.photoURL(id)); let c = I.toCanvas(img, 2600);
       const turns = db.settings.scanTurns || 0; // pages are usually all scanned the same way round
-      if (turns) { c = I.rotate(c, turns); await S.putPhoto(id, await I.toBlob(c, 'image/jpeg', 0.88)); }
+      if (turns) c = I.rotate(c, turns);
+      const flat = I.flattenSpread(c); if (flat.done) c = flat.canvas; // each page of an open book leans its own way in a photo
+      if (turns || flat.done) await S.putPhoto(id, await I.toBlob(c, 'image/jpeg', 0.88));
       await newPage(id, c, turns);
     }
   }
@@ -222,13 +225,16 @@
       // put the columns on this page's own printed lines (no two pages are scanned in quite the same place)
       const base = db.settings.template, fitted = X.fitTemplate(base, X.findColLines(prepared.grayWithRules, prepared.w, prepared.h, base.top, base.bottom), page.ruledLines);
       page.tpl = fitted.template; page.colsMatched = fitted.matched;
-      I.eraseLines(prepared, fits, page.tpl.top - 0.03, page.tpl.bottom + 0.03); // paint the row lines out so they aren't read as marks
+      // Paint the row lines out so they aren't read as marks. This is done with a light hand: where writing rests on a line
+      // the line is left, because cutting the foot off a 2 or a 9 does more harm than a leftover scrap of line.
+      I.eraseLines(prepared, fits, page.tpl.top - 0.03, page.tpl.bottom + 0.03);
       if (!X.rowPitch(page.ruledLines, page.tpl)) page.ruledLines = X.findRuledLines(g.gray, g.w, g.h, 'h', { minFrac: 0.3 }).filter(edge); // the older, stricter finder
       const pitch = X.rowPitch(page.ruledLines, page.tpl);
       if (pitch) db.settings.rowPitch = pitch; // remembered for pages where the lines can't be found
       page.rowPitch = db.settings.rowPitch || 0;
       page.words = await window.BBOcr.read(page.photoId, prepared.canvas, v => set(0.05 + v * 0.75));
       page.sideways = X.looksSideways(page.words, canvas.width, canvas.height);
+      page.tpl = X.skipHeaderRows(page.words, page.tpl, page.ruledLines); // don't take the printed headings for the first flight
       if (page.autoDate) { const hd = X.headerDate(page.words, page.tpl.top); page.dateRead = !!(hd.month && hd.year); if (hd.month) page.month = hd.month; if (hd.year) page.year = hd.year; }
       const bands = X.rowBands(page.words, page.tpl, page.ruledLines, page.rowPitch);
       page.words = await window.BBOcr.refine(prepared, page.words, page.tpl, bands, knownTypes(), v => set(0.8 + v * 0.2));

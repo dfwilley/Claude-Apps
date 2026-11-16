@@ -53,6 +53,45 @@
   ];
   function defaultTemplate() { return { columns: DEFAULT_COLUMNS.map(([field, x0, x1]) => ({ field, x0, x1 })), top: 0.148, bottom: 0.845 }; }
 
+  // Follow printed lines across part of a page even when they slope (a photo taken at an angle, a page that doesn't lie flat).
+  // Narrow upright strips are examined between x0 and x1 (pixels); a line is followed from strip to strip by expecting it
+  // to carry on at the slope it has shown so far. Returns straight fits y = a + b·x with n = strips that saw it,
+  // plus `counts` (lines seen per strip) for finding the gutter.
+  function trackLines(gray, w, h, opts) {
+    opts = opts || {};
+    const xa = Math.max(0, Math.round(opts.x0 == null ? w * 0.03 : opts.x0)), xb = Math.min(w, Math.round(opts.x1 == null ? w * 0.97 : opts.x1));
+    const S = opts.strips || 24, sw = Math.floor((xb - xa) / S), T = opts.dark || 215, need = opts.cover || 0.6; if (sw < 6) return { fits: [], counts: [] };
+    const minGap = Math.max(4, Math.round(h * 0.008)), tol0 = Math.max(5, Math.round(h * 0.012)), tol1 = Math.max(4, Math.round(h * 0.006));
+    const tracks = [], counts = [];
+    for (let s = 0; s < S; s++) {
+      const x0 = xa + s * sw, cx = x0 + sw / 2, frac = new Float32Array(h);
+      for (let y = 0; y < h; y++) { let n = 0; const o = y * w + x0; for (let x = 0; x < sw; x++) if (gray[o + x] < T) n++; frac[y] = n / sw; }
+      const peaks = [];
+      for (let y = 1; y < h - 1; y++) {
+        const v = Math.min(1, frac[y - 1] + frac[y] + frac[y + 1]); if (v < need) continue;
+        let b = y, top = v, at = y; while (b + 1 < h - 1) { const n2 = Math.min(1, frac[b] + frac[b + 1] + frac[b + 2]); if (n2 < need) break; b++; if (frac[b] > frac[at]) at = b; if (n2 > top) top = n2; }
+        y = b; if (peaks.length && at - peaks[peaks.length - 1] < minGap) continue; peaks.push(at);
+      }
+      counts.push(peaks.length);
+      const used = new Set();
+      for (const p of peaks) {
+        let best = null, bd = 1e9;
+        for (const k of tracks) {
+          if (used.has(k) || s - k.lastS > 3) continue;
+          const pred = k.ys.length >= 2 ? k.lastY + k.slope * (cx - k.lastX) : k.lastY, d = Math.abs(pred - p);
+          if (d <= (k.ys.length >= 2 ? tol1 * (s - k.lastS) + 2 : tol0) && d < bd) { bd = d; best = k; }
+        }
+        if (best) { used.add(best); best.slope = best.ys.length >= 2 ? best.slope * 0.5 + 0.5 * (p - best.lastY) / (cx - best.lastX) : (p - best.lastY) / (cx - best.lastX); best.ys.push(p); best.xs.push(cx); best.lastY = p; best.lastX = cx; best.lastS = s; }
+        else { const k = { ys: [p], xs: [cx], lastY: p, lastX: cx, lastS: s, slope: 0 }; tracks.push(k); used.add(k); }
+      }
+    }
+    const fits = tracks.filter(k => k.ys.length >= Math.ceil(S * (opts.share || 0.6))).map(k => {
+      const mx = mean(k.xs), my = mean(k.ys); let num = 0, den = 0; k.xs.forEach((x, i) => { num += (x - mx) * (k.ys[i] - my); den += (x - mx) * (x - mx); });
+      const b = den ? num / den : 0; return { a: my - b * mx, b, n: k.ys.length };
+    }).sort((p, q) => (p.a + p.b * (xa + xb) / 2) - (q.a + q.b * (xa + xb) / 2));
+    return { fits, counts, x0: xa, sw };
+  }
+
   // Printed column lines in the flight area: the same finder as for rows, with the page turned on its side.
   function findColLines(gray, w, h, top, bottom) {
     const y0 = Math.max(0, Math.round(h * top)), y1 = Math.min(h, Math.round(h * bottom)), hh = y1 - y0; if (hh < 50) return [];
@@ -67,25 +106,64 @@
   function fitTemplate(tpl, xs, ys) {
     const out = JSON.parse(JSON.stringify(tpl)); const cols = out.columns.sort((a, b) => a.x0 - b.x0);
     const edges = [...new Set(cols.flatMap(c => [c.x0, c.x1]))].sort((a, b) => a - b);
-    let best = { n: 0, s: 1, o: 0 };
-    if (xs && xs.length >= 4) {
-      const tol = 0.006;
-      for (let i = 0; i < edges.length; i++) for (let k = i + 3; k < edges.length; k++) for (let a = 0; a < xs.length; a++) for (let b = a + 1; b < xs.length; b++) {
-        const s = (xs[b] - xs[a]) / (edges[k] - edges[i]); if (s < 0.85 || s > 1.18) continue;
-        const o = xs[a] - s * edges[i]; if (Math.abs(o) > 0.12) continue;
-        let n = 0; for (const e of edges) { const v = s * e + o; if (xs.some(x => Math.abs(x - v) < tol)) n++; }
+    // best shift and stretch putting these layout edges on printed lines
+    const fit = (es, lines) => {
+      let best = { n: 0, s: 1, o: 0 }; const tol = 0.006; if (lines.length < 3 || es.length < 3) return best;
+      for (let i = 0; i < es.length; i++) for (let k = i + 2; k < es.length; k++) for (let a = 0; a < lines.length; a++) for (let b = a + 1; b < lines.length; b++) {
+        const s = (lines[b] - lines[a]) / (es[k] - es[i]); if (s < 0.8 || s > 1.25) continue;
+        const o = lines[a] - s * es[i]; if (Math.abs(o + (s - 1) * 0.5) > 0.15) continue;
+        let n = 0; for (const e of es) { const v = s * e + o; if (lines.some(x => Math.abs(x - v) < tol)) n++; }
         if (n > best.n) best = { n, s, o };
       }
-    }
-    const good = best.n >= Math.min(8, Math.max(4, Math.floor(edges.length * 0.4)));
+      return best;
+    };
+    xs = (xs || []).slice().sort((a, b) => a - b);
+    const all = fit(edges, xs); const good = all.n >= Math.min(8, Math.max(4, Math.floor(edges.length * 0.4)));
+    let matched = 0;
     if (good) {
-      const place = e => { const v = best.s * e + best.o; let near = null; for (const x of xs) if (Math.abs(x - v) < 0.008 && (near == null || Math.abs(x - v) < Math.abs(near - v))) near = x; return Math.max(0, Math.min(1, near == null ? v : near)); };
-      const moved = new Map(edges.map(e => [e, place(e)]));
+      // An open book is two pages, and in a photo each is a slightly different size: fit each page's columns on their own.
+      // The gutter is the widest gap in the layout that has no printed line in it.
+      let gi = -1, gw = 0; for (let i = 1; i < edges.length; i++) { const lo = all.s * edges[i - 1] + all.o, hi = all.s * edges[i] + all.o; if (edges[i] > 0.3 && edges[i - 1] < 0.7 && edges[i] - edges[i - 1] > gw && !xs.some(x => x > lo + 0.008 && x < hi - 0.008)) { gw = edges[i] - edges[i - 1]; gi = i; } }
+      const split = gi > 0 ? (edges[gi - 1] + edges[gi]) / 2 : 2, splitX = all.s * split + all.o;
+      const parts = [[edges.filter(e => e < split), xs.filter(x => x < splitX)], [edges.filter(e => e >= split), xs.filter(x => x >= splitX)]];
+      const moved = new Map();
+      for (const [es, lines] of parts) {
+        if (!es.length) continue; let f = fit(es, lines); if (f.n < Math.max(3, Math.floor(es.length * 0.5))) f = all;
+        for (const e of es) { const v = f.s * e + f.o; let near = null; for (const x of lines) if (Math.abs(x - v) < 0.008 && (near == null || Math.abs(x - v) < Math.abs(near - v))) near = x; if (near != null) matched++; moved.set(e, Math.max(0, Math.min(1, near == null ? v : near))); }
+      }
       for (const c of cols) { c.x0 = moved.get(c.x0); c.x1 = moved.get(c.x1); }
     }
-    const pitch = rowPitch(ys, tpl) || (ys && ys.length >= 4 ? median(ys.slice(1).map((v, i) => v - ys[i])) : 0);
-    if (pitch) for (const k of ['top', 'bottom']) { let near = null; for (const y of ys) if (Math.abs(y - out[k]) < pitch * 0.45 && (near == null || Math.abs(y - out[k]) < Math.abs(near - out[k]))) near = y; if (near != null) out[k] = near; }
-    return { template: out, matched: good ? best.n : 0 };
+    // Rows: the flight lines are the long run of evenly spaced lines; the headings above them are not evenly spaced.
+    // The first line of that run is the top. The layout's own number of rows gives the bottom (a photo may cut the page short).
+    ys = (ys || []).slice().sort((a, b) => a - b);
+    if (ys.length >= 5) {
+      const gaps = ys.slice(1).map((v, i) => v - ys[i]).filter(g => g > 0.012), pitch = median(gaps), nRows = Math.max(1, Math.round((tpl.bottom - tpl.top) / (rowPitch(ys, tpl) || pitch)));
+      if (pitch > 0) {
+        const on = (y0, k) => ys.some(y => Math.abs(y - (y0 + k * pitch)) < pitch * 0.2);
+        let bestN = 0; const scores = ys.map(y0 => { let n = 0; for (let k = 0; k <= nRows; k++) if (on(y0, k)) n++; if (n > bestN) bestN = n; return n; });
+        let top = null; ys.forEach((y0, i) => { if (scores[i] >= bestN - 1 && scores[i] >= 4 && (top == null || Math.abs(y0 - tpl.top) < Math.abs(top - tpl.top))) top = y0; });
+        if (top != null) {
+          out.top = top; let bottom = top;
+          for (let k = 1; k <= nRows; k++) { const want = top + k * pitch; let near = null; for (const y of ys) if (Math.abs(y - want) < pitch * 0.3 && (near == null || Math.abs(y - want) < Math.abs(near - want))) near = y; if (near != null) bottom = near; else if (want < 0.995) bottom = want; }
+          out.bottom = Math.min(0.999, bottom);
+        }
+      }
+    }
+    return { template: out, matched: good ? matched : 0 };
+  }
+
+  // The printed column headings are evenly spaced with the flight rows on some photos, so the top can land one row high.
+  // If the first row is made of heading words (MODEL, SERIAL NUMBER, FIRST PILOT …), start one row lower.
+  const HEADING = /^(DAY|MODEL|SERIAL|NUMBER|KIND|OF|FLIGHT|CODE\*?|TOTAL|PILOT|TIME|FIRST|CO-?|COMDR\.?|A\/C|SPE-?|CIAL|CREW|ACT|SIM|NIGHT|LANDINGS?|CARRIER|ARR|T&G|BOL|FCL|SEA\/?|LAND|CATAPULT|REMARKS|TYPE|NO\.?|INSTRUMENT|AIRCRAFT|STD|INST\.?|APPR\.?|PLETED|COM-?)$/i;
+  function skipHeaderRows(words, tpl, ys) {
+    const out = JSON.parse(JSON.stringify(tpl)); ys = (ys || []).slice().sort((a, b) => a - b); const pitch = rowPitch(ys, tpl); if (!pitch) return out;
+    for (let pass = 0; pass < 3; pass++) {
+      const next = ys.find(y => y > out.top + pitch * 0.5); if (next == null) break;
+      const n = (words || []).filter(w => cy(w) >= out.top && cy(w) < next && HEADING.test(String(w.text).trim())).length;
+      if (n < 3) break;
+      const d = next - out.top; out.top = next; let b = Math.min(0.999, out.bottom + d); const near = ys.find(y => Math.abs(y - b) < pitch * 0.3); out.bottom = near != null ? near : b;
+    }
+    return out;
   }
 
   // The month and year written at the top of the page ("MONTH February  YEAR 1983"), if they can be read.
@@ -327,6 +405,8 @@
         else if (kind === 'buno') res = parseBuno(raw);
         else if (kind === 'code') { res = { value: fixKind(raw) }; if (res.value && !/^\d[A-Z]\d$/.test(res.value)) res.unsure = true; }
         else res = { value: raw.trim() };
+        // A dash in a time or count box is a leftover scrap of a printed line (nobody dittoes a flight time): treat the box as empty.
+        if (res.ditto && (kind === 'hours' || kind === 'count')) res = { value: null };
         if (res.ditto) {
           const had = prev[k] != null; res.value = had ? prev[k] : res.value;
           if (!had) flag(f, k, 'marked “same as the line above”, but there is no line above on this page');
@@ -363,6 +443,10 @@
       // A line with only a stray mark and nothing useful isn't a flight.
       const useful = f.total != null || f.type || f.buno || f.date;
       if (!useful) return;
+      // One stray mark in one box (a crease, a smudge, show-through from the other side) isn't a flight either:
+      // a real line has writing in at least two of its main boxes.
+      const written = ['day', 'date', 'type', 'buno', 'kind', 'total', 'pic', 'sic'].filter(k => cell[k] && (/[A-Za-z0-9]/.test(textOf(k)) || ((k === 'type' || k === 'buno') && DITTO.test(textOf(k).trim())))).length;
+      if (written < 2) return;
       for (const k of ['type', 'buno', 'kind']) if (f[k]) prev[k] = f[k];
       rows.push(f);
     });
@@ -412,7 +496,8 @@
   // pageText: what the whole-page reading found in the box. candidates: [{text, conf}] from the close-up, best first.
   // Returns {text, conf} to use in place of the page reading, or null to keep the page reading.
   function chooseReading(field, pageText, candidates, knownTypes) {
-    const cands = (candidates || []).filter(c => c && String(c.text || '').trim());
+    const numeric = ['hours', 'count'].includes((FIELD[field] || {}).kind);
+    const cands = (candidates || []).filter(c => c && String(c.text || '').trim() && !(numeric && DITTO.test(String(c.text).trim()))); // a bare dash in a number box is a scrap of printed line
     const page = parseField(field, pageText, knownTypes), pageOk = cleanRead(page);
     const idx = cands.findIndex(c => cleanRead(parseField(field, c.text, knownTypes)));
     if (idx < 0) { // the close-up found nothing that fits the column
@@ -527,7 +612,7 @@
     return ws.filter(x => (x.y1 - x.y0) * h > 1.5 * (x.x1 - x.x0) * w).length > ws.length * 0.5;
   }
 
-  const api = { findColLines, fitTemplate, headerDate, rowLineFits, findRowLines, rowPitch, readingOrder, fixKind, parseField, chooseReading, cellAt, looksSideways, FIELDS, FIELD, NUM_FIELDS, KNOWN_TYPES, defaultTemplate, extractPage, rowBands, parseHours, parseCount, parseBuno, parseDay, parseDate,
+  const api = { skipHeaderRows, trackLines, findColLines, fitTemplate, headerDate, rowLineFits, findRowLines, rowPitch, readingOrder, fixKind, parseField, chooseReading, cellAt, looksSideways, FIELDS, FIELD, NUM_FIELDS, KNOWN_TYPES, defaultTemplate, extractPage, rowBands, parseHours, parseCount, parseBuno, parseDay, parseDate,
     normalizeType, sanity, recheck, findRuledLines, isoDate, hasShipWork };
   root.BBExtract = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

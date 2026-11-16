@@ -302,6 +302,23 @@ test('fits the columns to the lines printed on each page', () => {
   assert.deepStrictEqual(X.fitTemplate(t, [0.3, 0.7], []).template.columns, t.columns);
 });
 
+test('finds the first flight row and does not take the printed headings for one', () => {
+  const t = X.defaultTemplate(); const ys = [0.05, 0.07, 0.093]; for (let k = 0; k <= 15; k++) ys.push(0.14 + k * 0.047); // headings, then evenly spaced rows; the page is cut short
+  const f = X.fitTemplate(t, [], ys).template; assert.ok(Math.abs(f.top - 0.14) < 1e-9, 'top ' + f.top); assert.ok(Math.abs(f.bottom - (0.14 + 15 * 0.047)) < 1e-6, 'stops at the last line there is');
+  const w = (text, x, y) => ({ text, conf: 95, x0: x, x1: x + 0.03, y0: y, y1: y + 0.012 });
+  const head = ['MODEL', 'SERIAL', 'NUMBER', 'FIRST', 'PILOT', 'REMARKS'].map((s, i) => w(s, 0.1 + i * 0.1, 0.155));
+  const a = X.skipHeaderRows(head.concat([w('18', 0.03, 0.2), w('T-34C', 0.1, 0.2)]), f, ys); assert.ok(Math.abs(a.top - 0.187) < 1e-9, 'moved down one row: ' + a.top);
+  const b = X.skipHeaderRows([w('18', 0.03, 0.155), w('T-34C', 0.1, 0.155), w('NIGHT', 0.9, 0.155)], f, ys); assert.ok(Math.abs(b.top - 0.14) < 1e-9, 'a flight row is left alone');
+});
+
+test('follows sloping lines on each page of a photographed book', () => {
+  const w = 1200, h = 800, g = new Uint8Array(w * h).fill(255);
+  for (let k = 0; k < 12; k++) for (let x = 40; x < 560; x++) { const y = Math.round(150 + k * 45 + (x - 40) * (0.10 - k * 0.006)); g[y * w + x] = 60; g[(y + 1) * w + x] = 60; } // left page: lines fan out
+  const t = X.trackLines(g, w, h, { x0: 40, x1: 560, strips: 22, share: 0.55 });
+  assert.strictEqual(t.fits.length, 12); t.fits.forEach((f, k) => { assert.ok(Math.abs(f.b - (0.10 - k * 0.006)) < 0.004, `slope ${k}: ${f.b}`); assert.ok(Math.abs(f.a + f.b * 40 - (150 + k * 45)) < 3); });
+  const all = X.trackLines(g, w, h, { strips: 48, share: 0.3 }); assert.ok(all.counts.slice(26, 44).every(c => c === 0) && all.counts[10] >= 10, 'the empty right side shows no lines');
+});
+
 test('reads the month and year written at the top of the page', () => {
   const w = (text, y) => ({ text, x0: 0.1, x1: 0.2, y0: y, y1: y + 0.01 });
   assert.deepStrictEqual(X.headerDate([w('MONTH', 0.04), w('FEBRVARY', 0.04), w('YEAR', 0.04), w('I983', 0.04), w('MARCH', 0.5)], 0.14), { month: 2, year: 1983 });
