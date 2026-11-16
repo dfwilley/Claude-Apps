@@ -153,17 +153,30 @@ test('a flight whose remarks contain "resumed" or "FWD" is still a flight', () =
 
 test('MyFlightbook import file', () => {
   const db = { pages: [{ status: 'review' }], flights: [
-    { date: '1988-03-06', type: 'AV-8B', buno: '163853', kind: '1A1', squadron: 'VMA-231', ship: 'USS Nassau (LHA-4)', total: 1.5, night: 0.7, instActual: 0.3, approaches: 2,
+    { date: '1988-03-06', type: 'AV-8B', buno: '163853', kind: '1A1', squadron: 'VMA-231', ship: 'USS Nassau (LHA-4)', total: 1.5, pic: 1.5, acCmdr: 1.5, specialCrew: 0.2, night: 0.7, instActual: 0.3, approaches: 2,
       dayLand: 1, nightLand: 1, dayShip: 2, nightShip: 1, dayTraps: 1, nightTraps: 1, cats: 2, remarks: 'CQ, "bolter"', flags: [{ field: 'night', reason: 'x' }] },
     { date: '1988-03-05', type: 'AV-8B', buno: '', total: 1.0, dayLand: 1 },
     { date: null, type: 'AV-8B', buno: '163853', total: 1.0 }, { date: '1988-03-07', type: 'AV-8B', buno: '163853', total: null } ] };
   const m = E.myFlightbook(db); const rows = m.csv.trim().split('\r\n');
-  assert.strictEqual(rows[0], 'Date,Tail Number,Model,Total Flight Time,Night,IMC,Simulated Instrument,Approaches,Landings,Landings - Night (unspecified),Landings - Carrier,Landings - Arrestments (Carrier),"Landings - Arrestments (Carrier), Night",Takeoffs - Catapult,Military: Kind Of Flight Code (Navy/Marine Corps),Comments');
+  assert.strictEqual(rows[0], 'Date,Tail Number,Model,Total Flight Time,PIC,SIC,Aircraft Commander Time,Military Special Crew Time,Night,IMC,Simulated Instrument,Approaches,Landings,Landings - Night (unspecified),Landings - Carrier,Landings - Arrestments (Carrier),"Landings - Arrestments (Carrier), Night",Takeoffs - Catapult,Military: Kind Of Flight Code (Navy/Marine Corps),Comments');
   assert.strictEqual(rows.length, 3, 'two flights have a date and a time');
-  assert.strictEqual(rows[1], '3/5/1988,,AV-8B,1,,,,,1,,,,,,,');
-  assert.strictEqual(rows[2], '3/6/1988,163853,AV-8B,1.5,0.7,0.3,,2,7,3,5,2,1,2,1A1,"CQ, ""bolter"" | VMA-231 | USS Nassau (LHA-4)"');
+  assert.strictEqual(rows[1], '3/5/1988,,AV-8B,1,,,,,,,,,1,,,,,,,');
+  assert.strictEqual(rows[2], '3/6/1988,163853,AV-8B,1.5,1.5,,1.5,0.2,0.7,0.3,,2,7,3,5,2,1,2,1A1,"CQ, ""bolter"" | VMA-231 | USS Nassau (LHA-4)"');
   assert.deepStrictEqual([m.included, m.leftOut, m.noTail, m.flagged, m.pagesInReview], [2, 2, 1, 1, 1]);
   assert.deepStrictEqual(m.aircraft, [{ tail: '163853', model: 'AV-8B' }]);
+});
+
+test('starting columns follow the Navy logbook order; crew times are read and checked', () => {
+  const t = X.defaultTemplate();
+  assert.deepStrictEqual(t.columns.slice(0, 11).map(c => c.field), ['day', 'type', 'buno', 'kind', 'total', 'pic', 'sic', 'acCmdr', 'specialCrew', 'instActual', 'instSim']);
+  t.columns.forEach((c, i) => { assert.ok(c.x1 > c.x0 + 0.02, c.field); if (i) assert.ok(Math.abs(c.x0 - t.columns[i - 1].x1) < 1e-3, c.field); });
+  assert.ok(t.columns[t.columns.length - 1].x1 <= 0.98);
+  const mid = k => { const c = t.columns.find(c => c.field === k); return (c.x0 + c.x1) / 2; };
+  const w = (text, k) => ({ text, conf: 95, x0: mid(k) - 0.01, x1: mid(k) + 0.01, y0: 0.3, y1: 0.32 });
+  const r = X.extractPage([w('5', 'day'), w('AV-8B', 'type'), w('163853', 'buno'), w('1A1', 'kind'), w('1.5', 'total'), w('1.5', 'pic'), w('2.0', 'acCmdr'), w('0.3', 'instSim')], t, { year: 1988, month: 3 }, {});
+  const f = r.rows[0]; assert.deepStrictEqual([f.total, f.pic, f.acCmdr, f.instSim, f.kind], [1.5, 1.5, 2, 0.3, '1A1']);
+  assert.ok(f.flags.some(x => x.field === 'acCmdr' && /more than the flight time/.test(x.reason)));
+  assert.strictEqual(C.totals([f]).all.pic, 1.5);
 });
 
 console.log(`${passed} tests passed`);

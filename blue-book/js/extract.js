@@ -12,6 +12,10 @@
     { key: 'kind',       label: 'Kind of flight',    kind: 'code' },
     { key: 'squadron',   label: 'Squadron',          kind: 'text' },
     { key: 'total',      label: 'Flight time',       kind: 'hours' },
+    { key: 'pic',        label: 'PIC',               kind: 'hours' },
+    { key: 'sic',        label: 'SIC',               kind: 'hours' },
+    { key: 'acCmdr',     label: 'Acft Cmdr',         kind: 'hours' },
+    { key: 'specialCrew', label: 'Special crew',     kind: 'hours' },
     { key: 'night',      label: 'Night time',        kind: 'hours' },
     { key: 'instActual', label: 'Instrument (actual)', kind: 'hours' },
     { key: 'instSim',    label: 'Instrument (sim)',  kind: 'hours' },
@@ -32,9 +36,9 @@
 
   // A starting guess for a Navy logbook spread; you drag the dividers to match your book once.
   const DEFAULT_COLUMNS = [
-    ['day', 0.035], ['type', 0.09], ['buno', 0.08], ['kind', 0.05], ['total', 0.055], ['night', 0.05],
-    ['instActual', 0.05], ['instSim', 0.05], ['approaches', 0.045], ['dayLand', 0.045], ['nightLand', 0.045],
-    ['dayShip', 0.045], ['nightShip', 0.045], ['dayTraps', 0.045], ['nightTraps', 0.045], ['cats', 0.045], ['remarks', 0.0],
+    ['day', 0.035], ['type', 0.09], ['buno', 0.08], ['kind', 0.05], ['total', 0.055], ['pic', 0.045], ['sic', 0.045],
+    ['acCmdr', 0.045], ['specialCrew', 0.045], ['instActual', 0.045], ['instSim', 0.045], ['night', 0.045], ['approaches', 0.035],
+    ['dayLand', 0.035], ['nightLand', 0.035], ['dayShip', 0.035], ['nightShip', 0.035], ['dayTraps', 0.035], ['nightTraps', 0.035], ['cats', 0.035], ['remarks', 0.0],
   ];
   function defaultTemplate() {
     let x = 0.02; const cols = [];
@@ -290,7 +294,7 @@
     const add = (field, reason) => f.flags.push({ field, reason, check: true });
     if (f.total != null && (f.total <= 0 || f.total > 12)) add('total', 'flight time outside 0.1–12.0');
     if (f.night != null && f.total != null && f.night > f.total + 0.001) add('night', 'more night time than flight time');
-    for (const k of ['instActual', 'instSim']) if (f[k] != null && f.total != null && f[k] > f.total + 0.001) add(k, 'more than the flight time');
+    for (const k of ['pic', 'sic', 'acCmdr', 'specialCrew', 'instActual', 'instSim']) if (f[k] != null && f.total != null && f[k] > f.total + 0.001) add(k, 'more than the flight time');
     for (const k of ['dayLand', 'nightLand', 'dayShip', 'nightShip', 'dayTraps', 'nightTraps', 'cats', 'approaches']) if (f[k] != null && f[k] > 15) add(k, 'unusually high');
     if ((f.nightTraps || f.nightShip) && !f.night) add('night', 'night landings aboard ship but no night time');
     if (hasShipWork(f) && !f.ship) add('ship', 'ship landings but no ship name');

@@ -9,7 +9,8 @@
 
   const FLIGHT_COLS = [
     ['Date', 'date', 14, 'date'], ['Type/model', 'type', 11], ['BuNo', 'buno', 9], ['Squadron', 'squadron', 12], ['Kind of flight', 'kind', 9],
-    ['Flight time', 'total', 8, 'hours'], ['Night', 'night', 7, 'hours'], ['Day', '_day', 7, 'hours'], ['Instr. actual', 'instActual', 8, 'hours'], ['Instr. sim', 'instSim', 8, 'hours'],
+    ['Flight time', 'total', 8, 'hours'], ['PIC', 'pic', 7, 'hours'], ['SIC', 'sic', 7, 'hours'], ['Acft Cmdr', 'acCmdr', 8, 'hours'], ['Special crew', 'specialCrew', 8, 'hours'],
+    ['Night', 'night', 7, 'hours'], ['Day', '_day', 7, 'hours'], ['Instr. actual', 'instActual', 8, 'hours'], ['Instr. sim', 'instSim', 8, 'hours'],
     ['Approaches', 'approaches', 8, 'num'], ['Landings day', 'dayLand', 8, 'num'], ['Landings night', 'nightLand', 8, 'num'],
     ['Ship landings day', 'dayShip', 9, 'num'], ['Ship landings night', 'nightShip', 9, 'num'], ['Traps day', 'dayTraps', 7, 'num'], ['Traps night', 'nightTraps', 7, 'num'],
     ['Cat shots', 'cats', 7, 'num'], ['Ship', 'ship', 18], ['Remarks', 'remarks', 34], ['Logbook page', '_page', 16], ['Page photo', '_photo', 26, 'link'], ['Needs a look', '_flags', 30],
@@ -22,7 +23,7 @@
     return f[key];
   }
 
-  const TOTAL_COLS = [['Flights', 'flights', 'num'], ['Hours', 'hours', 'hours'], ['Day', 'day', 'hours'], ['Night', 'night', 'hours'], ['Instr. actual', 'instActual', 'hours'], ['Instr. sim', 'instSim', 'hours'],
+  const TOTAL_COLS = [['Flights', 'flights', 'num'], ['Hours', 'hours', 'hours'], ['PIC', 'pic', 'hours'], ['SIC', 'sic', 'hours'], ['Acft Cmdr', 'acCmdr', 'hours'], ['Special crew', 'specialCrew', 'hours'], ['Day', 'day', 'hours'], ['Night', 'night', 'hours'], ['Instr. actual', 'instActual', 'hours'], ['Instr. sim', 'instSim', 'hours'],
     ['Landings', 'landings', 'num'], ['Ship landings', 'shipLandings', 'num'], ['Night ship landings', 'nightShipLandings', 'num'], ['Traps', 'traps', 'num'], ['Night traps', 'nightTraps', 'num'], ['Cat shots', 'cats', 'num'],
     ['First flight', 'first', 'date'], ['Last flight', 'last', 'date']];
   function totalsSheet(name, firstHeader, list, all) {
@@ -61,6 +62,10 @@
     ['Tail Number', f => f.buno || ''],
     ['Model', f => f.type || ''],
     ['Total Flight Time', f => f.total],
+    ['PIC', f => f.pic],
+    ['SIC', f => f.sic],
+    ['Aircraft Commander Time', f => f.acCmdr],
+    ['Military Special Crew Time', f => f.specialCrew],
     ['Night', f => f.night],
     ['IMC', f => f.instActual],
     ['Simulated Instrument', f => f.instSim],

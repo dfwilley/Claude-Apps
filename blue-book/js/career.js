@@ -5,19 +5,20 @@
   const n = v => (typeof v === 'number' && isFinite(v) ? v : 0);
 
   function blank() {
-    return { flights: 0, hours: 0, night: 0, day: 0, instActual: 0, instSim: 0, approaches: 0, landings: 0, nightLandings: 0,
+    return { flights: 0, hours: 0, pic: 0, sic: 0, acCmdr: 0, specialCrew: 0, night: 0, day: 0, instActual: 0, instSim: 0, approaches: 0, landings: 0, nightLandings: 0,
       shipLandings: 0, nightShipLandings: 0, traps: 0, nightTraps: 0, cats: 0, first: null, last: null };
   }
   function add(t, f) {
     t.flights++;
     t.hours += n(f.total); t.night += n(f.night); t.day += Math.max(0, n(f.total) - n(f.night));
+    t.pic += n(f.pic); t.sic += n(f.sic); t.acCmdr += n(f.acCmdr); t.specialCrew += n(f.specialCrew);
     t.instActual += n(f.instActual); t.instSim += n(f.instSim); t.approaches += n(f.approaches);
     t.landings += n(f.dayLand) + n(f.nightLand); t.nightLandings += n(f.nightLand);
     t.shipLandings += n(f.dayShip) + n(f.nightShip); t.nightShipLandings += n(f.nightShip);
     t.traps += n(f.dayTraps) + n(f.nightTraps); t.nightTraps += n(f.nightTraps); t.cats += n(f.cats);
     if (f.date) { if (!t.first || f.date < t.first) t.first = f.date; if (!t.last || f.date > t.last) t.last = f.date; }
   }
-  function tidy(t) { for (const k of ['hours', 'night', 'day', 'instActual', 'instSim']) t[k] = r1(t[k]); return t; }
+  function tidy(t) { for (const k of ['hours', 'pic', 'sic', 'acCmdr', 'specialCrew', 'night', 'day', 'instActual', 'instSim']) t[k] = r1(t[k]); return t; }
 
   function totals(flights) {
     const all = blank();
