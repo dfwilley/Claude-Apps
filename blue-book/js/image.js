@@ -166,20 +166,23 @@
 
   // Paint out the printed ruled lines (long straight dark runs) so the reader sees only the writing.
   function removeRules(gray, w, h, rgba) {
-    const dark = 110, minH = Math.round(w * 0.04), minV = Math.round(h * 0.04);
+    // Printed lines are often grey, not black, and broken by paper grain: count anything clearly darker than paper, and bridge 2-pixel gaps.
+    const dark = 190, minH = Math.round(w * 0.04), minV = Math.round(h * 0.04);
     const kill = new Uint8Array(w * h);
     for (let y = 0; y < h; y++) {
-      let run = 0;
+      let run = 0, gap = 0;
       for (let x = 0; x <= w; x++) {
-        if (x < w && gray[y * w + x] < dark) run++;
-        else { if (run >= minH) for (let k = x - run; k < x; k++) kill[y * w + k] = 1; run = 0; }
+        if (x < w && gray[y * w + x] < dark) { run += gap + 1; gap = 0; }
+        else if (x < w && run && gap < 2) gap++;
+        else { if (run >= minH) for (let k = x - gap - run; k < x - gap; k++) kill[y * w + k] = 1; run = 0; gap = 0; }
       }
     }
     for (let x = 0; x < w; x++) {
-      let run = 0;
+      let run = 0, gap = 0;
       for (let y = 0; y <= h; y++) {
-        if (y < h && gray[y * w + x] < dark) run++;
-        else { if (run >= minV) for (let k = y - run; k < y; k++) kill[k * w + x] = 1; run = 0; }
+        if (y < h && gray[y * w + x] < dark) { run += gap + 1; gap = 0; }
+        else if (y < h && run && gap < 2) gap++;
+        else { if (run >= minV) for (let k = y - gap - run; k < y - gap; k++) kill[k * w + x] = 1; run = 0; gap = 0; }
       }
     }
     // widen by one pixel to catch anti-aliased edges
@@ -187,6 +190,19 @@
       if (!kill[i] && !((i % w > 0 && kill[i - 1] === 1) || (i % w < w - 1 && kill[i + 1] === 1) || (i >= w && kill[i - w] === 1) || (i < w * (h - 1) && kill[i + w] === 1))) continue;
       gray[i] = 255; if (rgba) { const o = i * 4; rgba[o] = rgba[o + 1] = rgba[o + 2] = 255; }
     }
+  }
+
+  // Paint out printed row lines that have been located (fits: y = a + b·x), leaving any pen stroke that crosses or rests on one.
+  function eraseLines(prepared, fits, half) {
+    const { gray, w, h, canvas } = prepared; half = half || 3; if (!fits || !fits.length) return;
+    const g = canvas.getContext('2d'), img = g.getImageData(0, 0, w, h), d = img.data;
+    for (const f of fits) for (let x = 0; x < w; x++) {
+      const yc = Math.round(f.a + f.b * x), ya = yc - half - 2, yb = yc + half + 2;
+      if (ya < 0 || yb >= h) continue;
+      if (gray[ya * w + x] < 150 || gray[yb * w + x] < 150 || gray[(ya - 1) * w + x] < 150 || gray[Math.min(h - 1, yb + 1) * w + x] < 150) continue; // writing passes through here
+      for (let y = yc - half; y <= yc + half; y++) { const i = y * w + x; gray[i] = 255; const o = i * 4; d[o] = d[o + 1] = d[o + 2] = 255; }
+    }
+    g.putImageData(img, 0, 0);
   }
 
   function toBlob(canvas, type, q) { return new Promise(r => canvas.toBlob(r, type || 'image/jpeg', q || 0.86)); }
@@ -200,7 +216,7 @@
     c.getContext('2d').drawImage(img, 0, y0, W, y1 - y0, 0, 0, c.width, c.height); return c;
   }
 
-  const api = { loadImage, loadURL, toCanvas, grayOf, otsu, findPageCorners, cornersFromGray, homography, warp, rotate, forReading, toBlob, strip };
+  const api = { eraseLines, loadImage, loadURL, toCanvas, grayOf, otsu, findPageCorners, cornersFromGray, homography, warp, rotate, forReading, toBlob, strip };
   root.BBImage = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

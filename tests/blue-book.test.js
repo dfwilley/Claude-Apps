@@ -242,4 +242,37 @@ test('picks between the whole-page reading and the close-up of one box', () => {
   assert.strictEqual(pick('total', '', []), null); assert.strictEqual(pick('total', 'zz', ['??', 20]).conf, 20);
 });
 
+test('finds faint, slightly crooked row lines and is not fooled by writing', () => {
+  const w = 1200, h = 900, g = new Uint8Array(w * h).fill(255); const slope = Math.tan(1 * Math.PI / 180);
+  const ys = []; for (let y = 200; y <= 760; y += 40) ys.push(y);
+  for (const y0 of ys) for (let x = 0; x < w; x++) { const y = Math.round(y0 + (x - w / 2) * slope); if ((x * 7 + y0) % 11) { g[y * w + x] = 185; g[(y + 1) * w + x] = 195; } } // grey, grainy, 1 degree off level
+  let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  for (const y0 of ys.slice(0, -1)) for (let k = 0; k < 9; k++) { const x0 = 60 + Math.floor(rnd() * 1000), ww = 30 + Math.floor(rnd() * 50); // writing between the lines
+    for (let y = y0 + 12; y < y0 + 32; y++) for (let x = x0; x < x0 + ww; x++) if (rnd() < 0.3) g[(y + Math.round((x - w / 2) * slope)) * w + x] = 40; }
+  for (let x = 150; x < 300; x++) { g[(300 + 22) * w + x] = 30; g[(300 + 23) * w + x] = 30; } // a line drawn through one type box
+  const found = X.findRowLines(g, w, h).map(v => Math.round(v * h));
+  assert.strictEqual(found.length, ys.length, JSON.stringify(found));
+  found.forEach((y, i) => assert.ok(Math.abs(y - ys[i]) <= 3, `line ${i}: ${y} vs ${ys[i]}`));
+  assert.ok(Math.abs(X.rowPitch(found.map(y => y / h), { top: 0.2, bottom: 0.86 }) * h - 40) < 1);
+  assert.strictEqual(X.findRowLines(new Uint8Array(w * h).fill(255), w, h).length, 0);
+});
+
+test('with no lines found, rows of a known height are laid around the writing; line marks are ignored', () => {
+  const t = { top: 0.1, bottom: 0.9, columns: [{ field: 'day', x0: 0, x1: 0.2 }, { field: 'total', x0: 0.2, x1: 0.4 }] };
+  const w = (text, x, y) => ({ text, conf: 90, x0: x - 0.02, x1: x + 0.02, y0: y - 0.01, y1: y + 0.01 });
+  const words = []; for (let i = 0; i < 6; i++) { const y = 0.2 + i * 0.05; words.push(w(String(10 + i), 0.1, y - 0.006), w('1.' + i, 0.3, y + 0.006), w('—', 0.1, y + 0.025), w('_', 0.3, y + 0.025)); }
+  const r = X.extractPage(words, t, { year: 1983, month: 2 }, { rowPitch: 0.05 });
+  const fl = r.rows.filter(x => x.rowType === 'flight');
+  assert.strictEqual(fl.length, 6, JSON.stringify(fl.map(f => [f.day, f.total])));
+  fl.forEach((f, i) => assert.deepStrictEqual([f.day, f.total], [10 + i, +('1.' + i) || 1]));
+});
+
+test('a printed line read as an extra digit does not spoil the total', () => {
+  assert.ok(X.parseHours('11.60').note, 'two decimals is not a clean reading');
+  const t = { top: 0.1, bottom: 0.9, columns: [{ field: 'day', x0: 0, x1: 0.1 }, { field: 'type', x0: 0.1, x1: 0.3 }, { field: 'total', x0: 0.3, x1: 0.4 }, { field: 'pic', x0: 0.4, x1: 0.5 }, { field: 'sic', x0: 0.5, x1: 0.6 }] };
+  const w = (text, x) => ({ text, conf: 95, x0: x - 0.02, x1: x + 0.02, y0: 0.12, y1: 0.15 });
+  const f = X.extractPage([w('18', 0.05), w('T-34C', 0.2), w('11.60', 0.35), w('0.7', 0.45), w('0.9', 0.55)], t, { year: 1983, month: 2 }, { ruledLines: lines }).rows[0];
+  assert.strictEqual(f.total, 1.6); assert.ok(f.flags.some(x => x.field === 'total' && /set to first pilot/.test(x.reason)));
+});
+
 console.log(`${passed} tests passed`);

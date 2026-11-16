@@ -68,6 +68,16 @@ final class BookController: UIViewController, WKScriptMessageHandler, WKUIDelega
                     self.reply(id, value: arr)
                 } catch { self.replyError(id, error.localizedDescription) }
             }
+        case "ocrImage":
+            guard let b64 = m["base64"] as? String, let data = Data(base64Encoded: b64) else { return replyError(id, "Bad picture") }
+            DispatchQueue.global(qos: .userInitiated).async {
+                guard let img = UIImage(data: data) else { return self.replyError(id, "Bad picture") }
+                do {
+                    let words = try PageReader.read(img)
+                    let arr = words.map { ["text": $0.text, "conf": $0.conf, "x0": $0.x0, "y0": $0.y0, "x1": $0.x1, "y1": $0.y1] as [String: Any] }
+                    self.reply(id, value: arr)
+                } catch { self.replyError(id, error.localizedDescription) }
+            }
         case "ocrCells":
             guard let list = m["images"] as? [String] else { return replyError(id, "Nothing to read") }
             DispatchQueue.global(qos: .userInitiated).async {

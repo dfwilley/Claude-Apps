@@ -200,10 +200,16 @@
       if (!canvas) canvas = I.toCanvas(await I.loadURL(await S.photoURLAsync(page.photoId)), 2600);
       const prepared = I.forReading(canvas); set(0.05);
       const small = I.toCanvas(canvas, 1600); const g = I.grayOf(small);
-      page.ruledLines = X.findRuledLines(g.gray, g.w, g.h, 'h', { minFrac: 0.3 }).filter(v => v > 0.015 && v < 0.985);
+      const edge = v => v > 0.015 && v < 0.985;
+      const fits = X.rowLineFits(prepared.grayWithRules, prepared.w, prepared.h); I.eraseLines(prepared, fits); // printed row lines, found and painted out
+      page.ruledLines = fits.map(f => (f.a + f.b * prepared.w / 2) / prepared.h).sort((a, b) => a - b).filter(edge);
+      if (!X.rowPitch(page.ruledLines, db.settings.template)) page.ruledLines = X.findRuledLines(g.gray, g.w, g.h, 'h', { minFrac: 0.3 }).filter(edge); // the older, stricter finder
+      const pitch = X.rowPitch(page.ruledLines, db.settings.template);
+      if (pitch) db.settings.rowPitch = pitch; // remembered for pages where the lines can't be found
+      page.rowPitch = db.settings.rowPitch || 0;
       page.words = await window.BBOcr.read(page.photoId, prepared.canvas, v => set(0.05 + v * 0.75));
       page.sideways = X.looksSideways(page.words, canvas.width, canvas.height);
-      const bands = X.rowBands(page.words, db.settings.template, page.ruledLines);
+      const bands = X.rowBands(page.words, db.settings.template, page.ruledLines, page.rowPitch);
       page.words = await window.BBOcr.refine(prepared, page.words, db.settings.template, bands, knownTypes(), v => set(0.8 + v * 0.2));
       extractInto(page);
       closeSheet(); ui.reviewPageId = page.id; tab = 'pages'; render();
@@ -217,7 +223,7 @@
   }
 
   function extractInto(page) {
-    const res = X.extractPage(page.words || [], db.settings.template, page, { ruledLines: page.ruledLines, knownTypes: knownTypes() });
+    const res = X.extractPage(page.words || [], db.settings.template, page, { ruledLines: page.ruledLines, rowPitch: page.rowPitch, knownTypes: knownTypes() });
     page.rows = res.rows.map((r, i) => Object.assign(r, { id: uid('f'), row: i })); page.notes = res.notes; save();
   }
 

@@ -68,7 +68,7 @@
   // ---------- Rows ----------
 
   // Row bands from ruled lines (fractions of page height) — or, if no lines, from where the words sit.
-  function rowBands(words, template, ruledLines) {
+  function rowBands(words, template, ruledLines, pitch) {
     const top = template.top, bottom = template.bottom;
     let lines = (ruledLines || []).filter(y => y >= top - 0.01 && y <= bottom + 0.01).sort((a, b) => a - b);
     if (lines.length >= 4) {
@@ -85,9 +85,19 @@
       }
       if (bands.length >= 3) return bands;
     }
-    // Cluster word centers by height on the page.
-    const inside = words.filter(w => cy(w) >= top && cy(w) <= bottom).sort((a, b) => cy(a) - cy(b));
+    // Marks a reader makes out of the printed lines themselves (dashes, bars, underscores) say nothing about where the rows are.
+    const inside = words.filter(w => cy(w) >= top && cy(w) <= bottom && /[A-Za-z0-9]/.test(w.text)).sort((a, b) => cy(a) - cy(b));
     if (!inside.length) return [];
+    // The printed lines weren't found on this page, but the row height is known from an earlier page:
+    // lay rows of that height where the writing sits best inside them.
+    if (pitch > 0.004 && pitch < 0.2) {
+      let best = 0, bestScore = -Infinity;
+      for (let i = 0; i < 40; i++) { const o = pitch * i / 40; let sc = 0; for (const w of inside) sc -= Math.cos(2 * Math.PI * (cy(w) - top - o) / pitch); if (sc > bestScore) { bestScore = sc; best = o; } }
+      const bands = []; let y = top + best; while (y - pitch > top - pitch * 0.5) y -= pitch;
+      for (; y < bottom - pitch * 0.5; y += pitch) bands.push({ y0: Math.max(0, y), y1: Math.min(1, y + pitch) });
+      if (bands.length >= 2) return bands;
+    }
+    // Last resort: cluster word centers by height on the page.
     const hMed = median(inside.map(w => w.y1 - w.y0)) || 0.015;
     const groups = [];
     for (const w of inside) {
@@ -139,7 +149,8 @@
     s = digitsFix(s).replace(/\s*[,.:;'’`·•_\-]+\s*/g, '.').replace(/\s+/g, ' ').replace(/^\.(?=\d\.)/, '').replace(/(\d)\.$/, '$1');
     let m;
     if ((m = s.match(/^(\d{1,2}) (\d)$/))) return { value: +(m[1] + '.' + m[2]) }; // hours | tenths sub-columns
-    if ((m = s.match(/^(\d{0,2})\.(\d)\d?$/))) return { value: +((m[1] || '0') + '.' + m[2]) };
+    if ((m = s.match(/^(\d{0,2})\.(\d)$/))) return { value: +((m[1] || '0') + '.' + m[2]) };
+    if ((m = s.match(/^(\d{0,2})\.(\d)\d$/))) return { value: +((m[1] || '0') + '.' + m[2]), note: 'extra digit read; took ' + (m[1] || '0') + '.' + m[2] };
     if ((m = s.match(/^(\d{1,3})$/))) {
       const n = +m[1];
       if (n >= 10) return { value: n / 10, note: 'decimal point not seen; read as ' + (n / 10).toFixed(1) };
@@ -224,7 +235,7 @@
     opts = opts || {};
     const LOW = opts.lowConfidence || 60;
     const cols = template.columns.slice().sort((a, b) => a.x0 - b.x0);
-    const bands = rowBands(words, template, opts.ruledLines);
+    const bands = rowBands(words, template, opts.ruledLines, opts.rowPitch);
     const rows = []; const notes = [];
     const cells = bands.map(() => ({}));
     for (const w of words) {
@@ -246,6 +257,7 @@
       const textOf = k => readingOrder(cell[k] || []).map(w => w.text).join(' ');
       const confOf = k => cell[k] ? Math.min(...cell[k].map(w => w.conf == null ? 100 : w.conf)) : 100;
       const allText = keys.map(textOf).join(' ');
+      if (!/[A-Za-z0-9]/.test(allText)) return; // only dashes and bars: a printed line was read as marks, not a flight
       // Monthly totals / brought-forward lines are checks, not flights.
       // The label has to be a whole word, and a word in the remarks only counts when the line has no date or aircraft
       // (so a flight whose remarks say "resumed" or "FWD" stays a flight).
@@ -326,7 +338,13 @@
     const has = k => typeof f[k] === 'number'; const r = v => Math.round(v * 10) / 10;
     if (!has('pic') && !has('sic')) return;
     if (!has('total')) { f.total = r((f.pic || 0) + (f.sic || 0)); f.flags = f.flags.filter(x => x.field !== 'total'); flag(f, 'total', 'worked out as first pilot + co-pilot time'); return; }
-    if (has('pic') && has('sic')) return; // both read: sanity() says whether they add up
+    if (has('pic') && has('sic')) { // both read. If the total disagrees but contains the right figure (a printed line read as an extra "1"), take the sum.
+      const sum = r(f.pic + f.sic);
+      if (Math.abs(sum - f.total) > 0.051 && digitsFix(String(f.raw.total || '')).replace(/[^\d.]/g, '').includes(sum.toFixed(1))) {
+        f.total = sum; f.flags = f.flags.filter(x => x.field !== 'total'); flag(f, 'total', 'set to first pilot + co-pilot time');
+      }
+      return;
+    }
     const k = has('pic') ? 'sic' : 'pic', other = has('pic') ? f.pic : f.sic, rest = r(f.total - other);
     if (rest > 0 && rest < f.total && (f.raw[k] || '').trim()) { f[k] = rest; f.flags = f.flags.filter(x => x.field !== k); flag(f, k, 'worked out from the total time'); }
   }
@@ -392,6 +410,48 @@
     return sanity(f);
   }
 
+  // Find the printed row lines on a page, even when they are faint or the page is a little crooked.
+  // gray: the page with its lighting evened out (paper near 255). The page is cut into upright strips; in each strip a
+  // printed line shows as a thin band that is dark nearly all the way across, which handwriting never is. A line counts
+  // when most strips agree on it. Returns heights as fractions of the page, measured at the page's middle.
+  function findRowLines(gray, w, h, opts) { return rowLineFits(gray, w, h, opts).map(f => (f.a + f.b * w / 2) / h).sort((a, b) => a - b); }
+  // The same lines as straight fits, y = a + b·x in pixels, so each can be followed (and painted out) across a crooked page.
+  function rowLineFits(gray, w, h, opts) {
+    opts = opts || {};
+    const S = opts.strips || 8, T = opts.dark || 215, need = opts.cover || 0.6;
+    const xa = Math.round(w * 0.04), sw = Math.floor((w * 0.92) / S), tol = Math.max(3, Math.round(h * 0.007)), minGap = Math.max(4, Math.round(h * 0.008));
+    const tracks = [];
+    for (let s = 0; s < S; s++) {
+      const x0 = xa + s * sw, frac = new Float32Array(h);
+      for (let y = 0; y < h; y++) { let n = 0; const o = y * w + x0; for (let x = 0; x < sw; x++) if (gray[o + x] < T) n++; frac[y] = n / sw; }
+      // a crooked line crosses a few pixel rows inside one strip, so add up a small window
+      const win = new Float32Array(h); for (let y = 2; y < h - 2; y++) win[y] = Math.min(1, frac[y - 2] + frac[y - 1] + frac[y] + frac[y + 1] + frac[y + 2]);
+      const peaks = [];
+      for (let y = 2; y < h - 2; y++) {
+        if (win[y] < need || win[y] < win[y - 1] || win[y] < win[y + 1]) continue;
+        let a = y, b = y; while (b + 1 < h && win[b + 1] >= win[y] - 1e-6) b++; // flat top: the line is where the darkest three rows are
+        let mid = (a + b) / 2, top3 = -1; for (let k = Math.max(1, a - 2); k <= Math.min(h - 2, b + 2); k++) { const v = frac[k - 1] + frac[k] + frac[k + 1]; if (v > top3) { top3 = v; mid = k; } } y = b;
+        if (peaks.length && mid - peaks[peaks.length - 1] < minGap) continue;
+        peaks.push(mid);
+      }
+      for (const p of peaks) {
+        let t = null; for (const k of tracks) if (k.lastS < s && s - k.lastS <= 2 && Math.abs(k.lastY - p) <= tol && (!t || Math.abs(k.lastY - p) < Math.abs(t.lastY - p))) t = k;
+        const cx = x0 + sw / 2;
+        if (t) { t.ys.push(p); t.xs.push(cx); t.lastY = p; t.lastS = s; } else tracks.push({ ys: [p], xs: [cx], lastY: p, lastS: s });
+      }
+    }
+    return tracks.filter(k => k.ys.length >= Math.ceil(S * 0.6)).map(k => {
+      const mx = mean(k.xs), my = mean(k.ys); let num = 0, den = 0; k.xs.forEach((x, i) => { num += (x - mx) * (k.ys[i] - my); den += (x - mx) * (x - mx); });
+      const b = den ? num / den : 0; return { a: my - b * mx, b };
+    });
+  }
+  // The usual distance between row lines inside the flight area, or 0 if too few were found.
+  function rowPitch(lines, template) {
+    const ys = (lines || []).filter(y => y >= template.top - 0.01 && y <= template.bottom + 0.01).sort((a, b) => a - b);
+    if (ys.length < 4) return 0;
+    return median(ys.slice(1).map((v, i) => v - ys[i]));
+  }
+
   // Find long dark horizontal / vertical ruled lines in a grayscale image (Uint8 array, w×h). Returns fractions.
   function findRuledLines(gray, w, h, axis, opts) {
     opts = opts || {};
@@ -423,7 +483,7 @@
     return ws.filter(x => (x.y1 - x.y0) * h > 1.5 * (x.x1 - x.x0) * w).length > ws.length * 0.5;
   }
 
-  const api = { readingOrder, fixKind, parseField, chooseReading, cellAt, looksSideways, FIELDS, FIELD, NUM_FIELDS, KNOWN_TYPES, defaultTemplate, extractPage, rowBands, parseHours, parseCount, parseBuno, parseDay, parseDate,
+  const api = { rowLineFits, findRowLines, rowPitch, readingOrder, fixKind, parseField, chooseReading, cellAt, looksSideways, FIELDS, FIELD, NUM_FIELDS, KNOWN_TYPES, defaultTemplate, extractPage, rowBands, parseHours, parseCount, parseBuno, parseDay, parseDate,
     normalizeType, sanity, recheck, findRuledLines, isoDate, hasShipWork };
   root.BBExtract = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

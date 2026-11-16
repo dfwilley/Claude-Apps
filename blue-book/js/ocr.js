@@ -29,7 +29,9 @@
 
   async function read(photoId, canvas, onProgress) {
     if (root.BBStore.isNative) {
-      const words = await root.BBStore.ocr(photoId);
+      // Read the cleaned-up page (printed lines painted out, lighting evened) so lines aren't read as 1s and dashes.
+      let words;
+      try { words = await root.BBStore.ocrImage(canvas.toDataURL('image/jpeg', 0.92).split(',')[1]); } catch (e) { words = await root.BBStore.ocr(photoId); } // an older app: read the stored photo
       return (words || []).map(w => ({ text: w.text, conf: Math.round(w.conf), x0: w.x0, y0: w.y0, x1: w.x1, y1: w.y1 }));
     }
     return readWeb(canvas, onProgress);
