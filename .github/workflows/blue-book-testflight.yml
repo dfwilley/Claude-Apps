@@ -5,14 +5,9 @@ name: Blue Book - upload to TestFlight
 # Signs with a temporary certificate made through the API key (revoked after upload).
 # Needs these repository secrets: ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8, APPLE_TEAM_ID.
 
+# Runs only when started by hand (Actions tab > Run workflow, or ask Claude to "build the iPhone app").
+# The owner asked on November 16, 2026 that pushes update the web app without uploading to TestFlight each time.
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'blue-book/**'
-      - 'native/blue-book/**'
-      - 'tests/blue-book.test.js'
-      - '.github/workflows/blue-book-testflight.yml'
   workflow_dispatch:
 
 defaults:

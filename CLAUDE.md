@@ -55,7 +55,8 @@ All six passed on November 12, 2026. Knot of the Day, Wire Bender and Ask Me Tom
 **A push to `main` is a release.** There is no staging step.
 
 - The web apps go live on GitHub Pages as soon as they are pushed.
-- Each `...-ios.yml` workflow runs when its app's files change: it runs the tests, builds an unsigned `.ipa`, and replaces the `<app>-latest` release (for Sideloadly).
+- **Blue Book is the exception:** its two iPhone workflows (`blue-book-ios.yml`, `blue-book-testflight.yml`) run only when started by hand, at the owner's request (November 16, 2026). A push to `main` updates the Blue Book web app only. Start both workflows when he asks for an iPhone build, and tell him the web and iPhone versions may differ until then.
+- Each other `...-ios.yml` workflow runs when its app's files change: it runs the tests, builds an unsigned `.ipa`, and replaces the `<app>-latest` release (for Sideloadly).
 - Blue Book, HGVC Binder and The Job Jar! also have `...-testflight.yml` workflows that sign and upload to TestFlight on every push that touches them. Blue Book's runs its Node tests first; the other two **do not run the tests**, so a change with failing tests can still be uploaded. Check the test run before calling work finished.
 - Signing uses four repository secrets: `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_P8`, `APPLE_TEAM_ID`. Never print or log them. The shared helper scripts are in `.github/scripts/`.
 - Some workflows push screenshots to branches named `ci-screenshots-...`. Those branches are overwritten on every run; don't build on them.
