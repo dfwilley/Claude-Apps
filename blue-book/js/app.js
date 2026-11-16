@@ -378,6 +378,7 @@
       <section id="rv-rows">${rows.map((r, i) => r.rowType === 'totals' ? `<div class="line totals"><p class="small">Line ${i + 1}: totals line on the page (used only to check the math): ${esc(Object.values(r.raw).join(' '))}</p></div>` :
         `<article class="line${r.flags && r.flags.length ? ' has-flags' : ''}" data-row="${r.id}" id="line-${r.id}">
           <div class="strip"><canvas data-strip="${r.id}" aria-label="Photo of this line"></canvas></div>
+          <div class="stripnav"><button data-slide="-1" aria-label="Show more of the line to the left">◀</button><button data-slide="1" aria-label="Show more of the line to the right">▶</button><span>Slide the picture, or tap a box below to jump to its column</span></div>
           ${lineFields(r, fields)}
           <div class="btns small-btns">${r.flags && r.flags.length ? '<button data-act="ok">Looks right</button>' : '<span class="okmark">✓ No questions</span>'}<button data-act="del">Delete line</button></div>
         </article>`).join('') || '<p class="empty">No lines were found on this page. Check the columns, or add lines by hand.</p>'}</section>
@@ -434,6 +435,22 @@
       if (b.dataset.act === 'del') { if (page.status === 'saved') db.flights = db.flights.filter(f => f.id !== id); else page.rows = page.rows.filter(x => x.id !== id); save(); render(); }
     });
     drawStrips(page, rows);
+    // Moving along the picture of a line: swipe it, drag it with the mouse, use its scroll bar or the arrow buttons;
+    // and tapping a box brings that box's column into view.
+    const rowsEl = $('#rv-rows');
+    rowsEl.addEventListener('click', e => { const b = e.target.closest('button[data-slide]'); if (!b) return; const st = b.closest('[data-row]').querySelector('.strip'); st.scrollBy({ left: +b.dataset.slide * st.clientWidth * 0.7, behavior: 'smooth' }); });
+    rowsEl.addEventListener('pointerdown', e => {
+      const st = e.target.closest('.strip'); if (!st || e.pointerType !== 'mouse') return; // touch already slides it
+      const x0 = e.clientX, s0 = st.scrollLeft; st.classList.add('dragging');
+      const mv = ev => { st.scrollLeft = s0 - (ev.clientX - x0); }; const up = () => { st.classList.remove('dragging'); window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up); };
+      window.addEventListener('pointermove', mv); window.addEventListener('pointerup', up); e.preventDefault();
+    });
+    rowsEl.addEventListener('focusin', e => {
+      const inp = e.target.closest('input[data-k]'); if (!inp) return; const k = inp.dataset.k === 'date' ? 'day' : inp.dataset.k;
+      const cols = (page.tpl || db.settings.template).columns, col = cols.find(c => c.field === k) || (k === 'day' ? cols.find(c => c.field === 'date') : null); if (!col) return;
+      const st = inp.closest('[data-row]').querySelector('.strip'); if (!st || st.scrollWidth <= st.clientWidth) return;
+      st.scrollTo({ left: Math.max(0, (col.x0 + col.x1) / 2 * st.scrollWidth - st.clientWidth / 2), behavior: 'smooth' });
+    });
   }
 
   function refreshLine(r, fields) {

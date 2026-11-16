@@ -100,9 +100,13 @@ main { max-width: 980px; margin: 0 auto; padding: 12px; outline: none; }
 .line.totals { border-left-color: var(--muted); background: #f1f2f5; }
 .line.pulse { animation: pulse 1.6s ease 2; }
 @keyframes pulse { 50% { box-shadow: 0 0 0 4px var(--gold-2); } }
-.strip { overflow-x: auto; border-radius: 6px; background: #eee; margin-bottom: 8px; -webkit-overflow-scrolling: touch; }
-.strip canvas { display: block; height: 54px; width: auto; max-width: none; }
-.strip.big canvas { height: 76px; }
+.strip { overflow-x: scroll; overflow-y: hidden; border-radius: 6px; background: #eee; margin-bottom: 8px; -webkit-overflow-scrolling: touch; cursor: grab; scrollbar-width: thin; touch-action: pan-x pan-y; }
+.strip.dragging { cursor: grabbing; user-select: none; }
+.strip canvas { display: block; height: 72px; width: auto; max-width: none; }
+.stripnav { display: flex; gap: 6px; align-items: center; margin: -2px 0 8px; }
+.stripnav button { min-width: 44px; padding: 4px 10px; font-size: 18px; line-height: 1; }
+.stripnav span { font-size: 12px; color: var(--muted); }
+.strip.big canvas { height: 90px; }
 .fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 6px 8px; }
 .fld { display: grid; gap: 2px; font-size: 0.78rem; color: var(--muted); font-weight: 600; }
 .fld.wide { grid-column: span 2; }
