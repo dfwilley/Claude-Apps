@@ -41,23 +41,67 @@
   const NUM_FIELDS = FIELDS.filter(f => f.kind === 'hours' || f.kind === 'count').map(f => f.key);
 
   // A starting guess for a Navy logbook spread; you drag the dividers to match your book once.
-  // The order of a Navy aviator's logbook spread. The Carrier Bolter column is there but skipped.
+  // The Navy "Aviators Flight Log Book" spread, measured from a real scanned page (fractions of the open book's width):
+  // left page Day … Special Crew Time, the gutter, then Instrument time … Remarks. The Carrier Bolter column is skipped.
+  // Each page is nudged onto its own printed lines when it is read (fitTemplate), so this only has to be close.
   const DEFAULT_COLUMNS = [
-    ['day', 0.035], ['type', 0.08], ['buno', 0.07], ['kind', 0.045], ['total', 0.045], ['pic', 0.04], ['sic', 0.04],
-    ['acCmdr', 0.04], ['specialCrew', 0.04], ['instActual', 0.04], ['instSim', 0.04], ['night', 0.04],
-    ['traps', 0.035], ['carrierTG', 0.035], ['skip', 0.035], ['fclp', 0.035], ['landings', 0.035], ['cats', 0.035],
-    ['approaches', 0.035], ['apprType', 0.04], ['simApproaches', 0.035], ['remarks', 0.0],
+    ['day', 0.02, 0.066], ['type', 0.066, 0.1442], ['buno', 0.1442, 0.2238], ['kind', 0.2238, 0.263], ['total', 0.263, 0.3114], ['pic', 0.3114, 0.3605],
+    ['sic', 0.3605, 0.4093], ['acCmdr', 0.4093, 0.4577], ['specialCrew', 0.4577, 0.5], ['skip', 0.5, 0.55],
+    ['instActual', 0.55, 0.6099], ['instSim', 0.6099, 0.6679], ['night', 0.6679, 0.7068], ['traps', 0.7068, 0.7269], ['carrierTG', 0.7269, 0.7468],
+    ['skip', 0.7468, 0.7666], ['fclp', 0.7666, 0.785], ['landings', 0.785, 0.8244], ['cats', 0.8244, 0.8443], ['approaches', 0.8443, 0.8643],
+    ['apprType', 0.8643, 0.8838], ['simApproaches', 0.8838, 0.903], ['remarks', 0.903, 0.995],
   ];
-  function defaultTemplate() {
-    let x = 0.02; const cols = [];
-    const fixed = DEFAULT_COLUMNS.reduce((s, c) => s + c[1], 0);
-    for (const [field, w] of DEFAULT_COLUMNS) {
-      const width = w || Math.max(0.05, 0.98 - x - 0.0) ;
-      cols.push({ field, x0: round4(x), x1: round4(Math.min(0.98, x + width)) });
-      x += width;
+  function defaultTemplate() { return { columns: DEFAULT_COLUMNS.map(([field, x0, x1]) => ({ field, x0, x1 })), top: 0.148, bottom: 0.845 }; }
+
+  // Printed column lines in the flight area: the same finder as for rows, with the page turned on its side.
+  function findColLines(gray, w, h, top, bottom) {
+    const y0 = Math.max(0, Math.round(h * top)), y1 = Math.min(h, Math.round(h * bottom)), hh = y1 - y0; if (hh < 50) return [];
+    const t = new Uint8Array(w * hh);
+    for (let y = 0; y < hh; y++) { const o = (y + y0) * w; for (let x = 0; x < w; x++) t[x * hh + y] = gray[o + x]; }
+    return rowLineFits(t, hh, w).map(f => (f.a + f.b * hh / 2) / w).sort((a, b) => a - b);
+  }
+
+  // Move a column layout onto the lines actually printed on this page. Pages are never scanned in quite the same place or
+  // size, so first find the shift and stretch that puts the most column edges on printed lines, then snap each edge to its line.
+  // xs / ys: printed column / row lines found on the page. Returns {template, matched} (matched = edges that found a line).
+  function fitTemplate(tpl, xs, ys) {
+    const out = JSON.parse(JSON.stringify(tpl)); const cols = out.columns.sort((a, b) => a.x0 - b.x0);
+    const edges = [...new Set(cols.flatMap(c => [c.x0, c.x1]))].sort((a, b) => a - b);
+    let best = { n: 0, s: 1, o: 0 };
+    if (xs && xs.length >= 4) {
+      const tol = 0.006;
+      for (let i = 0; i < edges.length; i++) for (let k = i + 3; k < edges.length; k++) for (let a = 0; a < xs.length; a++) for (let b = a + 1; b < xs.length; b++) {
+        const s = (xs[b] - xs[a]) / (edges[k] - edges[i]); if (s < 0.85 || s > 1.18) continue;
+        const o = xs[a] - s * edges[i]; if (Math.abs(o) > 0.12) continue;
+        let n = 0; for (const e of edges) { const v = s * e + o; if (xs.some(x => Math.abs(x - v) < tol)) n++; }
+        if (n > best.n) best = { n, s, o };
+      }
     }
-    void fixed;
-    return { columns: cols, top: 0.16, bottom: 0.92 };
+    const good = best.n >= Math.min(8, Math.max(4, Math.floor(edges.length * 0.4)));
+    if (good) {
+      const place = e => { const v = best.s * e + best.o; let near = null; for (const x of xs) if (Math.abs(x - v) < 0.008 && (near == null || Math.abs(x - v) < Math.abs(near - v))) near = x; return Math.max(0, Math.min(1, near == null ? v : near)); };
+      const moved = new Map(edges.map(e => [e, place(e)]));
+      for (const c of cols) { c.x0 = moved.get(c.x0); c.x1 = moved.get(c.x1); }
+    }
+    const pitch = rowPitch(ys, tpl) || (ys && ys.length >= 4 ? median(ys.slice(1).map((v, i) => v - ys[i])) : 0);
+    if (pitch) for (const k of ['top', 'bottom']) { let near = null; for (const y of ys) if (Math.abs(y - out[k]) < pitch * 0.45 && (near == null || Math.abs(y - out[k]) < Math.abs(near - out[k]))) near = y; if (near != null) out[k] = near; }
+    return { template: out, matched: good ? best.n : 0 };
+  }
+
+  // The month and year written at the top of the page ("MONTH February  YEAR 1983"), if they can be read.
+  const MONTH_NAMES = ['JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE', 'JULY', 'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER'];
+  function headerDate(words, top) {
+    const head = (words || []).filter(w => (w.y0 + w.y1) / 2 < top); let month = null, year = null, bestD = 9;
+    for (const w of head) {
+      const t = String(w.text).toUpperCase().replace(/[^A-Z0-9]/g, '');
+      const y = t.replace(/[OQD]/g, '0').replace(/[IL]/g, '1').replace(/S/g, '5').replace(/B/g, '8').match(/^(19[3-9]\d|20[0-4]\d)$/); if (y && year == null) year = +y[1];
+      if (t.length < 3 || /^(MONTH|YEAR)$/.test(t) || /\d/.test(t)) continue;
+      MONTH_NAMES.forEach((m, i) => {
+        const d = t.length <= 4 ? (m.startsWith(t) || (m === 'SEPTEMBER' && t === 'SEPT') ? 0 : 9) : editDistance(t, m);
+        const ok = d <= (m.length >= 7 ? 2 : m.length >= 5 ? 1 : 0); if (ok && d < bestD) { bestD = d; month = i + 1; }
+      });
+    }
+    return { month, year };
   }
 
   const KNOWN_TYPES = ['AV-8A', 'AV-8C', 'TAV-8A', 'AV-8B', 'AV-8B+', 'TAV-8B', 'T-34B', 'T-34C', 'T-28B', 'T-28C', 'T-2B', 'T-2C',
@@ -483,7 +527,7 @@
     return ws.filter(x => (x.y1 - x.y0) * h > 1.5 * (x.x1 - x.x0) * w).length > ws.length * 0.5;
   }
 
-  const api = { rowLineFits, findRowLines, rowPitch, readingOrder, fixKind, parseField, chooseReading, cellAt, looksSideways, FIELDS, FIELD, NUM_FIELDS, KNOWN_TYPES, defaultTemplate, extractPage, rowBands, parseHours, parseCount, parseBuno, parseDay, parseDate,
+  const api = { findColLines, fitTemplate, headerDate, rowLineFits, findRowLines, rowPitch, readingOrder, fixKind, parseField, chooseReading, cellAt, looksSideways, FIELDS, FIELD, NUM_FIELDS, KNOWN_TYPES, defaultTemplate, extractPage, rowBands, parseHours, parseCount, parseBuno, parseDay, parseDate,
     normalizeType, sanity, recheck, findRuledLines, isoDate, hasShipWork };
   root.BBExtract = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

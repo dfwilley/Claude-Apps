@@ -68,6 +68,7 @@
         <div class="btns">
           <button class="primary" id="b-scan">${S.isNative ? 'Scan pages' : 'Take a photo'}</button>
           <button id="b-import">Import photos</button>
+          <button id="b-pdf">Import a scanned PDF</button>
         </div>
         <p class="small">Read by ${esc(window.BBOcr.engine())}. Nothing is uploaded.</p>
       </section>
@@ -84,6 +85,7 @@
       }).join('') || '<p class="empty">No pages yet. Start with your first logbook page.</p>'}</section>`;
     $('#b-scan').onclick = () => S.isNative ? nativeScan() : $('#pick-camera').click();
     $('#b-import').onclick = () => $('#pick-photos').click();
+    $('#b-pdf').onclick = () => $('#pick-pdf').click();
     if ($('#b-cols')) $('#b-cols').onclick = () => openColumns(db.pages[db.pages.length - 1]);
     $$('[data-page]').forEach(b => b.onclick = () => { ui.reviewPageId = b.dataset.page; render(); window.scrollTo(0, 0); });
     loadThumbs();
@@ -93,16 +95,29 @@
   $('#pick-camera').addEventListener('change', e => { const files = [...e.target.files]; e.target.value = ''; queuePhotos(files); });
   $('#pick-photos').addEventListener('change', e => { const files = [...e.target.files]; e.target.value = ''; queuePhotos(files); });
 
-  async function queuePhotos(files) {
+  // A scanned PDF: each page is one logbook page. The pages are read one after another without stopping to ask for
+  // the month; it is read off the top of each page (and can be corrected on the page afterwards).
+  $('#pick-pdf').addEventListener('change', async e => {
+    const file = e.target.files[0]; e.target.value = ''; if (!file) return;
+    let pages;
+    try { pages = window.BBFiles.pdfImages(new Uint8Array(await file.arrayBuffer())); } catch (err) { toast('Could not open that PDF: ' + err.message, true); return; }
+    if (!pages.length) { toast("No scanned pages found in that PDF. It needs to come from a scanner (each page saved as a picture). Try your scanner's “PDF” or “JPEG” setting, or use Import photos.", true); return; }
+    await queuePhotos(pages.map(b => new Blob([b], { type: 'image/jpeg' })), { auto: true });
+    if (pages.length > 1) toast(`Read ${pages.length} pages. Open each one to check it.`);
+  });
+
+  async function queuePhotos(files, opts) {
+    opts = opts || {}; let same = null;
     for (let i = 0; i < files.length; i++) {
       let img;
       try { img = await I.loadImage(files[i]); } catch (e) { toast(e.message, true); continue; }
       const canvas = I.toCanvas(img, 3600);
-      const ok = await cropStep(canvas, i + 1, files.length);
-      if (!ok) continue;
+      let ok;
+      if (same) ok = I.warp(I.rotate(canvas, same.turns), same.corners, 2600); // the rest of a batch: same edges as the first
+      else { const r = await cropStep(canvas, i + 1, files.length); if (!r) continue; ok = r.canvas; if (r.all) same = r; }
       const photoId = uid('pg');
       await S.putPhoto(photoId, await I.toBlob(ok, 'image/jpeg', 0.88));
-      await newPage(photoId, ok);
+      await newPage(photoId, ok, 0, opts.auto);
     }
   }
 
@@ -120,11 +135,11 @@
   // Crop step: auto-found corners you can drag, plus rotate. Resolves with the straightened canvas, or null to skip.
   function cropStep(canvas, n, of) {
     return new Promise(resolve => {
-      let src = canvas; let found = I.findPageCorners(src); let corners = found.corners;
+      let src = canvas; let found = I.findPageCorners(src); let corners = found.corners; let turns = 0;
       openSheet(`<h2>Straighten page ${of > 1 ? `${n} of ${of}` : ''}</h2>
         <p class="small">${found.found ? 'Found the page edges. Drag a corner if it missed.' : "Couldn't find the page edges — drag the four corners to the page's corners."}</p>
         <div class="cropwrap" id="cropwrap"><canvas id="cropc"></canvas>${[0, 1, 2, 3].map(i => `<div class="handle" data-i="${i}" role="slider" aria-label="Corner ${i + 1}" tabindex="0"></div>`).join('')}<svg id="cropsvg"></svg></div>
-        <div class="btns"><button id="c-rot">Rotate</button><button id="c-auto">Find edges again</button><button id="c-skip">Skip this photo</button><button class="primary" id="c-ok">Use this page</button></div>`, body => {
+        <div class="btns"><button id="c-rot">Rotate</button><button id="c-auto">Find edges again</button><button id="c-skip">Skip this page</button>${of > 1 ? `<button id="c-all">Use these edges for all ${of} pages</button>` : ''}<button class="primary" id="c-ok">Use this page</button></div>`, body => {
         const cv = $('#cropc', body), wrap = $('#cropwrap', body), svg = $('#cropsvg', body);
         const draw = () => {
           const maxW = Math.min(wrap.clientWidth || 340, 900), s = Math.min(maxW / src.width, (window.innerHeight * 0.55) / src.height);
@@ -145,25 +160,26 @@
           });
           h.addEventListener('keydown', e => { const d = { ArrowLeft: [-0.005, 0], ArrowRight: [0.005, 0], ArrowUp: [0, -0.005], ArrowDown: [0, 0.005] }[e.key]; if (!d) return; e.preventDefault(); const c = corners[+h.dataset.i]; c[0] = Math.max(0, Math.min(1, c[0] + d[0])); c[1] = Math.max(0, Math.min(1, c[1] + d[1])); place(); });
         });
-        $('#c-rot', body).onclick = () => { src = I.rotate(src, 1); found = I.findPageCorners(src); corners = found.corners; draw(); };
+        $('#c-rot', body).onclick = () => { turns = (turns + 1) % 4; src = I.rotate(src, 1); found = I.findPageCorners(src); corners = found.corners; draw(); };
         $('#c-auto', body).onclick = () => { found = I.findPageCorners(src); corners = found.corners; place(); };
         $('#c-skip', body).onclick = () => { closeSheet(); resolve(null); };
-        $('#c-ok', body).onclick = () => { const out = I.warp(src, corners, 2600); closeSheet(); resolve(out); };
+        const done = all => { const out = I.warp(src, corners, 2600); closeSheet(); resolve({ canvas: out, corners: corners.map(c => c.slice()), turns, all }); };
+        $('#c-ok', body).onclick = () => done(false); if ($('#c-all', body)) $('#c-all', body).onclick = () => done(true);
         requestAnimationFrame(draw);
       }, { onClose: () => resolve(null) });
     });
   }
 
   // A new page: set month/year/squadron/ship, then read it.
-  async function newPage(photoId, canvas, turns) {
+  async function newPage(photoId, canvas, turns, auto) {
     const prev = db.pages.slice().sort((a, b) => (b.year || 0) - (a.year || 0) || (b.month || 0) - (a.month || 0))[0];
     let month = prev && prev.month ? prev.month % 12 + 1 : null, year = prev && prev.year ? (prev.month === 12 ? prev.year + 1 : prev.year) : null;
-    const page = { id: uid('p'), photoId, added: new Date().toISOString(), status: 'review', year, month, squadron: prev ? prev.squadron : '', ship: prev ? prev.ship : '', w: canvas.width, h: canvas.height, turns: turns || 0 };
+    const page = { id: uid('p'), photoId, added: new Date().toISOString(), status: 'review', year, month, squadron: prev ? prev.squadron : '', ship: prev ? prev.ship : '', w: canvas.width, h: canvas.height, turns: turns || 0, autoDate: !!auto };
     db.pages.push(page); save();
-    const info = await pageInfo(page, true);
-    if (!info) { /* kept as a page to review later */ }
-    if (!db.settings.calibrated) { ui.reviewPageId = page.id; canvas = (await openColumns(page, canvas)) || canvas; }
+    if (!auto) await pageInfo(page, true);
     await readPage(page, canvas);
+    // Columns normally place themselves on the page's printed lines. Only if that didn't work on a first page is the set-up screen shown.
+    if (!db.settings.calibrated && !(page.colsMatched >= 12)) { ui.reviewPageId = page.id; canvas = (await openColumns(page, canvas)) || canvas; await readPage(page, canvas); }
   }
 
   function pageInfo(page, isNew) {
@@ -182,7 +198,7 @@
         <div class="btns"><button class="primary" id="pi-ok">${isNew ? 'Read this page' : 'Done'}</button></div>`, body => {
         $('#pi-ok', body).onclick = () => {
           page.month = +$('#pi-m', body).value || null; const yy = +$('#pi-y', body).value; page.year = yy >= 1940 && yy <= 2100 ? yy : null;
-          page.squadron = $('#pi-s', body).value.trim(); page.ship = $('#pi-ship', body).value.trim(); page.label = pageLabel(page);
+          page.squadron = $('#pi-s', body).value.trim(); page.ship = $('#pi-ship', body).value.trim(); page.label = pageLabel(page); page.autoDate = false;
           save(); closeSheet(); resolve(page);
         };
       }, { onClose: () => resolve(page) });
@@ -201,16 +217,21 @@
       const prepared = I.forReading(canvas); set(0.05);
       const small = I.toCanvas(canvas, 1600); const g = I.grayOf(small);
       const edge = v => v > 0.015 && v < 0.985;
-      const fits = X.rowLineFits(prepared.grayWithRules, prepared.w, prepared.h); I.eraseLines(prepared, fits); // printed row lines, found and painted out
+      const fits = X.rowLineFits(prepared.grayWithRules, prepared.w, prepared.h); // the printed row lines
       page.ruledLines = fits.map(f => (f.a + f.b * prepared.w / 2) / prepared.h).sort((a, b) => a - b).filter(edge);
-      if (!X.rowPitch(page.ruledLines, db.settings.template)) page.ruledLines = X.findRuledLines(g.gray, g.w, g.h, 'h', { minFrac: 0.3 }).filter(edge); // the older, stricter finder
-      const pitch = X.rowPitch(page.ruledLines, db.settings.template);
+      // put the columns on this page's own printed lines (no two pages are scanned in quite the same place)
+      const base = db.settings.template, fitted = X.fitTemplate(base, X.findColLines(prepared.grayWithRules, prepared.w, prepared.h, base.top, base.bottom), page.ruledLines);
+      page.tpl = fitted.template; page.colsMatched = fitted.matched;
+      I.eraseLines(prepared, fits, page.tpl.top - 0.03, page.tpl.bottom + 0.03); // paint the row lines out so they aren't read as marks
+      if (!X.rowPitch(page.ruledLines, page.tpl)) page.ruledLines = X.findRuledLines(g.gray, g.w, g.h, 'h', { minFrac: 0.3 }).filter(edge); // the older, stricter finder
+      const pitch = X.rowPitch(page.ruledLines, page.tpl);
       if (pitch) db.settings.rowPitch = pitch; // remembered for pages where the lines can't be found
       page.rowPitch = db.settings.rowPitch || 0;
       page.words = await window.BBOcr.read(page.photoId, prepared.canvas, v => set(0.05 + v * 0.75));
       page.sideways = X.looksSideways(page.words, canvas.width, canvas.height);
-      const bands = X.rowBands(page.words, db.settings.template, page.ruledLines, page.rowPitch);
-      page.words = await window.BBOcr.refine(prepared, page.words, db.settings.template, bands, knownTypes(), v => set(0.8 + v * 0.2));
+      if (page.autoDate) { const hd = X.headerDate(page.words, page.tpl.top); page.dateRead = !!(hd.month && hd.year); if (hd.month) page.month = hd.month; if (hd.year) page.year = hd.year; }
+      const bands = X.rowBands(page.words, page.tpl, page.ruledLines, page.rowPitch);
+      page.words = await window.BBOcr.refine(prepared, page.words, page.tpl, bands, knownTypes(), v => set(0.8 + v * 0.2));
       extractInto(page);
       closeSheet(); ui.reviewPageId = page.id; tab = 'pages'; render();
       const flagged = page.rows.filter(r => r.rowType === 'flight' && r.flags.length).length;
@@ -223,15 +244,17 @@
   }
 
   function extractInto(page) {
-    const res = X.extractPage(page.words || [], db.settings.template, page, { ruledLines: page.ruledLines, rowPitch: page.rowPitch, knownTypes: knownTypes() });
-    page.rows = res.rows.map((r, i) => Object.assign(r, { id: uid('f'), row: i })); page.notes = res.notes; save();
+    const res = X.extractPage(page.words || [], page.tpl || db.settings.template, page, { ruledLines: page.ruledLines, rowPitch: page.rowPitch, knownTypes: knownTypes() });
+    page.rows = res.rows.map((r, i) => Object.assign(r, { id: uid('f'), row: i })); page.notes = res.notes;
+    if (page.autoDate && !page.dateRead) page.notes.push(`Couldn't read the month and year at the top of this page, so ${page.month && page.year ? MONTHS[page.month - 1] + ' ' + page.year + ' was assumed' : 'none is set'}. Tap “Edit month, squadron, ship” to check.`);
+    save();
   }
 
   // Turn a page's photo a quarter turn at a time (1 = clockwise, 3 = counter-clockwise) and forget the old reading.
   async function rotatePage(page, turns) {
     const c = I.rotate(I.toCanvas(await I.loadURL(await S.photoURLAsync(page.photoId)), 2600), turns);
     await S.putPhoto(page.photoId, await I.toBlob(c, 'image/jpeg', 0.88));
-    page.w = c.width; page.h = c.height; page.turns = ((page.turns || 0) + turns) % 4; page.words = null; page.ruledLines = null; page.sideways = false;
+    page.w = c.width; page.h = c.height; page.turns = ((page.turns || 0) + turns) % 4; page.words = null; page.ruledLines = null; page.tpl = null; page.sideways = false;
     db.settings.scanTurns = page.turns; save(); return c;
   }
 
@@ -286,23 +309,17 @@
             menu.remove(); draw();
           };
         };
-        $('#co-find', body).onclick = () => {
-          const small = I.toCanvas(canvas, 1600); const g = I.grayOf(small);
-          const ys = X.findRuledLines(g.gray, g.w, g.h, 'h', { minFrac: 0.3 }).filter(v => v > 0.015 && v < 0.985);
-          const xs = X.findRuledLines(g.gray, g.w, g.h, 'v', { minFrac: 0.25 }).filter(v => v > 0.015 && v < 0.985); // ignore the photo's own edges
-          if (xs.length < 3) { toast("Couldn't find printed column lines on this photo; drag them by hand.", true); return; }
-          const fields = tpl.columns.map(c => c.field);
-          tpl.columns = []; for (let k = 1; k < xs.length; k++) if (xs[k] - xs[k - 1] > 0.008) tpl.columns.push({ field: fields[tpl.columns.length] || 'skip', x0: xs[k - 1], x1: xs[k] });
-          if (ys.length >= 4) { // the flight lines start where the evenly spaced lines start (skips a taller heading row)
-            const gaps = ys.slice(1).map((v, k) => v - ys[k]); const med = gaps.slice().sort((a, b) => a - b)[gaps.length >> 1];
-            const even = k => Math.abs(gaps[k] - med) < med * 0.25; let k0 = 0; while (k0 < gaps.length - 1 && !(even(k0) && even(k0 + 1))) k0++;
-            tpl.top = ys[k0]; tpl.bottom = ys[ys.length - 1]; }
-          draw(); toast(`Found ${tpl.columns.length} columns. Tap each one to check what it holds.`);
+        const snap = quiet => {
+          const pr = I.forReading(canvas); const ys = X.findRowLines(pr.grayWithRules, pr.w, pr.h);
+          const f = X.fitTemplate(tpl, X.findColLines(pr.grayWithRules, pr.w, pr.h, tpl.top, tpl.bottom), ys);
+          if (f.matched) { tpl.columns = f.template.columns; tpl.top = f.template.top; tpl.bottom = f.template.bottom; draw(); }
+          if (!quiet) toast(f.matched ? `Moved ${f.matched} column lines onto the printed lines.` : "Couldn't match the columns to printed lines on this page; drag them by hand.", !f.matched);
         };
+        $('#co-find', body).onclick = () => snap(false);
         $('#co-add', body).onclick = () => { const last = tpl.columns[tpl.columns.length - 1]; if (last.x1 < 0.97) tpl.columns.push({ field: 'skip', x0: last.x1, x1: Math.min(1, last.x1 + 0.05) }); else { const mid = (last.x0 + last.x1) / 2; tpl.columns.push({ field: 'skip', x0: mid, x1: last.x1 }); last.x1 = mid; } draw(); };
         $('#co-reset', body).onclick = () => { Object.assign(tpl, X.defaultTemplate()); draw(); };
         $('#co-ok', body).onclick = () => { db.settings.template = tpl; db.settings.calibrated = true; save(); closeSheet(); resolve(canvas); };
-        draw();
+        draw(); if (!db.settings.calibrated) snap(true);
       }, { onClose: () => resolve(canvas) });
     });
   }

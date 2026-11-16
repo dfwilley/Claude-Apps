@@ -77,9 +77,9 @@
   function inkIn(prepared, band, col, withRules) {
     const { w: W, h: H } = prepared; const gray = withRules && prepared.grayWithRules ? prepared.grayWithRules : prepared.gray; const my = withRules ? 0.24 : 0.12;
     const ix0 = Math.round((col.x0 + (col.x1 - col.x0) * 0.1) * W), ix1 = Math.round((col.x1 - (col.x1 - col.x0) * 0.1) * W);
-    const iy0 = Math.round((band.y0 + (band.y1 - band.y0) * my) * H), iy1 = Math.round((band.y1 - (band.y1 - band.y0) * my) * H);
+    const iy0 = Math.round((band.y0 + (band.y1 - band.y0) * my) * H), iy1 = Math.round((band.y1 - (band.y1 - band.y0) * my) * H); const DARK = withRules ? 170 : 120; // pencil lines are pale
     let ink = 0, n = 0, minX = 1e9, maxX = -1, minY = 1e9, maxY = -1;
-    for (let y = iy0; y < iy1; y++) for (let x = ix0; x < ix1; x++) { n++; if (gray[y * W + x] < 120) { ink++; if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; if (y > maxY) maxY = y; } }
+    for (let y = iy0; y < iy1; y++) for (let x = ix0; x < ix1; x++) { n++; if (gray[y * W + x] < DARK) { ink++; if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; if (y > maxY) maxY = y; } }
     return { frac: n ? ink / n : 0, wide: maxX < 0 ? 0 : (maxX - minX + 1) / Math.max(1, ix1 - ix0), tall: maxY < 0 ? 0 : (maxY - minY + 1) / Math.max(1, iy1 - iy0) };
   }
 
@@ -100,7 +100,7 @@
   const CLOSE_UP_SKIP = new Set(['skip', 'remarks', 'squadron', 'ship']);
   function cropBox(prepared, band, col) {
     const { canvas, w: W, h: H } = prepared; const cw = col.x1 - col.x0, bh = band.y1 - band.y0;
-    const x0 = Math.max(0, Math.round((col.x0 - cw * 0.06) * W)), x1 = Math.min(W, Math.round((col.x1 + cw * 0.06) * W));
+    void cw; const x0 = Math.max(0, Math.round(col.x0 * W) + 4), x1 = Math.min(W, Math.round(col.x1 * W) - 4); // just inside the printed column lines, so they aren't read as 1s
     const y0 = Math.max(0, Math.round((band.y0 - bh * 0.05) * H)), y1 = Math.min(H, Math.round((band.y1 + bh * 0.05) * H));
     const sw = Math.max(1, x1 - x0), sh = Math.max(1, y1 - y0), s = Math.max(1, Math.min(4, 110 / sh)), pad = 14;
     const c = document.createElement('canvas'); c.width = Math.round(sw * s) + pad * 2; c.height = Math.round(sh * s) + pad * 2;

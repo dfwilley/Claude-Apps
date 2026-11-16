@@ -74,7 +74,23 @@
       if (x + y < tl[2]) tl = [x, y, x + y]; if (x + y > br[2]) br = [x, y, x + y];
       if (x - y > tr[2]) tr = [x, y, x - y]; if (y - x > bl[2]) bl = [x, y, y - x];
     }
-    return { corners: [tl, tr, br, bl].map(p => [p[0] / (w - 1), p[1] / (h - 1)]), found: true };
+    const quad = [tl, tr, br, bl].map(p => [p[0], p[1]]);
+    // A flatbed scan is a plain upright rectangle, often with the dark scanner lid below the book and a pale strip down one
+    // edge. Far-corner points are fooled by that strip, so also fit an upright rectangle from how full each row and column is,
+    // and keep whichever outline matches the paper better.
+    const rowN = new Int32Array(h), colN = new Int32Array(w);
+    for (let i = 0; i < w * h; i++) if (label[i] === bestLabel) { rowN[(i / w) | 0]++; colN[i % w]++; }
+    const span = (arr) => { let m = 0; for (const v of arr) if (v > m) m = v; let a = 0, b = arr.length - 1; while (a < b && arr[a] < m * 0.5) a++; while (b > a && arr[b] < m * 0.5) b--; return [a, b]; };
+    const [ry0, ry1] = span(rowN), [rx0, rx1] = span(colN);
+    const rect = [[rx0, ry0], [rx1, ry0], [rx1, ry1], [rx0, ry1]];
+    const fit = poly => { // overlap of the outline with the paper, as a share of both together
+      const inside = (x, y) => { for (let k = 0; k < 4; k++) { const [ax, ay] = poly[k], [bx, by] = poly[(k + 1) % 4]; if ((bx - ax) * (y - ay) - (by - ay) * (x - ax) < -0.5) return false; } return true; };
+      let both = 0, onlyPoly = 0;
+      for (let y = 0; y < h; y += 2) for (let x = 0; x < w; x += 2) if (inside(x, y)) { if (label[y * w + x] === bestLabel) both++; else onlyPoly++; }
+      return both / (bestSize / 4 + onlyPoly);
+    };
+    const best = fit(rect) > fit(quad) + 0.01 ? rect : quad;
+    return { corners: best.map(p => [p[0] / (w - 1), p[1] / (h - 1)]), found: true, upright: best === rect };
   }
   function dilate(m, w, h, r) {
     const out = new Uint8Array(m.length);
@@ -192,15 +208,29 @@
     }
   }
 
-  // Paint out printed row lines that have been located (fits: y = a + b·x), leaving any pen stroke that crosses or rests on one.
-  function eraseLines(prepared, fits, half) {
-    const { gray, w, h, canvas } = prepared; half = half || 3; if (!fits || !fits.length) return;
-    const g = canvas.getContext('2d'), img = g.getImageData(0, 0, w, h), d = img.data;
-    for (const f of fits) for (let x = 0; x < w; x++) {
-      const yc = Math.round(f.a + f.b * x), ya = yc - half - 2, yb = yc + half + 2;
-      if (ya < 0 || yb >= h) continue;
-      if (gray[ya * w + x] < 150 || gray[yb * w + x] < 150 || gray[(ya - 1) * w + x] < 150 || gray[Math.min(h - 1, yb + 1) * w + x] < 150) continue; // writing passes through here
-      for (let y = yc - half; y <= yc + half; y++) { const i = y * w + x; gray[i] = 255; const o = i * 4; d[o] = d[o + 1] = d[o + 2] = 255; }
+  // Paint out printed row lines that have been located (fits: y = a + b·x), between heights y0..y1 (fractions) only.
+  // Where the line is thicker than usual, a pen stroke is lying on it or crossing it (the foot of a 2, a 7's tail):
+  // that part is left alone so the writing isn't cut.
+  function eraseLines(prepared, fits, y0, y1) {
+    const { gray, w, h, canvas } = prepared; if (!fits || !fits.length) return;
+    const g = canvas.getContext('2d'), img = g.getImageData(0, 0, w, h), d = img.data, DARK = 175, REACH = 16;
+    const lo = new Int16Array(w), hi = new Int16Array(w);
+    for (const f of fits) {
+      const mid = (f.a + f.b * w / 2) / h; if (mid < (y0 == null ? 0 : y0) || mid > (y1 == null ? 1 : y1)) continue;
+      const lens = [];
+      for (let x = 0; x < w; x++) {
+        lo[x] = hi[x] = -1; const yc = Math.round(f.a + f.b * x); if (yc < REACH + 4 || yc >= h - REACH - 4) continue;
+        let y = -1; for (let k = 0; k <= 3 && y < 0; k++) { if (gray[(yc - k) * w + x] < DARK) y = yc - k; else if (gray[(yc + k) * w + x] < DARK) y = yc + k; }
+        if (y < 0) continue;
+        let a = y, b = y; while (y - a < REACH && gray[(a - 1) * w + x] < DARK) a--; while (b - y < REACH && gray[(b + 1) * w + x] < DARK) b++;
+        lo[x] = a; hi[x] = b; lens.push(b - a + 1);
+      }
+      if (lens.length < w * 0.2) continue;
+      lens.sort((p, q) => p - q); const usual = lens[lens.length >> 1];
+      for (let x = 0; x < w; x++) {
+        if (lo[x] < 0 || hi[x] - lo[x] + 1 > usual + 2) continue;
+        for (let y = lo[x] - 1; y <= hi[x] + 1; y++) { const i = y * w + x; gray[i] = 255; const o = i * 4; d[o] = d[o + 1] = d[o + 2] = 255; }
+      }
     }
     g.putImageData(img, 0, 0);
   }

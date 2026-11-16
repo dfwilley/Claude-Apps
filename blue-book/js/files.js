@@ -54,6 +54,31 @@
     return out;
   }
 
+  // ---------- Scanned PDFs ----------
+  // A scanner saves each page of a PDF as one JPEG picture. This lifts those pictures straight out, in page order,
+  // without needing a PDF reader. Returns [Uint8Array] (JPEG files). PDFs made another way return an empty list.
+  function pdfImages(buf) {
+    const find = (pat, from, to) => { const n = pat.length, end = Math.min(buf.length, to == null ? buf.length : to) - n; outer: for (let i = Math.max(0, from); i <= end; i++) { for (let k = 0; k < n; k++) if (buf[i + k] !== pat.charCodeAt(k)) continue outer; return i; } return -1; };
+    const text = (a, b) => { let s = ''; for (let i = Math.max(0, a); i < Math.min(buf.length, b); i++) s += String.fromCharCode(buf[i]); return s; };
+    const out = []; let at = 0;
+    for (;;) {
+      const s = find('stream', at); if (s < 0) break; at = s + 6;
+      if (text(s - 3, s) === 'end') continue; // that was "endstream"
+      const dictStart = Math.max(0, s - 3000); const head = text(dictStart, s); const d0 = head.lastIndexOf(' obj'); const dict = d0 >= 0 ? head.slice(d0) : head;
+      if (!/\/Subtype\s*\/Image/.test(dict) || !/\/Filter\s*(\[\s*)?\/DCTDecode\s*\]?/.test(dict)) continue;
+      const num = k => { const m = dict.match(new RegExp('/' + k + '\\s+(\\d+)(\\s+(\\d+)\\s+R)?')); return m ? { v: +m[1], ref: !!m[2], gen: m[3] } : null; };
+      const W = num('Width'), H = num('Height'); if (W && H && !W.ref && !H.ref && Math.max(W.v, H.v) < 600) continue; // a thumbnail or logo, not a page
+      let p = s + 6; if (buf[p] === 13) p++; if (buf[p] === 10) p++;
+      if (buf[p] !== 0xFF || buf[p + 1] !== 0xD8) continue;
+      let len = 0; const L = num('Length');
+      if (L && !L.ref) len = L.v;
+      else if (L) { const o = find(`\n${L.v} ${L.gen} obj`, 0); if (o >= 0) { const m = text(o, o + 60).match(/obj\s*(\d+)/); if (m) len = +m[1]; } }
+      if (!len || text(p + len, p + len + 20).indexOf('endstream') < 0) { const e = find('endstream', p); if (e < 0) continue; len = e - p; while (len > 2 && (buf[p + len - 1] === 10 || buf[p + len - 1] === 13)) len--; }
+      out.push(buf.subarray(p, p + len)); at = p + len;
+    }
+    return out;
+  }
+
   // ---------- CSV ----------
   function csv(rows) {
     return rows.map(r => r.map(v => {
@@ -122,7 +147,7 @@
     return zip(files);
   }
 
-  const api = { zip, unzip, csv, xlsx, crc32, excelDate };
+  const api = { pdfImages, zip, unzip, csv, xlsx, crc32, excelDate };
   root.BBFiles = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

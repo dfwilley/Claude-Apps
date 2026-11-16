@@ -171,10 +171,10 @@ test('MyFlightbook import file', () => {
 
 test('starting columns follow the Navy logbook order; crew times are read and checked', () => {
   const t = X.defaultTemplate();
-  assert.deepStrictEqual(t.columns.map(c => c.field), ['day', 'type', 'buno', 'kind', 'total', 'pic', 'sic', 'acCmdr', 'specialCrew', 'instActual', 'instSim', 'night',
-    'traps', 'carrierTG', 'skip', 'fclp', 'landings', 'cats', 'approaches', 'apprType', 'simApproaches', 'remarks'], 'the 22 logbook columns; bolters are skipped');
-  t.columns.forEach((c, i) => { assert.ok(c.x1 > c.x0 + 0.02, c.field); if (i) assert.ok(Math.abs(c.x0 - t.columns[i - 1].x1) < 1e-3, c.field); });
-  assert.ok(t.columns[t.columns.length - 1].x1 <= 0.98);
+  assert.deepStrictEqual(t.columns.map(c => c.field), ['day', 'type', 'buno', 'kind', 'total', 'pic', 'sic', 'acCmdr', 'specialCrew', 'skip', 'instActual', 'instSim', 'night',
+    'traps', 'carrierTG', 'skip', 'fclp', 'landings', 'cats', 'approaches', 'apprType', 'simApproaches', 'remarks'], 'the 22 logbook columns, the gap between the two pages, and bolters skipped');
+  t.columns.forEach((c, i) => { assert.ok(c.x1 > c.x0 + 0.015, c.field); if (i) assert.ok(Math.abs(c.x0 - t.columns[i - 1].x1) < 1e-3, c.field); });
+  assert.ok(t.columns[t.columns.length - 1].x1 <= 1);
   const mid = k => { const c = t.columns.find(c => c.field === k); return (c.x0 + c.x1) / 2; };
   const w = (text, k) => ({ text, conf: 95, x0: mid(k) - 0.01, x1: mid(k) + 0.01, y0: 0.3, y1: 0.32 });
   const r = X.extractPage([w('5', 'day'), w('AV-8B', 'type'), w('163853', 'buno'), w('1A1', 'kind'), w('1.5', 'total'), w('1.5', 'pic'), w('2.0', 'acCmdr'), w('0.3', 'instSim'), w('2', 'traps'), w('4', 'fclp'), w('1', 'cats'), w('P', 'apprType')], t, { year: 1988, month: 3 }, {});
@@ -273,6 +273,40 @@ test('a printed line read as an extra digit does not spoil the total', () => {
   const w = (text, x) => ({ text, conf: 95, x0: x - 0.02, x1: x + 0.02, y0: 0.12, y1: 0.15 });
   const f = X.extractPage([w('18', 0.05), w('T-34C', 0.2), w('11.60', 0.35), w('0.7', 0.45), w('0.9', 0.55)], t, { year: 1983, month: 2 }, { ruledLines: lines }).rows[0];
   assert.strictEqual(f.total, 1.6); assert.ok(f.flags.some(x => x.field === 'total' && /set to first pilot/.test(x.reason)));
+});
+
+test('lifts the scanned pages out of a PDF', () => {
+  const enc = s => Buffer.from(s, 'latin1'); const jpg = n => Buffer.concat([Buffer.from([0xFF, 0xD8, 0xFF, 0xE0]), Buffer.alloc(n, 7), enc('stream inside the picture'), Buffer.from([0xFF, 0xD9])]);
+  const a = jpg(500), b = jpg(900), thumb = jpg(50);
+  const pdf = Buffer.concat([enc('%PDF-1.7\n1 0 obj\n<</Type /Catalog>>\nendobj\n4 0 obj\n<</Length 9>>\nstream\nq 1 0 0 1\nendstream\nendobj\n'),
+    enc(`5 0 obj\n<</Type /XObject /Subtype /Image /Width 2544 /Height 3504 /Length ${a.length} /ColorSpace /DeviceRGB /Filter [ /DCTDecode ] >>\nstream\r\n`), a, enc('\nendstream\nendobj\n'),
+    enc(`6 0 obj\n<</Subtype/Image/Width 120/Height 90/Length ${thumb.length}/Filter/DCTDecode>>\nstream\n`), thumb, enc('\nendstream\nendobj\n'),
+    enc('7 0 obj\n<</Subtype /Image /Width 2544 /Height 3504 /Length 8 0 R /Filter /DCTDecode>>\nstream\n'), b, enc(`\nendstream\nendobj\n8 0 obj\n${b.length}\nendobj\n`),
+    enc('9 0 obj\n<</Subtype /Image /Width 2000 /Height 2000 /Length 4 /Filter /FlateDecode>>\nstream\nabcd\nendstream\nendobj\n%%EOF')]);
+  const pages = F.pdfImages(new Uint8Array(pdf));
+  assert.strictEqual(pages.length, 2, 'two page pictures; the thumbnail and the non-JPEG picture are left out');
+  assert.ok(Buffer.from(pages[0]).equals(a)); assert.ok(Buffer.from(pages[1]).equals(b), 'length given by reference');
+  assert.strictEqual(F.pdfImages(new Uint8Array(enc('%PDF-1.4 just text'))).length, 0);
+});
+
+test('fits the columns to the lines printed on each page', () => {
+  const t = X.defaultTemplate(); const edges = [...new Set(t.columns.flatMap(c => [c.x0, c.x1]))];
+  const printed = edges.filter(e => ![0.02, 0.5, 0.55, 0.995].includes(e)); // the book prints no line at the outer edges or the gutter
+  const xs = printed.map(x => x * 0.96 + 0.03).concat([0.012]).sort((a, b) => a - b); // scanned 4% smaller, shifted, plus a stray line
+  const ys = []; for (let y = 0.16; y < 0.86; y += 0.0355) ys.push(y);
+  const f = X.fitTemplate(t, xs, ys);
+  assert.ok(f.matched >= 18, 'matched ' + f.matched);
+  f.template.columns.forEach((c, i) => { const want = t.columns[i].x0 * 0.96 + 0.03; assert.ok(Math.abs(c.x0 - want) < 0.004, `${c.field} ${c.x0} vs ${want}`); });
+  assert.ok(Math.abs(f.template.top - 0.16) < 1e-6, 'top snapped to the nearest row line');
+  assert.strictEqual(X.fitTemplate(t, [0.3, 0.7], ys).matched, 0, 'too few lines: columns left where they were');
+  assert.deepStrictEqual(X.fitTemplate(t, [0.3, 0.7], []).template.columns, t.columns);
+});
+
+test('reads the month and year written at the top of the page', () => {
+  const w = (text, y) => ({ text, x0: 0.1, x1: 0.2, y0: y, y1: y + 0.01 });
+  assert.deepStrictEqual(X.headerDate([w('MONTH', 0.04), w('FEBRVARY', 0.04), w('YEAR', 0.04), w('I983', 0.04), w('MARCH', 0.5)], 0.14), { month: 2, year: 1983 });
+  assert.deepStrictEqual(X.headerDate([w('Sept', 0.04), w('1991', 0.05)], 0.14), { month: 9, year: 1991 });
+  assert.deepStrictEqual(X.headerDate([w('AIRCRAFT', 0.1), w('PILOT', 0.1), w('TIME', 0.1), w('MODEL', 0.12)], 0.14), { month: null, year: null }, 'printed headings are not months');
 });
 
 console.log(`${passed} tests passed`);
