@@ -309,6 +309,13 @@ test('finds the first flight row and does not take the printed headings for one'
   const head = ['MODEL', 'SERIAL', 'NUMBER', 'FIRST', 'PILOT', 'REMARKS'].map((s, i) => w(s, 0.1 + i * 0.1, 0.155));
   const a = X.skipHeaderRows(head.concat([w('18', 0.03, 0.2), w('T-34C', 0.1, 0.2)]), f, ys); assert.ok(Math.abs(a.top - 0.187) < 1e-9, 'moved down one row: ' + a.top);
   const b = X.skipHeaderRows([w('18', 0.03, 0.155), w('T-34C', 0.1, 0.155), w('NIGHT', 0.9, 0.155)], f, ys); assert.ok(Math.abs(b.top - 0.14) < 1e-9, 'a flight row is left alone');
+  // the right page's small labels dip into the first flight's row: the flight must not be skipped
+  const c = X.skipHeaderRows([w('9', 0.03, 0.16), w('T34C', 0.1, 0.16), w('160632', 0.18, 0.16), w('1.7', 0.28, 0.16), w('NO.', 0.85, 0.146), w('TYPE', 0.87, 0.146), w('S', 0.89, 0.146), w('ARR', 0.71, 0.146), w('BOL', 0.75, 0.146)], f, ys);
+  assert.ok(Math.abs(c.top - 0.14) < 1e-9, 'first flight kept: ' + c.top);
+  // the top was set a row low: the row above holds flight times, so it is taken in
+  const low = Object.assign({}, f, { top: 0.187, bottom: f.bottom });
+  const d = X.skipHeaderRows([w('9', 0.03, 0.16), w('T34C', 0.1, 0.16), w('1.7', 0.28, 0.16), w('1.5', 0.33, 0.16), w('16', 0.03, 0.2), w('1.4', 0.28, 0.2)], low, ys); assert.ok(Math.abs(d.top - 0.14) < 1e-9, 'row above taken in: ' + d.top);
+  const e = X.skipHeaderRows(head.concat([w('16', 0.03, 0.2), w('1.4', 0.28, 0.2), w('1.2', 0.33, 0.2)]), low, ys); assert.ok(Math.abs(e.top - 0.187) < 1e-9, 'headings above are not taken in');
 });
 
 test('follows sloping lines on each page of a photographed book', () => {

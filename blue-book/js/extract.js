@@ -169,11 +169,26 @@
   const HEADING = /^(DAY|MODEL|SERIAL|NUMBER|KIND|OF|FLIGHT|CODE\*?|TOTAL|PILOT|TIME|FIRST|CO-?|COMDR\.?|A\/C|SPE-?|CIAL|CREW|ACT|SIM|NIGHT|LANDINGS?|CARRIER|ARR|T&G|BOL|FCL|SEA\/?|LAND|CATAPULT|REMARKS|TYPE|NO\.?|INSTRUMENT|AIRCRAFT|STD|INST\.?|APPR\.?|PLETED|COM-?)$/i;
   function skipHeaderRows(words, tpl, ys) {
     const out = JSON.parse(JSON.stringify(tpl)); ys = (ys || []).slice().sort((a, b) => a - b); const pitch = rowPitch(ys, tpl); if (!pitch) return out;
+    let moved = false;
     for (let pass = 0; pass < 3; pass++) {
       const next = ys.find(y => y > out.top + pitch * 0.5); if (next == null) break;
-      const n = (words || []).filter(w => cy(w) >= out.top && cy(w) < next && HEADING.test(String(w.text).trim())).length;
-      if (n < 3) break;
-      const d = next - out.top; out.top = next; let b = Math.min(0.999, out.bottom + d); const near = ys.find(y => Math.abs(y - b) < pitch * 0.3); out.bottom = near != null ? near : b;
+      // Judge by the left page only, and well inside the row. The right page usually sits a little higher or lower, so its
+      // small printed labels (NO., TYPE, S, ARR, T&G…) can poke into what is the first flight's row on the left page.
+      const g = out.gutter || 0.525, inset = (next - out.top) * 0.15;
+      const here = (words || []).filter(w => cx(w) < g && cy(w) >= out.top + inset && cy(w) < next - inset && /[A-Za-z0-9]/.test(w.text));
+      const n = here.filter(w => HEADING.test(String(w.text).trim())).length;
+      if (n < 3 || n < here.length * 0.6) break; // a row of headings is nearly all heading words; a flight is not
+      const d = next - out.top; out.top = next; let b = Math.min(0.999, out.bottom + d); const near = ys.find(y => Math.abs(y - b) < pitch * 0.3); out.bottom = near != null ? near : b; moved = true;
+    }
+    // The other way round: if the row just above the top holds flight times (1.7, 0.2 …) and no headings, the top was set
+    // one row low and a flight would be lost. Take that row in.
+    for (let pass = 0; pass < 2 && !moved; pass++) {
+      const above = ys.filter(y => y < out.top - pitch * 0.5 && y > out.top - pitch * 1.5).pop(); if (above == null) break;
+      const g = out.gutter || 0.525, inset = (out.top - above) * 0.15;
+      const here = (words || []).filter(w => cx(w) < g && cy(w) >= above + inset && cy(w) < out.top - inset && /[A-Za-z0-9]/.test(w.text));
+      const times = here.filter(w => /^\d{0,2}\s?[.,]\s?\d$/.test(String(w.text).trim())).length, heads = here.filter(w => HEADING.test(String(w.text).trim())).length;
+      if (times < 2 || heads >= 2) break;
+      out.bottom = Math.max(above + pitch, out.bottom - (out.top - above)); out.top = above;
     }
     return out;
   }
