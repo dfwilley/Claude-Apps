@@ -406,6 +406,9 @@
           // A line drawn through the box means "same aircraft as above". Readers turn a drawn line into all sorts of marks
           // (dashes, underscores, tildes, an equals sign), so any reading with no letter or digit in it counts as that line.
           res = raw.trim() && !/[A-Za-z0-9]/.test(raw) ? { value: '', ditto: true } : normalizeType(raw, opts.knownTypes);
+          // Every aircraft type has both a letter and a number in it (T-34C, AV-8B). A reading with only one or the other
+          // is the drawn line misread as a stray "1" or "I", not a type.
+          if (!res.ditto && res.value && !(/[A-Z]/.test(res.value) && /\d/.test(res.value)) && ![...(opts.knownTypes || []), ...KNOWN_TYPES].includes(res.value)) res = { value: '', ditto: true };
         }
         else if (kind === 'buno') res = parseBuno(raw);
         else if (kind === 'code') { res = { value: fixKind(raw) }; if (res.value && !/^\d[A-Z]\d$/.test(res.value)) res.unsure = true; }
@@ -425,7 +428,9 @@
         if (raw && f.conf[k] < LOW && !res.bad) flag(f, k, 'hard to read — please check');
       }
       pilotTimeRule(f);
-      if (!f.type && prev.type && (f.total != null || f.buno)) { f.type = prev.type; f.typeSame = true; flag(f, 'type', 'nothing read here — copied from the line above'); }
+      // Nothing readable in the type box is also the line (a long, light line often isn't picked up at all): same aircraft as above.
+      if (!f.type && prev.type) { f.type = prev.type; f.typeSame = true; f.flags = f.flags.filter(x => x.field !== 'type'); if (carried) flag(f, 'type', 'line in the box: taken from the last flight on the page before'); }
+      else if (!f.type) flag(f, 'type', 'no aircraft type, and none above to copy');
       // Date: from a date column, or day column + page month/year.
       const dateCol = cols.find(c => c.field === 'date'), dayCol = cols.find(c => c.field === 'day');
       if (dateCol) {

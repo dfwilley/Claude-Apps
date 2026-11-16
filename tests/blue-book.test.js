@@ -225,7 +225,7 @@ test('first pilot + co-pilot = total fills a gap and catches a misread', () => {
   assert.strictEqual(b.total, 1.5); assert.ok(b.flags.some(x => x.field === 'total' && /worked out/.test(x.reason)));
   assert.strictEqual(b.type, 'T-34C'); assert.ok(!b.flags.some(x => x.field === 'type'), 'a line through the type box copies the type without a question');
   assert.strictEqual(c.sic, 0.6); assert.ok(c.flags.some(x => x.field === 'sic' && /worked out/.test(x.reason)));
-  assert.strictEqual(c.type, 'T-34C'); assert.ok(c.flags.some(x => x.field === 'type' && /copied from the line above/.test(x.reason)));
+  assert.strictEqual(c.type, 'T-34C'); assert.ok(c.typeSame && !c.flags.some(x => x.field === 'type'), 'an empty type box is taken as the line, without a question');
   assert.ok(d.flags.some(x => x.field === 'total' && /is not the total/.test(x.reason)));
 });
 
@@ -340,6 +340,7 @@ test('a line in the type box means the same aircraft as above, however the reade
   // a page that opens with a line takes the type from the page before, and says so
   const r2 = X.extractPage([w('3', 0.05, 0), w('—', 0.2, 0), w('1.0', 0.35, 0), w('4', 0.05, 1), w('—', 0.2, 1), w('1.0', 0.35, 1)], t, { year: 1983, month: 3 }, { ruledLines: ys, carryType: 'T-34C' }).rows;
   assert.deepStrictEqual(r2.map(f => f.type), ['T-34C', 'T-34C']); assert.ok(r2[0].flags.some(x => /page before/.test(x.reason)));
+  for (const junk of ['1', 'I', 'l', 'TT', '11']) { const rj = X.extractPage([w('1', 0.05, 0), w('T-34C', 0.2, 0), w('1.0', 0.35, 0), w('2', 0.05, 1), w(junk, 0.2, 1), w('1.0', 0.35, 1)], t, { year: 1983, month: 2 }, { ruledLines: ys }).rows; assert.strictEqual(rj[1].type, 'T-34C', 'a stray ' + junk + ' is the line misread'); }
   const r3 = X.extractPage([w('3', 0.05, 0), w('—', 0.2, 0), w('1.0', 0.35, 0)], t, { year: 1983, month: 3 }, { ruledLines: ys }).rows;
   assert.strictEqual(r3[0].type, ''); assert.ok(r3[0].flags.some(x => x.field === 'type'), 'nothing to copy from: asks');
 });
