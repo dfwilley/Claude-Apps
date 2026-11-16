@@ -326,4 +326,22 @@ test('reads the month and year written at the top of the page', () => {
   assert.deepStrictEqual(X.headerDate([w('AIRCRAFT', 0.1), w('PILOT', 0.1), w('TIME', 0.1), w('MODEL', 0.12)], 0.14), { month: null, year: null }, 'printed headings are not months');
 });
 
+test('a line in the type box means the same aircraft as above, however the reader spells the line', () => {
+  const t = { top: 0.1, bottom: 0.9, columns: [{ field: 'day', x0: 0, x1: 0.1 }, { field: 'type', x0: 0.1, x1: 0.3 }, { field: 'total', x0: 0.3, x1: 0.4 }] };
+  const w = (text, x, row) => ({ text, conf: 95, x0: x - 0.02, x1: x + 0.02, y0: 0.12 + row * 0.05, y1: 0.15 + row * 0.05 });
+  const marks = ['—', '-', '___', '~', '=', '一', '. .', '–—'];
+  const words = [w('1', 0.05, 0), w('T-34C', 0.2, 0), w('1.0', 0.35, 0)]; marks.forEach((m, i) => words.push(w(String(2 + i), 0.05, 1 + i), w(m, 0.2, 1 + i), w('1.0', 0.35, 1 + i)));
+  words.push(w('20', 0.05, 9), w('T-2C', 0.2, 9), w('1.0', 0.35, 9), w('21', 0.05, 10), w('—', 0.2, 10), w('1.0', 0.35, 10));
+  const ys = []; for (let k = 0; k <= 12; k++) ys.push(0.11 + k * 0.05);
+  const rows = X.extractPage(words, t, { year: 1983, month: 2 }, { ruledLines: ys, knownTypes: ['T-34C', 'T-2C'] }).rows;
+  assert.strictEqual(rows.length, 11);
+  rows.slice(1, 9).forEach((f, i) => { assert.strictEqual(f.type, 'T-34C', 'mark ' + marks[i]); assert.ok(f.typeSame && !f.flags.some(x => x.field === 'type'), 'no question for ' + marks[i]); });
+  assert.ok(!rows[0].typeSame); assert.strictEqual(rows[9].type, 'T-2C'); assert.strictEqual(rows[10].type, 'T-2C', 'follows the nearest type written above');
+  // a page that opens with a line takes the type from the page before, and says so
+  const r2 = X.extractPage([w('3', 0.05, 0), w('—', 0.2, 0), w('1.0', 0.35, 0), w('4', 0.05, 1), w('—', 0.2, 1), w('1.0', 0.35, 1)], t, { year: 1983, month: 3 }, { ruledLines: ys, carryType: 'T-34C' }).rows;
+  assert.deepStrictEqual(r2.map(f => f.type), ['T-34C', 'T-34C']); assert.ok(r2[0].flags.some(x => /page before/.test(x.reason)));
+  const r3 = X.extractPage([w('3', 0.05, 0), w('—', 0.2, 0), w('1.0', 0.35, 0)], t, { year: 1983, month: 3 }, { ruledLines: ys }).rows;
+  assert.strictEqual(r3[0].type, ''); assert.ok(r3[0].flags.some(x => x.field === 'type'), 'nothing to copy from: asks');
+});
+
 console.log(`${passed} tests passed`);

@@ -88,9 +88,12 @@
   function markLines(prepared, words, template, bands) {
     const X = root.BBExtract; const out = words.slice();
     for (const b of bands) for (const c of template.columns) {
-      if (c.field !== 'type' || X.cellAt(out, b, c).length) continue;
+      if (c.field !== 'type') continue;
       const k = inkIn(prepared, b, c, true);
-      if (k.frac > 0.004 && k.wide >= 0.45 && k.tall <= 0.45) out.push({ text: '—', conf: 90, x0: c.x0 + 0.001, x1: c.x1 - 0.001, y0: b.y0 + 0.001, y1: b.y1 - 0.001, line: true });
+      if (!(k.frac > 0.004 && k.wide >= 0.45 && k.tall <= 0.45)) continue;
+      // The mark in this box is long and flat: a drawn line, whatever a reader made of it. Record it as the line.
+      const here = X.cellAt(out, b, c); for (const w of here) out.splice(out.indexOf(w), 1);
+      out.push({ text: '—', conf: 90, x0: c.x0 + 0.001, x1: c.x1 - 0.001, y0: b.y0 + 0.001, y1: b.y1 - 0.001, line: true });
     }
     return out;
   }

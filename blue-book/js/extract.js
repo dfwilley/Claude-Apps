@@ -371,7 +371,8 @@
       const key = cols[c].field; if (key === 'skip') continue;
       (cells[r][key] = cells[r][key] || []).push(w);
     }
-    const prev = {};
+    const prev = {}; let carried = false;
+    if (opts.carryType) { prev.type = opts.carryType; carried = true; } // a page can open with a line: same aircraft as the last flight on the page before
     let lastDay = 0;
     bands.forEach((band, r) => {
       const cell = cells[r];
@@ -401,7 +402,11 @@
           res = { value: digitsFix(raw.trim()).split(/\s+/).reduce((s, v) => s + +v, 0) }; res.note = `added the numbers in this box (${raw.trim()}) to get ${res.value}`; }
         else if (kind === 'count') res = parseCount(raw);
         else if (k === 'apprType') res = { value: raw.trim().toUpperCase().replace(/(^|\s)[LI|](?=\s*N?P(\s|$))/g, '$11').replace(/\s+/g, ' ') };
-        else if (kind === 'type') res = normalizeType(raw, opts.knownTypes);
+        else if (kind === 'type') {
+          // A line drawn through the box means "same aircraft as above". Readers turn a drawn line into all sorts of marks
+          // (dashes, underscores, tildes, an equals sign), so any reading with no letter or digit in it counts as that line.
+          res = raw.trim() && !/[A-Za-z0-9]/.test(raw) ? { value: '', ditto: true } : normalizeType(raw, opts.knownTypes);
+        }
         else if (kind === 'buno') res = parseBuno(raw);
         else if (kind === 'code') { res = { value: fixKind(raw) }; if (res.value && !/^\d[A-Z]\d$/.test(res.value)) res.unsure = true; }
         else res = { value: raw.trim() };
@@ -411,6 +416,7 @@
           const had = prev[k] != null; res.value = had ? prev[k] : res.value;
           if (!had) flag(f, k, 'marked “same as the line above”, but there is no line above on this page');
           else if (k !== 'type') flag(f, k, 'ditto mark — copied from the line above'); // a line through the type box is the normal way to write it
+          if (k === 'type' && had) { f.typeSame = true; if (carried) flag(f, 'type', 'line in the box: taken from the last flight on the page before'); }
         }
         f[k] = res.value;
         if (res.bad) flag(f, k, `couldn't read "${raw}"`);
@@ -419,7 +425,7 @@
         if (raw && f.conf[k] < LOW && !res.bad) flag(f, k, 'hard to read — please check');
       }
       pilotTimeRule(f);
-      if (!f.type && prev.type && (f.total != null || f.buno)) { f.type = prev.type; flag(f, 'type', 'nothing read here — copied from the line above'); }
+      if (!f.type && prev.type && (f.total != null || f.buno)) { f.type = prev.type; f.typeSame = true; flag(f, 'type', 'nothing read here — copied from the line above'); }
       // Date: from a date column, or day column + page month/year.
       const dateCol = cols.find(c => c.field === 'date'), dayCol = cols.find(c => c.field === 'day');
       if (dateCol) {
@@ -448,6 +454,7 @@
       const written = ['day', 'date', 'type', 'buno', 'kind', 'total', 'pic', 'sic'].filter(k => cell[k] && (/[A-Za-z0-9]/.test(textOf(k)) || ((k === 'type' || k === 'buno') && DITTO.test(textOf(k).trim())))).length;
       if (written < 2) return;
       for (const k of ['type', 'buno', 'kind']) if (f[k]) prev[k] = f[k];
+      if (f.type && !f.typeSame) carried = false; // this page has named its own aircraft now
       rows.push(f);
     });
     // Cross-check against a stamped totals line, if there is one.

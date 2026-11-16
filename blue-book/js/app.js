@@ -249,8 +249,15 @@
     }
   }
 
+  // The aircraft type of the last flight before this page, for a page that opens with a line in the type box.
+  function carryType(page) {
+    if (!page.year || !page.month) return '';
+    const first = X.isoDate(page.year, page.month, 1); let best = null;
+    for (const f of db.flights) if (f.type && f.date && f.date < first && f.pageId !== page.id && (!best || f.date > best.date || (f.date === best.date && (f.row || 0) > (best.row || 0)))) best = f;
+    return best ? best.type : '';
+  }
   function extractInto(page) {
-    const res = X.extractPage(page.words || [], page.tpl || db.settings.template, page, { ruledLines: page.ruledLines, rowPitch: page.rowPitch, knownTypes: knownTypes() });
+    const res = X.extractPage(page.words || [], page.tpl || db.settings.template, page, { ruledLines: page.ruledLines, rowPitch: page.rowPitch, knownTypes: knownTypes(), carryType: carryType(page) });
     page.rows = res.rows.map((r, i) => Object.assign(r, { id: uid('f'), row: i })); page.notes = res.notes;
     if (page.autoDate && !page.dateRead) page.notes.push(`Couldn't read the month and year at the top of this page, so ${page.month && page.year ? MONTHS[page.month - 1] + ' ' + page.year + ' was assumed' : 'none is set'}. Tap “Edit month, squadron, ship” to check.`);
     save();
@@ -362,7 +369,8 @@
     const rows = rowsOf(page); const flights = rows.filter(r => r.rowType !== 'totals'); const flagged = flights.filter(r => r.flags && r.flags.length).length;
     const shown = new Set(db.settings.template.columns.map(c => c.field === 'day' ? 'date' : c.field));
     ['date', 'total'].forEach(k => shown.add(k));
-    const fields = EDIT_FIELDS.filter(k => shown.has(k) || flights.some(r => r[k] != null && r[k] !== ''));
+    // Squadron is set once for the whole page ("Edit month, squadron, ship"), so it isn't repeated on every line.
+    const fields = EDIT_FIELDS.filter(k => k !== 'squadron' && (shown.has(k) || flights.some(r => r[k] != null && r[k] !== '')));
     main.innerHTML = `
       <div class="crumbs"><button class="link" id="rv-back">‹ All pages</button></div>
       <section class="card">
@@ -426,7 +434,11 @@
       else if (k === 'type') v = X.normalizeType(v, knownTypes()).value;
       if (k === 'date') { r.day = v ? +v.slice(8, 10) : null; X.recheck(r, 'day'); }
       r[k] = v === '' ? (kind === 'hours' || kind === 'count' ? null : '') : v;
-      X.recheck(r, k); save();
+      const also = [];
+      if (k === 'type') { // lines below that have a line in the type box take their type from this one
+        r.typeSame = false; const all = rowsOf(page); for (let i = all.indexOf(r) + 1; i < all.length; i++) { const n = all[i]; if (n.rowType === 'totals') continue; if (!n.typeSame) break; n.type = r.type; X.recheck(n, 'type'); also.push(n); }
+      }
+      X.recheck(r, k); save(); also.forEach(n => refreshLine(n, fields));
       setTimeout(() => refreshLine(r, fields), 0); // after the Tab key has moved on, so the next box keeps the cursor
     };
     $('#rv-rows').addEventListener('click', e => {
