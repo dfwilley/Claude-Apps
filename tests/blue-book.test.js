@@ -153,30 +153,35 @@ test('a flight whose remarks contain "resumed" or "FWD" is still a flight', () =
 
 test('MyFlightbook import file', () => {
   const db = { pages: [{ status: 'review' }], flights: [
-    { date: '1988-03-06', type: 'AV-8B', buno: '163853', kind: '1A1', squadron: 'VMA-231', ship: 'USS Nassau (LHA-4)', total: 1.5, pic: 1.5, acCmdr: 1.5, specialCrew: 0.2, night: 0.7, instActual: 0.3, approaches: 2,
-      dayLand: 1, nightLand: 1, dayShip: 2, nightShip: 1, dayTraps: 1, nightTraps: 1, cats: 2, remarks: 'CQ, "bolter"', flags: [{ field: 'night', reason: 'x' }] },
-    { date: '1988-03-05', type: 'AV-8B', buno: '', total: 1.0, dayLand: 1 },
+    { date: '1988-03-06', type: 'TA-4J', buno: '158512', kind: '1A1', squadron: 'VT-7', ship: 'USS Lexington (AVT-16)', total: 1.5, pic: 1.5, acCmdr: 1.5, specialCrew: 0.2, night: 0.7, instActual: 0.3,
+      traps: 2, carrierTG: 2, fclp: 6, landings: 1, cats: 2, approaches: 2, apprType: 'P', simApproaches: 1, remarks: 'CQ, "OK 3"', flags: [{ field: 'night', reason: 'x' }] },
+    { date: '1988-03-05', type: 'AV-8B', buno: '', total: 1.0, landings: 1, approaches: 1, apprType: 'np' },
+    { date: '1988-03-04', type: 'AV-8B', buno: '163853', total: 1.0, dayShip: 2, nightShip: 1, dayTraps: 1, nightTraps: 1, nightLand: 1, approaches: 1, apprType: 'GCA' },
     { date: null, type: 'AV-8B', buno: '163853', total: 1.0 }, { date: '1988-03-07', type: 'AV-8B', buno: '163853', total: null } ] };
   const m = E.myFlightbook(db); const rows = m.csv.trim().split('\r\n');
-  assert.strictEqual(rows[0], 'Date,Tail Number,Model,Total Flight Time,PIC,SIC,Aircraft Commander Time,Military Special Crew Time,Night,IMC,Simulated Instrument,Approaches,Landings,Landings - Night (unspecified),Landings - Carrier,Landings - Arrestments (Carrier),"Landings - Arrestments (Carrier), Night",Takeoffs - Catapult,Military: Kind Of Flight Code (Navy/Marine Corps),Comments');
-  assert.strictEqual(rows.length, 3, 'two flights have a date and a time');
-  assert.strictEqual(rows[1], '3/5/1988,,AV-8B,1,,,,,,,,,1,,,,,,,');
-  assert.strictEqual(rows[2], '3/6/1988,163853,AV-8B,1.5,1.5,,1.5,0.2,0.7,0.3,,2,7,3,5,2,1,2,1A1,"CQ, ""bolter"" | VMA-231 | USS Nassau (LHA-4)"');
-  assert.deepStrictEqual([m.included, m.leftOut, m.noTail, m.flagged, m.pagesInReview], [2, 2, 1, 1, 1]);
-  assert.deepStrictEqual(m.aircraft, [{ tail: '163853', model: 'AV-8B' }]);
+  assert.strictEqual(rows[0], 'Date,Tail Number,Model,Total Flight Time,PIC,SIC,Aircraft Commander Time,Military Special Crew Time,Night,IMC,Simulated Instrument,Approaches,Approaches - Precision (unspecified type),Approaches - Non-precision (unspecified type),' +
+    'Landings,Landings - Night (unspecified),Landings - Touch and Go,Landings - Field Carrier Practice (FCLP),Landings - Touch and go (Carrier),Landings - Carrier,Landings - Arrestments (Carrier),"Landings - Arrestments (Carrier), Night",Takeoffs - Catapult,Military: Kind Of Flight Code (Navy/Marine Corps),Comments');
+  assert.strictEqual(rows.length, 4, 'three flights have a date and a time');
+  assert.strictEqual(rows[1], '3/4/1988,163853,AV-8B,1,,,,,,,,1,,,6,3,,,,5,2,1,,,Approach type GCA', 'older day/night columns still work');
+  assert.strictEqual(rows[2], '3/5/1988,,AV-8B,1,,,,,,,,1,,1,1,,,,,,,,,,');
+  assert.strictEqual(rows[3], '3/6/1988,158512,TA-4J,1.5,1.5,,1.5,0.2,0.7,0.3,,3,2,,11,,8,6,2,4,2,,2,1A1,"CQ, ""OK 3"" | VT-7 | USS Lexington (AVT-16)"');
+  assert.deepStrictEqual([m.included, m.leftOut, m.noTail, m.flagged, m.pagesInReview], [3, 2, 1, 1, 1]);
+  const t = C.totals(db.flights).all; assert.deepStrictEqual([t.traps, t.fclp, t.carrierTG, t.landings, t.simApproaches], [4, 6, 2, 3, 1]);
 });
 
 test('starting columns follow the Navy logbook order; crew times are read and checked', () => {
   const t = X.defaultTemplate();
-  assert.deepStrictEqual(t.columns.slice(0, 11).map(c => c.field), ['day', 'type', 'buno', 'kind', 'total', 'pic', 'sic', 'acCmdr', 'specialCrew', 'instActual', 'instSim']);
+  assert.deepStrictEqual(t.columns.map(c => c.field), ['day', 'type', 'buno', 'kind', 'total', 'pic', 'sic', 'acCmdr', 'specialCrew', 'instActual', 'instSim', 'night',
+    'traps', 'carrierTG', 'skip', 'fclp', 'landings', 'cats', 'approaches', 'apprType', 'simApproaches', 'remarks'], 'the 22 logbook columns; bolters are skipped');
   t.columns.forEach((c, i) => { assert.ok(c.x1 > c.x0 + 0.02, c.field); if (i) assert.ok(Math.abs(c.x0 - t.columns[i - 1].x1) < 1e-3, c.field); });
   assert.ok(t.columns[t.columns.length - 1].x1 <= 0.98);
   const mid = k => { const c = t.columns.find(c => c.field === k); return (c.x0 + c.x1) / 2; };
   const w = (text, k) => ({ text, conf: 95, x0: mid(k) - 0.01, x1: mid(k) + 0.01, y0: 0.3, y1: 0.32 });
-  const r = X.extractPage([w('5', 'day'), w('AV-8B', 'type'), w('163853', 'buno'), w('1A1', 'kind'), w('1.5', 'total'), w('1.5', 'pic'), w('2.0', 'acCmdr'), w('0.3', 'instSim')], t, { year: 1988, month: 3 }, {});
+  const r = X.extractPage([w('5', 'day'), w('AV-8B', 'type'), w('163853', 'buno'), w('1A1', 'kind'), w('1.5', 'total'), w('1.5', 'pic'), w('2.0', 'acCmdr'), w('0.3', 'instSim'), w('2', 'traps'), w('4', 'fclp'), w('1', 'cats'), w('P', 'apprType')], t, { year: 1988, month: 3 }, {});
   const f = r.rows[0]; assert.deepStrictEqual([f.total, f.pic, f.acCmdr, f.instSim, f.kind], [1.5, 1.5, 2, 0.3, '1A1']);
   assert.ok(f.flags.some(x => x.field === 'acCmdr' && /more than the flight time/.test(x.reason)));
   assert.strictEqual(C.totals([f]).all.pic, 1.5);
+  assert.deepStrictEqual([f.traps, f.fclp, f.cats, f.apprType], [2, 4, 1, 'P']);
 });
 
 console.log(`${passed} tests passed`);

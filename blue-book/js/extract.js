@@ -20,6 +20,12 @@
     { key: 'instActual', label: 'Instrument (actual)', kind: 'hours' },
     { key: 'instSim',    label: 'Instrument (sim)',  kind: 'hours' },
     { key: 'approaches', label: 'Approaches',        kind: 'count' },
+    { key: 'apprType',   label: 'Approach type',     kind: 'text' },
+    { key: 'simApproaches', label: 'Simulated approaches', kind: 'count' },
+    { key: 'traps',      label: 'Carrier arrest',    kind: 'count' },
+    { key: 'carrierTG',  label: 'Carrier touch and go', kind: 'count' },
+    { key: 'fclp',       label: 'FCLP',              kind: 'count' },
+    { key: 'landings',   label: 'Landing',           kind: 'count' },
     { key: 'dayLand',    label: 'Landings day',      kind: 'count' },
     { key: 'nightLand',  label: 'Landings night',    kind: 'count' },
     { key: 'dayShip',    label: 'Ship landings day', kind: 'count' },
@@ -35,10 +41,12 @@
   const NUM_FIELDS = FIELDS.filter(f => f.kind === 'hours' || f.kind === 'count').map(f => f.key);
 
   // A starting guess for a Navy logbook spread; you drag the dividers to match your book once.
+  // The order of a Navy aviator's logbook spread. The Carrier Bolter column is there but skipped.
   const DEFAULT_COLUMNS = [
-    ['day', 0.035], ['type', 0.09], ['buno', 0.08], ['kind', 0.05], ['total', 0.055], ['pic', 0.045], ['sic', 0.045],
-    ['acCmdr', 0.045], ['specialCrew', 0.045], ['instActual', 0.045], ['instSim', 0.045], ['night', 0.045], ['approaches', 0.035],
-    ['dayLand', 0.035], ['nightLand', 0.035], ['dayShip', 0.035], ['nightShip', 0.035], ['dayTraps', 0.035], ['nightTraps', 0.035], ['cats', 0.035], ['remarks', 0.0],
+    ['day', 0.035], ['type', 0.08], ['buno', 0.07], ['kind', 0.045], ['total', 0.045], ['pic', 0.04], ['sic', 0.04],
+    ['acCmdr', 0.04], ['specialCrew', 0.04], ['instActual', 0.04], ['instSim', 0.04], ['night', 0.04],
+    ['traps', 0.035], ['carrierTG', 0.035], ['skip', 0.035], ['fclp', 0.035], ['landings', 0.035], ['cats', 0.035],
+    ['approaches', 0.035], ['apprType', 0.04], ['simApproaches', 0.035], ['remarks', 0.0],
   ];
   function defaultTemplate() {
     let x = 0.02; const cols = [];
@@ -283,7 +291,7 @@
     return { rows, notes, bands };
   }
 
-  function hasShipWork(f) { return (f.dayShip || 0) + (f.nightShip || 0) + (f.dayTraps || 0) + (f.nightTraps || 0) + (f.cats || 0) > 0; }
+  function hasShipWork(f) { return (f.traps || 0) + (f.carrierTG || 0) + (f.dayShip || 0) + (f.nightShip || 0) + (f.dayTraps || 0) + (f.nightTraps || 0) + (f.cats || 0) > 0; }
   function round1(v) { return Math.round(v * 10) / 10; }
 
   function flag(f, field, reason) { if (!f.flags.some(x => x.field === field && x.reason === reason)) f.flags.push({ field, reason }); }
@@ -295,7 +303,7 @@
     if (f.total != null && (f.total <= 0 || f.total > 12)) add('total', 'flight time outside 0.1–12.0');
     if (f.night != null && f.total != null && f.night > f.total + 0.001) add('night', 'more night time than flight time');
     for (const k of ['pic', 'sic', 'acCmdr', 'specialCrew', 'instActual', 'instSim']) if (f[k] != null && f.total != null && f[k] > f.total + 0.001) add(k, 'more than the flight time');
-    for (const k of ['dayLand', 'nightLand', 'dayShip', 'nightShip', 'dayTraps', 'nightTraps', 'cats', 'approaches']) if (f[k] != null && f[k] > 15) add(k, 'unusually high');
+    for (const k of ['traps', 'carrierTG', 'fclp', 'landings', 'simApproaches', 'dayLand', 'nightLand', 'dayShip', 'nightShip', 'dayTraps', 'nightTraps', 'cats', 'approaches']) if (f[k] != null && f[k] > 15) add(k, 'unusually high');
     if ((f.nightTraps || f.nightShip) && !f.night) add('night', 'night landings aboard ship but no night time');
     if (hasShipWork(f) && !f.ship) add('ship', 'ship landings but no ship name');
     if (f.total == null) add('total', 'no flight time');

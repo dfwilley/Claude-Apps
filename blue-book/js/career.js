@@ -5,17 +5,17 @@
   const n = v => (typeof v === 'number' && isFinite(v) ? v : 0);
 
   function blank() {
-    return { flights: 0, hours: 0, pic: 0, sic: 0, acCmdr: 0, specialCrew: 0, night: 0, day: 0, instActual: 0, instSim: 0, approaches: 0, landings: 0, nightLandings: 0,
+    return { flights: 0, hours: 0, pic: 0, sic: 0, acCmdr: 0, specialCrew: 0, night: 0, day: 0, instActual: 0, instSim: 0, approaches: 0, simApproaches: 0, fclp: 0, carrierTG: 0, landings: 0, nightLandings: 0,
       shipLandings: 0, nightShipLandings: 0, traps: 0, nightTraps: 0, cats: 0, first: null, last: null };
   }
   function add(t, f) {
     t.flights++;
     t.hours += n(f.total); t.night += n(f.night); t.day += Math.max(0, n(f.total) - n(f.night));
     t.pic += n(f.pic); t.sic += n(f.sic); t.acCmdr += n(f.acCmdr); t.specialCrew += n(f.specialCrew);
-    t.instActual += n(f.instActual); t.instSim += n(f.instSim); t.approaches += n(f.approaches);
-    t.landings += n(f.dayLand) + n(f.nightLand); t.nightLandings += n(f.nightLand);
-    t.shipLandings += n(f.dayShip) + n(f.nightShip); t.nightShipLandings += n(f.nightShip);
-    t.traps += n(f.dayTraps) + n(f.nightTraps); t.nightTraps += n(f.nightTraps); t.cats += n(f.cats);
+    t.instActual += n(f.instActual); t.instSim += n(f.instSim); t.approaches += n(f.approaches); t.simApproaches += n(f.simApproaches); t.fclp += n(f.fclp); t.carrierTG += n(f.carrierTG);
+    t.landings += n(f.dayLand) + n(f.nightLand) + n(f.landings); t.nightLandings += n(f.nightLand);
+    t.shipLandings += n(f.dayShip) + n(f.nightShip) + n(f.carrierTG); t.nightShipLandings += n(f.nightShip);
+    t.traps += n(f.dayTraps) + n(f.nightTraps) + n(f.traps); t.nightTraps += n(f.nightTraps); t.cats += n(f.cats);
     if (f.date) { if (!t.first || f.date < t.first) t.first = f.date; if (!t.last || f.date > t.last) t.last = f.date; }
   }
   function tidy(t) { for (const k of ['hours', 'pic', 'sic', 'acCmdr', 'specialCrew', 'night', 'day', 'instActual', 'instSim']) t[k] = r1(t[k]); return t; }
@@ -38,7 +38,7 @@
     return { all, ...lists };
   }
 
-  const atSea = f => n(f.dayShip) + n(f.nightShip) + n(f.dayTraps) + n(f.nightTraps) + n(f.cats) > 0;
+  const atSea = f => n(f.traps) + n(f.carrierTG) + n(f.dayShip) + n(f.nightShip) + n(f.dayTraps) + n(f.nightTraps) + n(f.cats) > 0;
   const days = (a, b) => (Date.parse(b) - Date.parse(a)) / 86400000;
 
   // Suggest deployments from runs of ship landings with the same ship.
@@ -57,7 +57,7 @@
         const sqs = mode(run.map(f => f.squadron).filter(Boolean));
         const kind = span >= 45 || run.length >= 25 ? 'Deployment' : span >= 5 || run.length >= 6 ? 'Det / ship quals' : null;
         if (kind) out.push({ key: `${ship}|${start}`, ship, squadron: sqs || '', start, end, days: span, flights: run.length,
-          traps: run.reduce((s, f) => s + n(f.dayTraps) + n(f.nightTraps), 0), shipLandings: run.reduce((s, f) => s + n(f.dayShip) + n(f.nightShip), 0),
+          traps: run.reduce((s, f) => s + n(f.dayTraps) + n(f.nightTraps) + n(f.traps), 0), shipLandings: run.reduce((s, f) => s + n(f.dayShip) + n(f.nightShip) + n(f.carrierTG), 0),
           kind, name: `${kind === 'Deployment' ? 'Deployment' : 'Det'} — ${ship} (${monthYear(start)})` });
       };
       for (let i = 1; i < list.length; i++) {
@@ -96,7 +96,7 @@
       if (i === 0) out.push({ date: f.date, kind: 'first', text: `First flight logged${f.type ? ' — ' + f.type : ''}`, flightId: f.id });
       if (f.type && !seenType.has(f.type)) { seenType.add(f.type); if (i) out.push({ date: f.date, kind: 'type', text: `First flight in the ${f.type}`, flightId: f.id }); }
       if (f.squadron && !seenSq.has(f.squadron)) { seenSq.add(f.squadron); out.push({ date: f.date, kind: 'squadron', text: `First flight with ${f.squadron}`, flightId: f.id }); }
-      hours += n(f.total); traps += n(f.dayTraps) + n(f.nightTraps); sl += n(f.dayShip) + n(f.nightShip);
+      hours += n(f.total); traps += n(f.dayTraps) + n(f.nightTraps) + n(f.traps); sl += n(f.dayShip) + n(f.nightShip) + n(f.carrierTG);
       while (hours >= nextH) { out.push({ date: f.date, kind: 'hours', text: `${nextH.toLocaleString('en-US')} hours`, flightId: f.id }); nextH = nextH < 1000 ? nextH + (nextH < 500 ? 100 : 500) : nextH + 500; }
       while (traps >= nextT) { out.push({ date: f.date, kind: 'traps', text: `${nextT} traps`, flightId: f.id }); nextT += 100; }
       while (sl >= nextS) { out.push({ date: f.date, kind: 'ship', text: `${nextS} ship landings`, flightId: f.id }); nextS += 100; }

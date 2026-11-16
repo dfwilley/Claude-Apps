@@ -285,7 +285,7 @@
   }
 
   // ---------- Review ----------
-  const EDIT_FIELDS = ['date', 'type', 'buno', 'kind', 'squadron', 'total', 'pic', 'sic', 'acCmdr', 'specialCrew', 'night', 'instActual', 'instSim', 'approaches', 'dayLand', 'nightLand', 'dayShip', 'nightShip', 'dayTraps', 'nightTraps', 'cats', 'ship', 'remarks'];
+  const EDIT_FIELDS = ['date', 'type', 'buno', 'kind', 'squadron', 'total', 'pic', 'sic', 'acCmdr', 'specialCrew', 'night', 'instActual', 'instSim', 'traps', 'carrierTG', 'fclp', 'landings', 'cats', 'approaches', 'apprType', 'simApproaches', 'dayLand', 'nightLand', 'dayShip', 'nightShip', 'dayTraps', 'nightTraps', 'ship', 'remarks'];
   const LABEL = Object.assign({}, Object.fromEntries(X.FIELDS.map(f => [f.key, f.label])), { date: 'Date' });
 
   function rowsOf(page) { return page.status === 'saved' ? db.flights.filter(f => f.pageId === page.id).sort((a, b) => (a.row || 0) - (b.row || 0)) : (page.rows || []); }
@@ -460,7 +460,7 @@
       <tr><th scope="row">Day</th><td>${f1(a.day)}</td><td>${f0(a.landings - a.nightLandings)}</td><td>${f0(a.shipLandings - a.nightShipLandings)}</td><td>${f0(a.traps - a.nightTraps)}</td></tr>
       <tr><th scope="row">Night</th><td>${f1(a.night)}</td><td>${f0(a.nightLandings)}</td><td>${f0(a.nightShipLandings)}</td><td>${f0(a.nightTraps)}</td></tr>
       <tr class="sum"><th scope="row">Total</th><td>${f1(a.hours)}</td><td>${f0(a.landings)}</td><td>${f0(a.shipLandings)}</td><td>${f0(a.traps)}</td></tr></tbody></table>
-      <p class="small">Day hours are flight time minus night time. Instrument: ${f1(a.instActual)} actual, ${f1(a.instSim)} simulated. Approaches: ${f0(a.approaches)}.${a.pic || a.sic || a.acCmdr || a.specialCrew ? ` PIC ${f1(a.pic)}, SIC ${f1(a.sic)}, aircraft commander ${f1(a.acCmdr)}, special crew ${f1(a.specialCrew)}.` : ''}</p>`;
+      <p class="small">Day hours are flight time minus night time. Instrument: ${f1(a.instActual)} actual, ${f1(a.instSim)} simulated. Approaches: ${f0(a.approaches)}${a.simApproaches ? ` plus ${f0(a.simApproaches)} simulated` : ''}.${a.fclp || a.carrierTG ? ` FCLP: ${f0(a.fclp)}. Carrier touch and go: ${f0(a.carrierTG)}.` : ''}${a.pic || a.sic || a.acCmdr || a.specialCrew ? ` PIC ${f1(a.pic)}, SIC ${f1(a.sic)}, aircraft commander ${f1(a.acCmdr)}, special crew ${f1(a.specialCrew)}.` : ''}</p>`;
   }
 
   // ================= TIMELINE =================
@@ -532,7 +532,7 @@
       </section>
       <p class="section-note" aria-live="polite">${res.length.toLocaleString('en-US')} flight${res.length === 1 ? '' : 's'} · ${f1(t.hours)} hrs · ${f1(t.night)} night${t.traps ? ` · ${f0(t.traps)} traps` : ''}${t.shipLandings ? ` · ${f0(t.shipLandings)} ship landings` : ''}</p>
       <ul class="results">${res.slice(0, 400).map(f => `<li><button data-flight="${f.id}"><span class="r1"><strong>${esc(f.date ? C.longDate(f.date) : 'No date')}</strong> ${esc(f.type || '')} ${f.buno ? '· ' + esc(f.buno) : ''}${f.flags && f.flags.length ? ' <span class="tag-flag">check</span>' : ''}</span>
-        <span class="r2">${f.total != null ? f1(f.total) + ' hrs' : ''}${f.night ? ' · ' + f1(f.night) + ' night' : ''}${(f.dayTraps || 0) + (f.nightTraps || 0) ? ' · ' + ((f.dayTraps || 0) + (f.nightTraps || 0)) + ' trap' : ''}${(f.dayShip || 0) + (f.nightShip || 0) ? ' · ' + ((f.dayShip || 0) + (f.nightShip || 0)) + ' ship ldg' : ''}${f.ship ? ' · ' + esc(f.ship) : ''}${f.squadron ? ' · ' + esc(f.squadron) : ''}</span>
+        <span class="r2">${f.total != null ? f1(f.total) + ' hrs' : ''}${f.night ? ' · ' + f1(f.night) + ' night' : ''}${(f.traps || 0) + (f.dayTraps || 0) + (f.nightTraps || 0) ? ' · ' + ((f.traps || 0) + (f.dayTraps || 0) + (f.nightTraps || 0)) + ' trap' : ''}${(f.dayShip || 0) + (f.nightShip || 0) ? ' · ' + ((f.dayShip || 0) + (f.nightShip || 0)) + ' ship ldg' : ''}${f.ship ? ' · ' + esc(f.ship) : ''}${f.squadron ? ' · ' + esc(f.squadron) : ''}</span>
         ${f.remarks ? `<span class="r3">${esc(f.remarks)}</span>` : ''}</button></li>`).join('')}</ul>
       ${res.length > 400 ? '<p class="small center">Showing the first 400. Narrow the search to see more.</p>' : ''}`;
     const q = $('#q'); let tmr;

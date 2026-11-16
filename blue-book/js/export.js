@@ -11,7 +11,8 @@
     ['Date', 'date', 14, 'date'], ['Type/model', 'type', 11], ['BuNo', 'buno', 9], ['Squadron', 'squadron', 12], ['Kind of flight', 'kind', 9],
     ['Flight time', 'total', 8, 'hours'], ['PIC', 'pic', 7, 'hours'], ['SIC', 'sic', 7, 'hours'], ['Acft Cmdr', 'acCmdr', 8, 'hours'], ['Special crew', 'specialCrew', 8, 'hours'],
     ['Night', 'night', 7, 'hours'], ['Day', '_day', 7, 'hours'], ['Instr. actual', 'instActual', 8, 'hours'], ['Instr. sim', 'instSim', 8, 'hours'],
-    ['Approaches', 'approaches', 8, 'num'], ['Landings day', 'dayLand', 8, 'num'], ['Landings night', 'nightLand', 8, 'num'],
+    ['Carrier arrest', 'traps', 8, 'num'], ['Carrier touch and go', 'carrierTG', 8, 'num'], ['FCLP', 'fclp', 7, 'num'], ['Landing', 'landings', 8, 'num'],
+    ['Approaches', 'approaches', 8, 'num'], ['Approach type', 'apprType', 10], ['Simulated approaches', 'simApproaches', 9, 'num'], ['Landings day', 'dayLand', 8, 'num'], ['Landings night', 'nightLand', 8, 'num'],
     ['Ship landings day', 'dayShip', 9, 'num'], ['Ship landings night', 'nightShip', 9, 'num'], ['Traps day', 'dayTraps', 7, 'num'], ['Traps night', 'nightTraps', 7, 'num'],
     ['Cat shots', 'cats', 7, 'num'], ['Ship', 'ship', 18], ['Remarks', 'remarks', 34], ['Logbook page', '_page', 16], ['Page photo', '_photo', 26, 'link'], ['Needs a look', '_flags', 30],
   ];
@@ -24,7 +25,7 @@
   }
 
   const TOTAL_COLS = [['Flights', 'flights', 'num'], ['Hours', 'hours', 'hours'], ['PIC', 'pic', 'hours'], ['SIC', 'sic', 'hours'], ['Acft Cmdr', 'acCmdr', 'hours'], ['Special crew', 'specialCrew', 'hours'], ['Day', 'day', 'hours'], ['Night', 'night', 'hours'], ['Instr. actual', 'instActual', 'hours'], ['Instr. sim', 'instSim', 'hours'],
-    ['Landings', 'landings', 'num'], ['Ship landings', 'shipLandings', 'num'], ['Night ship landings', 'nightShipLandings', 'num'], ['Traps', 'traps', 'num'], ['Night traps', 'nightTraps', 'num'], ['Cat shots', 'cats', 'num'],
+    ['Landings', 'landings', 'num'], ['FCLP', 'fclp', 'num'], ['Ship landings', 'shipLandings', 'num'], ['Night ship landings', 'nightShipLandings', 'num'], ['Traps', 'traps', 'num'], ['Night traps', 'nightTraps', 'num'], ['Cat shots', 'cats', 'num'],
     ['First flight', 'first', 'date'], ['Last flight', 'last', 'date']];
   function totalsSheet(name, firstHeader, list, all) {
     return { name, columns: [{ header: firstHeader, width: 20 }, ...TOTAL_COLS.map(([h, , k]) => ({ header: h, width: k === 'date' ? 14 : 10, kind: k }))],
@@ -57,6 +58,8 @@
   // A CSV that MyFlightbook's Import page reads directly. The headings are MyFlightbook's own and must stay spelled exactly this way
   // (see myflightbook.com/logbook/mvc/pub/ImportTable); a heading it doesn't know is ignored without warning.
   const cnt = v => (typeof v === 'number' && isFinite(v) ? v : 0);
+  // The logbook's approach-type column: P / precision, or N / NP / non-precision. Anything else is left alone.
+  const apprKind = s => { s = String(s || '').trim().toUpperCase(); return /^(N|NP|NON)/.test(s) ? 'non' : /^P/.test(s) ? 'precision' : null; };
   const MFB_COLS = [
     ['Date', f => { const [y, m, d] = f.date.split('-'); return `${+m}/${+d}/${y}`; }],
     ['Tail Number', f => f.buno || ''],
@@ -69,15 +72,20 @@
     ['Night', f => f.night],
     ['IMC', f => f.instActual],
     ['Simulated Instrument', f => f.instSim],
-    ['Approaches', f => f.approaches],
-    ['Landings', f => cnt(f.dayLand) + cnt(f.nightLand) + cnt(f.dayShip) + cnt(f.nightShip) + cnt(f.dayTraps) + cnt(f.nightTraps)],
+    ['Approaches', f => cnt(f.approaches) + cnt(f.simApproaches)],
+    ['Approaches - Precision (unspecified type)', f => apprKind(f.apprType) === 'precision' ? f.approaches : null],
+    ['Approaches - Non-precision (unspecified type)', f => apprKind(f.apprType) === 'non' ? f.approaches : null],
+    ['Landings', f => cnt(f.traps) + cnt(f.carrierTG) + cnt(f.fclp) + cnt(f.landings) + cnt(f.dayLand) + cnt(f.nightLand) + cnt(f.dayShip) + cnt(f.nightShip) + cnt(f.dayTraps) + cnt(f.nightTraps)],
     ['Landings - Night (unspecified)', f => cnt(f.nightLand) + cnt(f.nightShip) + cnt(f.nightTraps)],
-    ['Landings - Carrier', f => cnt(f.dayShip) + cnt(f.nightShip) + cnt(f.dayTraps) + cnt(f.nightTraps)],
-    ['Landings - Arrestments (Carrier)', f => cnt(f.dayTraps) + cnt(f.nightTraps)],
+    ['Landings - Touch and Go', f => cnt(f.fclp) + cnt(f.carrierTG)],
+    ['Landings - Field Carrier Practice (FCLP)', f => f.fclp],
+    ['Landings - Touch and go (Carrier)', f => f.carrierTG],
+    ['Landings - Carrier', f => cnt(f.traps) + cnt(f.carrierTG) + cnt(f.dayShip) + cnt(f.nightShip) + cnt(f.dayTraps) + cnt(f.nightTraps)],
+    ['Landings - Arrestments (Carrier)', f => cnt(f.traps) + cnt(f.dayTraps) + cnt(f.nightTraps)],
     ['Landings - Arrestments (Carrier), Night', f => cnt(f.nightTraps)],
     ['Takeoffs - Catapult', f => f.cats],
     ['Military: Kind Of Flight Code (Navy/Marine Corps)', f => f.kind || ''],
-    ['Comments', f => [f.remarks, f.squadron, f.ship].map(s => String(s || '').trim()).filter(Boolean).join(' | ')],
+    ['Comments', f => [f.remarks, f.apprType && !apprKind(f.apprType) ? 'Approach type ' + f.apprType : '', f.squadron, f.ship].map(s => String(s || '').trim()).filter(Boolean).join(' | ')],
   ];
   // Returns the file text plus what you should know before importing it.
   // MyFlightbook needs a date and a flight time on every line, so lines without them are left out and counted.
