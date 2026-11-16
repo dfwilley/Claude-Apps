@@ -70,5 +70,70 @@
     return found;
   }
 
-  root.BBOcr = { read, secondLook, engine: () => (root.BBStore.isNative ? "Apple's on-device text reader" : 'Tesseract (runs on this phone)') };
+  // Ink in the middle of a box, on the cleaned-up page: how much, and how wide and tall the marks are.
+  // withRules: look at the page before printed lines were painted out, staying well inside the box to miss its printed edges.
+  function inkIn(prepared, band, col, withRules) {
+    const { w: W, h: H } = prepared; const gray = withRules && prepared.grayWithRules ? prepared.grayWithRules : prepared.gray; const my = withRules ? 0.24 : 0.12;
+    const ix0 = Math.round((col.x0 + (col.x1 - col.x0) * 0.1) * W), ix1 = Math.round((col.x1 - (col.x1 - col.x0) * 0.1) * W);
+    const iy0 = Math.round((band.y0 + (band.y1 - band.y0) * my) * H), iy1 = Math.round((band.y1 - (band.y1 - band.y0) * my) * H);
+    let ink = 0, n = 0, minX = 1e9, maxX = -1, minY = 1e9, maxY = -1;
+    for (let y = iy0; y < iy1; y++) for (let x = ix0; x < ix1; x++) { n++; if (gray[y * W + x] < 120) { ink++; if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; if (y > maxY) maxY = y; } }
+    return { frac: n ? ink / n : 0, wide: maxX < 0 ? 0 : (maxX - minX + 1) / Math.max(1, ix1 - ix0), tall: maxY < 0 ? 0 : (maxY - minY + 1) / Math.max(1, iy1 - iy0) };
+  }
+
+  // A line drawn through the type box means "same aircraft as the line above". A reader sees no words there,
+  // so where a type box holds a long flat mark and nothing was read, note it as that mark.
+  function markLines(prepared, words, template, bands) {
+    const X = root.BBExtract; const out = words.slice();
+    for (const b of bands) for (const c of template.columns) {
+      if (c.field !== 'type' || X.cellAt(out, b, c).length) continue;
+      const k = inkIn(prepared, b, c, true);
+      if (k.frac > 0.004 && k.wide >= 0.45 && k.tall <= 0.45) out.push({ text: '—', conf: 90, x0: c.x0 + 0.001, x1: c.x1 - 0.001, y0: b.y0 + 0.001, y1: b.y1 - 0.001, line: true });
+    }
+    return out;
+  }
+
+  // Close-up pass (iPhone app): every box with writing in it is cut out of the cleaned-up page, enlarged, and read
+  // on its own. Apple's reader gives a few alternative readings for each; the one that fits the column is used.
+  const CLOSE_UP_SKIP = new Set(['skip', 'remarks', 'squadron', 'ship']);
+  function cropBox(prepared, band, col) {
+    const { canvas, w: W, h: H } = prepared; const cw = col.x1 - col.x0, bh = band.y1 - band.y0;
+    const x0 = Math.max(0, Math.round((col.x0 - cw * 0.06) * W)), x1 = Math.min(W, Math.round((col.x1 + cw * 0.06) * W));
+    const y0 = Math.max(0, Math.round((band.y0 - bh * 0.05) * H)), y1 = Math.min(H, Math.round((band.y1 + bh * 0.05) * H));
+    const sw = Math.max(1, x1 - x0), sh = Math.max(1, y1 - y0), s = Math.max(1, Math.min(4, 110 / sh)), pad = 14;
+    const c = document.createElement('canvas'); c.width = Math.round(sw * s) + pad * 2; c.height = Math.round(sh * s) + pad * 2;
+    const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.imageSmoothingQuality = 'high'; g.drawImage(canvas, x0, y0, sw, sh, pad, pad, sw * s, sh * s);
+    return c.toDataURL('image/jpeg', 0.92).split(',')[1];
+  }
+  async function closeUp(prepared, words, template, bands, knownTypes, onProgress, readBoxes) {
+    const X = root.BBExtract; let out = words.slice();
+    const cols = template.columns.filter(c => !CLOSE_UP_SKIP.has(c.field));
+    for (let r = 0; r < bands.length; r++) {
+      const b = bands[r]; const jobs = [];
+      for (const c of cols) if (X.cellAt(out, b, c).length || inkIn(prepared, b, c).frac > 0.006) jobs.push({ c, image: cropBox(prepared, b, c) });
+      if (jobs.length) {
+        const res = await readBoxes(jobs.map(j => j.image));
+        jobs.forEach((j, i) => {
+          const here = X.cellAt(out, b, j.c); const pageText = X.readingOrder(here).map(w => w.text).join(' ');
+          const pick = X.chooseReading(j.c.field, pageText, (res && res[i]) || [], knownTypes);
+          if (!pick) return;
+          out = out.filter(w => !here.includes(w));
+          out.push({ text: pick.text, conf: Math.round(pick.conf), x0: j.c.x0 + 0.001, x1: j.c.x1 - 0.001, y0: b.y0 + 0.001, y1: b.y1 - 0.001, closeUp: true });
+        });
+      }
+      if (onProgress) onProgress((r + 1) / bands.length);
+    }
+    return out;
+  }
+
+  // Everything after the first whole-page reading. Returns the final list of words.
+  async function refine(prepared, words, template, bands, knownTypes, onProgress) {
+    let out = words;
+    if (root.BBStore.isNative) {
+      try { out = await closeUp(prepared, words, template, bands, knownTypes, onProgress, imgs => root.BBStore.ocrCells(imgs)); } catch (e) { out = words; } // an older app without the close-up reader
+    } else out = words.concat(await secondLook(prepared, words, template, bands, onProgress));
+    return markLines(prepared, out, template, bands);
+  }
+
+  root.BBOcr = { refine, closeUp, markLines, inkIn, read, secondLook, engine: () => (root.BBStore.isNative ? "Apple's on-device text reader" : 'Tesseract (runs on this phone)') };
 })(typeof window !== 'undefined' ? window : globalThis);

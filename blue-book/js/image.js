@@ -158,9 +158,10 @@
         out[y * w + x] = v; const o = (y * w + x) * 4; d[o] = d[o + 1] = d[o + 2] = v; d[o + 3] = 255;
       }
     }
+    const withRules = out.slice(); // kept for spotting a line drawn through a box, which the next step would paint out
     removeRules(out, w, h, d);
     g.putImageData(img, 0, 0);
-    return { canvas: c, gray: out, w, h };
+    return { canvas: c, gray: out, grayWithRules: withRules, w, h };
   }
 
   // Paint out the printed ruled lines (long straight dark runs) so the reader sees only the writing.

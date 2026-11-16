@@ -82,7 +82,6 @@
     ['Landings - Arrestments (Carrier)', f => cnt(f.traps) + cnt(f.dayTraps) + cnt(f.nightTraps)],
     ['Landings - Arrestments (Carrier), Night', f => cnt(f.nightTraps)],
     ['Takeoffs - Catapult', f => f.cats],
-    ['Military: Kind Of Flight Code (Navy/Marine Corps)', f => f.kind || ''],
     ['Comments', f => [f.remarks, !C.approachCounts(f).known ? 'Approach type ' + f.apprType : '', f.squadron, f.ship].map(s => String(s || '').trim()).filter(Boolean).join(' | ')],
   ];
   // Returns the file text plus what you should know before importing it.

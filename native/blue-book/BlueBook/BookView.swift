@@ -68,6 +68,19 @@ final class BookController: UIViewController, WKScriptMessageHandler, WKUIDelega
                     self.reply(id, value: arr)
                 } catch { self.replyError(id, error.localizedDescription) }
             }
+        case "ocrCells":
+            guard let list = m["images"] as? [String] else { return replyError(id, "Nothing to read") }
+            DispatchQueue.global(qos: .userInitiated).async {
+                var out: [[[String: Any]]] = []
+                for b64 in list {
+                    var one: [[String: Any]] = []
+                    if let data = Data(base64Encoded: b64), let img = UIImage(data: data), let found = try? PageReader.candidates(img) {
+                        one = found.map { ["text": $0.text, "conf": $0.conf] as [String: Any] }
+                    }
+                    out.append(one)
+                }
+                self.reply(id, value: out)
+            }
         case "scan":
             guard VNDocumentCameraViewController.isSupported else { return replyError(id, "The document camera isn't available on this device. Use Import photos instead.") }
             scanReply = id

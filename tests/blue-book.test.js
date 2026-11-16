@@ -30,7 +30,7 @@ test('reads a page of lines with ruled lines', () => {
   assert.strictEqual(fl.length, 3);
   assert.strictEqual(fl[0].date, '1988-03-03'); assert.strictEqual(fl[0].type, 'AV-8B'); assert.strictEqual(fl[0].buno, '163853'); assert.strictEqual(fl[0].total, 1.5);
   assert.strictEqual(fl[0].remarks, 'Nassau DCA'); assert.strictEqual(fl[0].squadron, 'VMA-231');
-  assert.strictEqual(fl[1].type, 'AV-8B', 'ditto copies the type'); assert.ok(fl[1].flags.some(f => f.field === 'type' && /ditto/.test(f.reason)));
+  assert.strictEqual(fl[1].type, 'AV-8B', 'ditto copies the type'); assert.ok(!fl[1].flags.some(f => f.field === 'type'), 'a ditto or a line in the type box is normal, not a question');
   assert.strictEqual(fl[1].total, 1.3, 'hours | tenths read as 1.3'); assert.strictEqual(fl[1].night, 0.8);
   assert.strictEqual(fl[1].dayShip, 2); assert.strictEqual(fl[1].nightShip, 1); assert.strictEqual(fl[1].ship, 'USS Nassau (LHA-4)');
   assert.strictEqual(fl[2].buno, '163853', 'l read as 1'); assert.ok(fl[2].flags.some(f => f.field === 'buno' && /hard to read/.test(f.reason)));
@@ -160,11 +160,11 @@ test('MyFlightbook import file', () => {
     { date: null, type: 'AV-8B', buno: '163853', total: 1.0 }, { date: '1988-03-07', type: 'AV-8B', buno: '163853', total: null } ] };
   const m = E.myFlightbook(db); const rows = m.csv.trim().split('\r\n');
   assert.strictEqual(rows[0], 'Date,Tail Number,Model,Total Flight Time,PIC,SIC,Aircraft Commander Time,Military Special Crew Time,Night,IMC,Simulated Instrument,Approaches,Approaches - Precision (unspecified type),Approaches - Non-precision (unspecified type),' +
-    'Landings,Landings - Night (unspecified),Landings - Touch and Go,Landings - Field Carrier Practice (FCLP),Landings - Touch and go (Carrier),Landings - Carrier,Landings - Arrestments (Carrier),"Landings - Arrestments (Carrier), Night",Takeoffs - Catapult,Military: Kind Of Flight Code (Navy/Marine Corps),Comments');
+    'Landings,Landings - Night (unspecified),Landings - Touch and Go,Landings - Field Carrier Practice (FCLP),Landings - Touch and go (Carrier),Landings - Carrier,Landings - Arrestments (Carrier),"Landings - Arrestments (Carrier), Night",Takeoffs - Catapult,Comments');
   assert.strictEqual(rows.length, 4, 'three flights have a date and a time');
-  assert.strictEqual(rows[1], '3/4/1988,163853,AV-8B,1,,,,,,,,1,,,6,3,,,,5,2,1,,,Approach type GCA', 'older day/night columns still work');
-  assert.strictEqual(rows[2], '3/5/1988,,AV-8B,1,,,,,,,,1,,1,1,,,,,,,,,,');
-  assert.strictEqual(rows[3], '3/6/1988,158512,TA-4J,1.5,1.5,,1.5,0.2,0.7,0.3,,3,2,,11,,8,6,2,4,2,,2,1A1,"CQ, ""OK 3"" | VT-7 | USS Lexington (AVT-16)"');
+  assert.strictEqual(rows[1], '3/4/1988,163853,AV-8B,1,,,,,,,,1,,,6,3,,,,5,2,1,,Approach type GCA', 'older day/night columns still work');
+  assert.strictEqual(rows[2], '3/5/1988,,AV-8B,1,,,,,,,,1,,1,1,,,,,,,,,');
+  assert.strictEqual(rows[3], '3/6/1988,158512,TA-4J,1.5,1.5,,1.5,0.2,0.7,0.3,,3,2,,11,,8,6,2,4,2,,2,"CQ, ""OK 3"" | VT-7 | USS Lexington (AVT-16)"');
   assert.deepStrictEqual([m.included, m.leftOut, m.noTail, m.flagged, m.pagesInReview], [3, 2, 1, 1, 1]);
   const t = C.totals(db.flights).all; assert.deepStrictEqual([t.traps, t.fclp, t.carrierTG, t.landings, t.simApproaches], [4, 6, 2, 3, 1]);
 });
@@ -204,6 +204,42 @@ test('notices a page lying on its side', () => {
   const side = up.map(w => ({ text: w.text, x0: w.y0, x1: w.y1, y0: w.x0, y1: w.x1 }));
   assert.strictEqual(X.looksSideways(up, 2600, 1800), false); assert.strictEqual(X.looksSideways(side, 1800, 2600), true);
   assert.strictEqual(X.looksSideways([], 100, 100), false);
+});
+
+test('cleans up common misreads of handwriting', () => {
+  for (const [raw, v] of [['1,6', 1.6], ['1-6', 1.6], ['1 . 6', 1.6], ['l.b', 1.6], ['O.7', 0.7], ['1:8', 1.8], ['0.9.', 0.9], ['I.Z', 1.2]]) assert.strictEqual(X.parseHours(raw).value, v, raw);
+  assert.ok(X.parseHours('-').ditto);
+  for (const [raw, v] of [['IDI', '1D1'], ['lAl', '1A1'], ['1 A 1', '1A1'], ['2K3', '2K3'], ['181', '1B1'], ['1D|', '1D1']]) assert.strictEqual(X.fixKind(raw), v, raw);
+  assert.strictEqual(X.parseBuno('I6O5Z9').value, '160529'); assert.strictEqual(X.parseBuno('16052g').value, '160529');
+});
+
+test('first pilot + co-pilot = total fills a gap and catches a misread', () => {
+  const t = { top: 0.1, bottom: 0.9, columns: [{ field: 'day', x0: 0, x1: 0.1 }, { field: 'type', x0: 0.1, x1: 0.3 }, { field: 'total', x0: 0.3, x1: 0.4 }, { field: 'pic', x0: 0.4, x1: 0.5 }, { field: 'sic', x0: 0.5, x1: 0.6 }] };
+  const w = (text, x, row) => ({ text, conf: 95, x0: x - 0.02, x1: x + 0.02, y0: 0.12 + row * 0.05, y1: 0.15 + row * 0.05 });
+  const r = X.extractPage([w('18', 0.05, 0), w('T-34C', 0.2, 0), w('1.6', 0.35, 0), w('0.7', 0.45, 0), w('0.9', 0.55, 0),   // all three agree
+    w('23', 0.05, 1), w('—', 0.2, 1), w('1.0', 0.45, 1), w('0.5', 0.55, 1),                                                  // total not read; line through the type box
+    w('25', 0.05, 2), w('1.8', 0.35, 2), w('1.2', 0.45, 2), w('xx', 0.55, 2),                                                // co-pilot unreadable; type box blank
+    w('26', 0.05, 3), w('T-34C', 0.2, 3), w('1.8', 0.35, 3), w('1.2', 0.45, 3), w('0.9', 0.55, 3)], t, { year: 1983, month: 2 }, { ruledLines: lines });
+  const [a, b, c, d] = r.rows;
+  assert.strictEqual(a.flags.length, 0, JSON.stringify(a.flags));
+  assert.strictEqual(b.total, 1.5); assert.ok(b.flags.some(x => x.field === 'total' && /worked out/.test(x.reason)));
+  assert.strictEqual(b.type, 'T-34C'); assert.ok(!b.flags.some(x => x.field === 'type'), 'a line through the type box copies the type without a question');
+  assert.strictEqual(c.sic, 0.6); assert.ok(c.flags.some(x => x.field === 'sic' && /worked out/.test(x.reason)));
+  assert.strictEqual(c.type, 'T-34C'); assert.ok(c.flags.some(x => x.field === 'type' && /copied from the line above/.test(x.reason)));
+  assert.ok(d.flags.some(x => x.field === 'total' && /is not the total/.test(x.reason)));
+});
+
+test('picks between the whole-page reading and the close-up of one box', () => {
+  const pick = (f, page, ...c) => X.chooseReading(f, page, c.map(([text, conf]) => ({ text, conf })), ['T-34C']);
+  assert.deepStrictEqual(pick('total', '1.6', ['1.6', 40]), { text: '1.6', conf: 95 }, 'both agree: no question');
+  assert.strictEqual(pick('total', '', ['1b', 60], ['1.6', 30]).text, '1.6', 'an alternative that looks like a time beats one that does not');
+  assert.ok(pick('total', '', ['1b', 60], ['1.6', 30]).conf < 60, 'but it is marked to check');
+  assert.strictEqual(pick('total', '1.6', ['lb', 60]), null, 'keep a good page reading when the close-up makes no sense');
+  const dis = pick('total', '1.6', ['1.8', 80]); assert.strictEqual(dis.text, '1.8'); assert.ok(dis.conf < 60 && dis.disagreed === '1.6', 'two different sensible readings: ask');
+  assert.strictEqual(pick('buno', '16O5', ['160529', 35]).text, '160529'); assert.ok(pick('buno', '16O5', ['160529', 35]).conf >= 60);
+  assert.strictEqual(pick('kind', 'IDI', ['1D1', 50]).conf, 95, 'IDI and 1D1 are the same code');
+  assert.strictEqual(pick('type', '', ['T-34C', 45]).text, 'T-34C'); assert.strictEqual(pick('type', '', ['—', 30]).text, '—', 'a line is a fine reading for the type box');
+  assert.strictEqual(pick('total', '', []), null); assert.strictEqual(pick('total', 'zz', ['??', 20]).conf, 20);
 });
 
 console.log(`${passed} tests passed`);

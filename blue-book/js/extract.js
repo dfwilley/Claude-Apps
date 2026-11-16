@@ -100,6 +100,8 @@
       y1: i < groups.length - 1 ? (g.c + groups[i + 1].c) / 2 : Math.min(bottom, g.y1 + hMed * 0.3),
     }));
   }
+  // Which words of a page reading sit in one box (a row band and a column).
+  function cellAt(words, band, col) { return words.filter(w => { const x = (w.x0 + w.x1) / 2, y = (w.y0 + w.y1) / 2; return x >= col.x0 && x < col.x1 && y >= band.y0 && y < band.y1; }); }
   const cy = w => (w.y0 + w.y1) / 2;
   // Words in one box, top line first, then left to right (a box can hold two short lines, like "1 P" over "1 NP").
   function readingOrder(ws) {
@@ -114,16 +116,27 @@
 
   // ---------- Reading one cell ----------
 
-  const DITTO = /^(["”“〃'′″]+|do\.?|ditto|-{1,2}|=)$/i;
+  // Marks that mean "same as the line above": ditto marks, or a line drawn through the box.
+  const DITTO = /^(["”“〃'′″]+|do\.?|ditto|[-—–_~=]+(\s*[-—–_~=]+)*)$/i;
 
   function digitsFix(s) { // common handwriting misreads in number columns
-    return s.replace(/[Oo]/g, '0').replace(/[lI|!]/g, '1').replace(/[Ss]/g, '5').replace(/B/g, '8').replace(/Z/g, '2').replace(/[gq]/g, '9');
+    return s.replace(/[OoDQ]/g, '0').replace(/[lIi|!\]\[]/g, '1').replace(/[Ss]/g, '5').replace(/B/g, '8').replace(/[Zz]/g, '2').replace(/[gq]/g, '9')
+      .replace(/[bG]/g, '6').replace(/T/g, '7').replace(/A/g, '4');
+  }
+  // Kind-of-flight codes are number, letter, number (1A1). Put each character back in its own alphabet.
+  function fixKind(raw) {
+    const s = String(raw || '').toUpperCase().replace(/[^A-Z0-9|!]/g, '');
+    if (s.length !== 3) return s;
+    const toLetter = { 0: 'O', 1: 'I', 2: 'Z', 5: 'S', 6: 'G', 8: 'B', '|': 'I', '!': 'I' };
+    const digit = ch => digitsFix(ch === 'L' ? '1' : ch);
+    return digit(s[0]) + (toLetter[s[1]] || s[1]) + digit(s[2]);
   }
 
   function parseHours(raw) {
     let s = raw.trim(); if (!s) return { value: null };
     if (DITTO.test(s)) return { value: null, ditto: true };
-    s = digitsFix(s).replace(/,/g, '.').replace(/\s+/g, ' ');
+    // a decimal point is easily read as a comma, dash, colon or stray mark; spaces creep in around it
+    s = digitsFix(s).replace(/\s*[,.:;'’`·•_\-]+\s*/g, '.').replace(/\s+/g, ' ').replace(/^\.(?=\d\.)/, '').replace(/(\d)\.$/, '$1');
     let m;
     if ((m = s.match(/^(\d{1,2}) (\d)$/))) return { value: +(m[1] + '.' + m[2]) }; // hours | tenths sub-columns
     if ((m = s.match(/^(\d{0,2})\.(\d)\d?$/))) return { value: +((m[1] || '0') + '.' + m[2]) };
@@ -256,15 +269,21 @@
         else if (k === 'apprType') res = { value: raw.trim().toUpperCase().replace(/(^|\s)[LI|](?=\s*N?P(\s|$))/g, '$11').replace(/\s+/g, ' ') };
         else if (kind === 'type') res = normalizeType(raw, opts.knownTypes);
         else if (kind === 'buno') res = parseBuno(raw);
-        else if (kind === 'code') res = { value: raw.trim().toUpperCase().replace(/^[IL|](?=[A-Z]\d)/, '1').replace(/(\d[A-Z])[IL|]$/, '$11').replace(/^O(?=[A-Z]\d)/, '0') };
+        else if (kind === 'code') { res = { value: fixKind(raw) }; if (res.value && !/^\d[A-Z]\d$/.test(res.value)) res.unsure = true; }
         else res = { value: raw.trim() };
-        if (res.ditto) { res.value = prev[k] != null ? prev[k] : res.value; flag(f, k, 'ditto mark — copied from the line above'); }
+        if (res.ditto) {
+          const had = prev[k] != null; res.value = had ? prev[k] : res.value;
+          if (!had) flag(f, k, 'marked “same as the line above”, but there is no line above on this page');
+          else if (k !== 'type') flag(f, k, 'ditto mark — copied from the line above'); // a line through the type box is the normal way to write it
+        }
         f[k] = res.value;
         if (res.bad) flag(f, k, `couldn't read "${raw}"`);
         else if (res.unsure) flag(f, k, 'unusual value');
         if (res.note) flag(f, k, res.note);
         if (raw && f.conf[k] < LOW && !res.bad) flag(f, k, 'hard to read — please check');
       }
+      pilotTimeRule(f);
+      if (!f.type && prev.type && (f.total != null || f.buno)) { f.type = prev.type; flag(f, 'type', 'nothing read here — copied from the line above'); }
       // Date: from a date column, or day column + page month/year.
       const dateCol = cols.find(c => c.field === 'date'), dayCol = cols.find(c => c.field === 'day');
       if (dateCol) {
@@ -301,6 +320,51 @@
     return { rows, notes, bands };
   }
 
+  // In a Navy logbook, total pilot time = first pilot (PIC) + co-pilot (SIC). Use that to fill a box that
+  // couldn't be read and to catch one that was read wrong. Anything worked out this way is marked for a look.
+  function pilotTimeRule(f) {
+    const has = k => typeof f[k] === 'number'; const r = v => Math.round(v * 10) / 10;
+    if (!has('pic') && !has('sic')) return;
+    if (!has('total')) { f.total = r((f.pic || 0) + (f.sic || 0)); f.flags = f.flags.filter(x => x.field !== 'total'); flag(f, 'total', 'worked out as first pilot + co-pilot time'); return; }
+    if (has('pic') && has('sic')) return; // both read: sanity() says whether they add up
+    const k = has('pic') ? 'sic' : 'pic', other = has('pic') ? f.pic : f.sic, rest = r(f.total - other);
+    if (rest > 0 && rest < f.total && (f.raw[k] || '').trim()) { f[k] = rest; f.flags = f.flags.filter(x => x.field !== k); flag(f, k, 'worked out from the total time'); }
+  }
+
+  // ---------- Two readings of one box ----------
+  // The page is read twice in the iPhone app: once as a whole, then each filled box on its own, close up, with a few
+  // alternative readings. This picks the reading that fits what the column holds.
+  function parseField(field, text, knownTypes) {
+    const kind = (FIELD[field] || {}).kind; const t = String(text || '').trim();
+    if (!t) return { value: null, empty: true };
+    if (kind === 'hours') { const p = parseHours(t); return (p.value != null && p.value > 12) ? Object.assign(p, { bad: true }) : p; }
+    if (kind === 'count') return parseCount(t);
+    if (kind === 'day') return parseDay(t);
+    if (kind === 'buno') return parseBuno(t);
+    if (kind === 'type') { const p = normalizeType(t, knownTypes); if (!p.ditto && ![...(knownTypes || []), ...KNOWN_TYPES].includes(p.value)) p.unsure = true; return p; }
+    if (kind === 'code') { const v = fixKind(t); return { value: v, unsure: !/^\d[A-Z]\d$/.test(v) }; }
+    if (field === 'apprType') { const v = t.toUpperCase(); return { value: v, unsure: !/^(\d?\s*N?P\s*)+$/.test(v) }; }
+    return { value: t };
+  }
+  const cleanRead = p => !p.empty && !p.bad && !p.unsure && !p.note && (p.ditto || (p.value != null && p.value !== ''));
+  // pageText: what the whole-page reading found in the box. candidates: [{text, conf}] from the close-up, best first.
+  // Returns {text, conf} to use in place of the page reading, or null to keep the page reading.
+  function chooseReading(field, pageText, candidates, knownTypes) {
+    const cands = (candidates || []).filter(c => c && String(c.text || '').trim());
+    const page = parseField(field, pageText, knownTypes), pageOk = cleanRead(page);
+    const idx = cands.findIndex(c => cleanRead(parseField(field, c.text, knownTypes)));
+    if (idx < 0) { // the close-up found nothing that fits the column
+      if (pageOk || !cands.length) return null;
+      return { text: cands[0].text, conf: Math.min(cands[0].conf == null ? 50 : cands[0].conf, 50) };
+    }
+    const c = cands[idx], got = parseField(field, c.text, knownTypes);
+    if (pageOk && !page.ditto && !got.ditto) {
+      if (String(page.value) === String(got.value)) return { text: c.text, conf: 95 };                 // both readings agree
+      return { text: c.text, conf: 50, disagreed: String(pageText).trim() };                          // they differ: use the close-up, ask
+    }
+    return { text: c.text, conf: idx === 0 ? Math.max(c.conf == null ? 65 : c.conf, 65) : 55 };         // an alternative fit: ask
+  }
+
   function hasShipWork(f) { return (f.traps || 0) + (f.carrierTG || 0) + (f.dayShip || 0) + (f.nightShip || 0) + (f.dayTraps || 0) + (f.nightTraps || 0) + (f.cats || 0) > 0; }
   function round1(v) { return Math.round(v * 10) / 10; }
 
@@ -313,6 +377,7 @@
     if (f.total != null && (f.total <= 0 || f.total > 12)) add('total', 'flight time outside 0.1–12.0');
     if (f.night != null && f.total != null && f.night > f.total + 0.001) add('night', 'more night time than flight time');
     for (const k of ['pic', 'sic', 'acCmdr', 'specialCrew', 'instActual', 'instSim']) if (f[k] != null && f.total != null && f[k] > f.total + 0.001) add(k, 'more than the flight time');
+    if (typeof f.pic === 'number' && typeof f.sic === 'number' && typeof f.total === 'number' && Math.abs(f.pic + f.sic - f.total) > 0.051) add('total', `first pilot ${f.pic.toFixed(1)} + co-pilot ${f.sic.toFixed(1)} is not the total ${f.total.toFixed(1)}`);
     for (const k of ['traps', 'carrierTG', 'fclp', 'landings', 'simApproaches', 'dayLand', 'nightLand', 'dayShip', 'nightShip', 'dayTraps', 'nightTraps', 'cats', 'approaches']) if (f[k] != null && f[k] > 15) add(k, 'unusually high');
     if ((f.nightTraps || f.nightShip) && !f.night) add('night', 'night landings aboard ship but no night time');
     if (hasShipWork(f) && !f.ship) add('ship', 'ship landings but no ship name');
@@ -358,7 +423,7 @@
     return ws.filter(x => (x.y1 - x.y0) * h > 1.5 * (x.x1 - x.x0) * w).length > ws.length * 0.5;
   }
 
-  const api = { looksSideways, FIELDS, FIELD, NUM_FIELDS, KNOWN_TYPES, defaultTemplate, extractPage, rowBands, parseHours, parseCount, parseBuno, parseDay, parseDate,
+  const api = { readingOrder, fixKind, parseField, chooseReading, cellAt, looksSideways, FIELDS, FIELD, NUM_FIELDS, KNOWN_TYPES, defaultTemplate, extractPage, rowBands, parseHours, parseCount, parseBuno, parseDay, parseDate,
     normalizeType, sanity, recheck, findRuledLines, isoDate, hasShipWork };
   root.BBExtract = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

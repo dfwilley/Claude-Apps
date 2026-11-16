@@ -27,6 +27,7 @@
     async share(name, bytes, mime) { await native('share', { name, mime, base64: bytesToBase64(bytes) }); },
     async scan() { return native('scan'); }, // → [photoId, ...] already cropped by the iPhone's document camera
     async ocr(id) { return native('ocr', { photoId: id }); },
+    async ocrCells(images) { return native('ocrCells', { images }); }, // base64 JPEGs of single boxes → [[{text, conf}, …], …]
     async corners(id) { return native('corners', { photoId: id }); },
     async persist() { return true; },
   };

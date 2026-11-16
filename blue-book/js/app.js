@@ -204,8 +204,7 @@
       page.words = await window.BBOcr.read(page.photoId, prepared.canvas, v => set(0.05 + v * 0.75));
       page.sideways = X.looksSideways(page.words, canvas.width, canvas.height);
       const bands = X.rowBands(page.words, db.settings.template, page.ruledLines);
-      const more = await window.BBOcr.secondLook(prepared, page.words, db.settings.template, bands, v => set(0.8 + v * 0.2));
-      page.words = page.words.concat(more);
+      page.words = await window.BBOcr.refine(prepared, page.words, db.settings.template, bands, knownTypes(), v => set(0.8 + v * 0.2));
       extractInto(page);
       closeSheet(); ui.reviewPageId = page.id; tab = 'pages'; render();
       const flagged = page.rows.filter(r => r.rowType === 'flight' && r.flags.length).length;
@@ -368,7 +367,8 @@
       if (page.status === 'saved' && !confirm('Re-reading replaces the lines on this page with a fresh read (your edits on this page will be lost). Continue?')) return;
       await openColumns(page);
       if (page.status === 'saved') { db.flights = db.flights.filter(f => f.pageId !== page.id); page.status = 'review'; }
-      if (page.words && page.words.length) { extractInto(page); render(); } else await readPage(page);
+      // the iPhone's close-up reading depends on where the columns are, so it reads again; the web reader is slow, so it reuses its words
+      if (!S.isNative && page.words && page.words.length) { extractInto(page); render(); } else await readPage(page);
     };
     $('#rv-add').onclick = () => {
       const r = { id: uid('f'), rowType: 'flight', flags: [], raw: {}, conf: {}, row: rows.length, squadron: page.squadron, date: page.year && page.month ? X.isoDate(page.year, page.month, 1) : null, pageId: page.id };

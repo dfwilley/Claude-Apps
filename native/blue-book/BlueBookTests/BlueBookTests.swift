@@ -37,6 +37,20 @@ final class BlueBookTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: Library.photoURL("test-photo")!.path))
     }
 
+    func testReaderGivesAlternativeReadingsForOneBox() throws {
+        let size = CGSize(width: 320, height: 140)
+        let format = UIGraphicsImageRendererFormat.default(); format.scale = 1
+        let img = UIGraphicsImageRenderer(size: size, format: format).image { ctx in
+            UIColor.white.setFill(); ctx.fill(CGRect(origin: .zero, size: size))
+            ("163853" as NSString).draw(at: CGPoint(x: 30, y: 35), withAttributes: [.font: UIFont.systemFont(ofSize: 60), .foregroundColor: UIColor.black])
+        }
+        let found = try PageReader.candidates(img)
+        XCTAssertFalse(found.isEmpty)
+        XCTAssertTrue(found.contains { $0.text.replacingOccurrences(of: " ", with: "") == "163853" }, "read: \(found.map(\.text))")
+        let blank = UIGraphicsImageRenderer(size: size, format: format).image { ctx in UIColor.white.setFill(); ctx.fill(CGRect(origin: .zero, size: size)) }
+        XCTAssertTrue(try PageReader.candidates(blank).isEmpty)
+    }
+
     func testReaderFindsWordsWithPositions() throws {
         let size = CGSize(width: 1600, height: 500)
         let format = UIGraphicsImageRendererFormat.default(); format.scale = 1
