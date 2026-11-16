@@ -426,7 +426,8 @@
       else if (k === 'type') v = X.normalizeType(v, knownTypes()).value;
       if (k === 'date') { r.day = v ? +v.slice(8, 10) : null; X.recheck(r, 'day'); }
       r[k] = v === '' ? (kind === 'hours' || kind === 'count' ? null : '') : v;
-      X.recheck(r, k); save(); refreshLine(r, fields);
+      X.recheck(r, k); save();
+      setTimeout(() => refreshLine(r, fields), 0); // after the Tab key has moved on, so the next box keeps the cursor
     };
     $('#rv-rows').addEventListener('click', e => {
       const b = e.target.closest('button[data-act]'); if (!b) return;
@@ -447,20 +448,32 @@
     });
     rowsEl.addEventListener('focusin', e => {
       const inp = e.target.closest('input[data-k]'); if (!inp) return; const k = inp.dataset.k === 'date' ? 'day' : inp.dataset.k;
+      if (tabbing && inp.type !== 'date') inp.select();
       const cols = (page.tpl || db.settings.template).columns, col = cols.find(c => c.field === k) || (k === 'day' ? cols.find(c => c.field === 'date') : null); if (!col) return;
       const st = inp.closest('[data-row]').querySelector('.strip'); if (!st || st.scrollWidth <= st.clientWidth) return;
       st.scrollTo({ left: Math.max(0, (col.x0 + col.x1) / 2 * st.scrollWidth - st.clientWidth / 2), behavior: 'smooth' });
     });
   }
 
+  // Was the last move made with the Tab key? Then the box arrived at gets its contents selected, ready to type over.
+  let tabbing = false;
+  document.addEventListener('keydown', e => { if (e.key === 'Tab') tabbing = true; }, true);
+  document.addEventListener('pointerdown', () => { tabbing = false; }, true);
+
+  // Redraw one line after an edit (its warnings may have changed) without losing your place in it.
   function refreshLine(r, fields) {
     const el = $(`#line-${r.id}`); if (!el) return;
-    const focus = document.activeElement && document.activeElement.dataset && document.activeElement.dataset.k;
+    const act = document.activeElement, here = act && el.contains(act);
+    const atBox = here && act.dataset ? act.dataset.k : null, atBtn = here && act.dataset ? act.dataset.act || act.dataset.slide : null, atMore = here && act.tagName === 'SUMMARY';
     el.classList.toggle('has-flags', !!(r.flags && r.flags.length));
     const open = $('details.more', el) && $('details.more', el).open;
     $('.lf', el).outerHTML = lineFields(r, fields); if (open && $('details.more', el)) $('details.more', el).open = true;
     const btns = $('.small-btns', el); btns.innerHTML = (r.flags && r.flags.length ? '<button data-act="ok">Looks right</button>' : '<span class="okmark">✓ No questions</span>') + '<button data-act="del">Delete line</button>';
-    if (focus) { const next = $(`input[data-k="${focus}"]`, el); if (next) { /* keep place */ } }
+    if (atBox) {
+      const next = $(`input[data-k="${atBox}"]`, el);
+      if (next) { const d = next.closest('details'); if (d) d.open = true; next.focus({ preventScroll: true }); if (tabbing && next.type !== 'date') next.select(); }
+    } else if (atMore && $('details.more summary', el)) $('details.more summary', el).focus({ preventScroll: true });
+    else if (atBtn) { const b = $(`button[data-act="${atBtn}"]`, el) || $(`button[data-slide="${atBtn}"]`, el) || $('.small-btns button', el); if (b) b.focus({ preventScroll: true }); }
   }
 
   async function drawStrips(page, rows) {
