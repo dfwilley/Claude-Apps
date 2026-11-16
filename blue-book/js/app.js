@@ -489,7 +489,9 @@
 
   async function drawStrips(page, rows) {
     let img; try { img = await I.loadURL(await S.photoURLAsync(page.photoId)); } catch (e) { return; }
-    const full = $('#rv-img'); if (full) { full.src = img.src; const bands = $('#rv-bands'); if (bands) bands.innerHTML = rows.filter(r => r.band).map(r => `<button class="pband${r.flags && r.flags.length ? ' flag' : ''}" data-go="${r.id}" style="top:${r.band.y0 * 100}%;height:${(r.band.y1 - r.band.y0) * 100}%" aria-label="Go to this line"></button>`).join(''); $$('[data-go]').forEach(b => b.onclick = () => { const el = $(`#line-${b.dataset.go}`); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' }); }); }
+    const full = $('#rv-img'); if (full) { full.src = img.src; const bands = $('#rv-bands'); if (bands) bands.innerHTML = rows.filter(r => r.band).map(r => { const b = r.band, cls = `pband${r.flags && r.flags.length ? ' flag' : ''}`; // each page's part of the row at its own height
+        return b.ry0 == null || b.g == null ? `<button class="${cls}" data-go="${r.id}" style="top:${b.y0 * 100}%;height:${(b.y1 - b.y0) * 100}%" aria-label="Go to this line"></button>`
+          : `<button class="${cls}" data-go="${r.id}" style="top:${b.y0 * 100}%;height:${(b.y1 - b.y0) * 100}%;right:auto;width:${b.g * 100}%" aria-label="Go to this line"></button><button class="${cls}" data-go="${r.id}" tabindex="-1" style="top:${b.ry0 * 100}%;height:${(b.ry1 - b.ry0) * 100}%;left:${b.g * 100}%" aria-hidden="true"></button>`; }).join(''); $$('[data-go]').forEach(b => b.onclick = () => { const el = $(`#line-${b.dataset.go}`); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' }); }); }
     for (const r of rows) {
       const cv = $(`canvas[data-strip="${r.id}"]`); if (!cv) continue;
       if (!r.band) { cv.parentElement.innerHTML = '<p class="small">Added by hand</p>'; continue; }

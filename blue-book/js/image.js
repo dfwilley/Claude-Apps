@@ -269,7 +269,7 @@
     for (const L of halves[0].rows) { let best = null; for (const R of halves[1].rows) if (Math.abs(at(L, g) - at(R, g)) < pitch * 0.4 && (!best || Math.abs(at(L, g) - at(R, g)) < Math.abs(at(L, g) - at(best, g)))) best = R; if (best) pairs.push([L, best]); }
     if (pairs.length < 5) return { canvas, done: false, why: 'rows of the two pages did not pair up' };
     const top = pairs[0], bot = pairs[pairs.length - 1]; const yTop = (at(top[0], g) + at(top[1], g)) / 2, yBot = (at(bot[0], g) + at(bot[1], g)) / 2;
-    if (worst < 0.006) return { canvas, done: false, why: 'already flat' };
+    if (worst < 0.003) return { canvas, done: false, why: 'already flat' };
     // column lines on each page, between the top and bottom paired rows (the page turned on its side for the same follower)
     const out = document.createElement('canvas'); out.width = w; out.height = h; const og = out.getContext('2d'); og.fillStyle = '#fff'; og.fillRect(0, 0, w, h);
     const sd = canvas.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, w, h).data; const img = og.getImageData(0, 0, w, h), od = img.data;
@@ -298,19 +298,26 @@
     // Check the work: the lines must really be more level now, or the photo is kept as it was.
     const after = forReading(out).grayWithRules; let left = 0;
     for (const r of halves) { const rows = X.trackLines(after, w, h, { x0: r.x0, x1: r.x1, strips: 22, share: 0.55 }).fits; if (rows.length < 5) return { canvas, done: false, why: 'check failed' }; left = Math.max(left, lean(rows)); }
-    if (left > worst * 0.5 || left > 0.006) return { canvas, done: false, why: 'did not improve', left, worst };
+    if (left > worst * 0.6 || left > 0.006) return { canvas, done: false, why: 'did not improve', left, worst };
     return { canvas: out, done: true, gutter: g / w, pairs: pairs.length, worst, left };
   }
 
   function toBlob(canvas, type, q) { return new Promise(r => canvas.toBlob(r, type || 'image/jpeg', q || 0.86)); }
 
   // A strip of the page (one logbook line), for showing next to the line's fields.
+  // The two pages of the open book rarely sit level with each other, so a row has its own height on each page
+  // (band.y0..y1 on the left, band.ry0..ry1 on the right of the gutter, band.g). The strip takes each page's part from
+  // its own height and sets them side by side, so one flight reads straight across.
   function strip(img, band, pad) {
     const W = img.naturalWidth || img.width, H = img.naturalHeight || img.height; pad = pad == null ? 0.004 : pad;
     const y0 = Math.max(0, (band.y0 - pad) * H), y1 = Math.min(H, (band.y1 + pad) * H);
     const c = document.createElement('canvas'); const s = Math.min(1, 1400 / W);
-    c.width = Math.round(W * s); c.height = Math.max(8, Math.round((y1 - y0) * s));
-    c.getContext('2d').drawImage(img, 0, y0, W, y1 - y0, 0, 0, c.width, c.height); return c;
+    c.width = Math.round(W * s); c.height = Math.max(8, Math.round((y1 - y0) * s)); const g = c.getContext('2d');
+    if (band.ry0 == null || band.g == null) { g.drawImage(img, 0, y0, W, y1 - y0, 0, 0, c.width, c.height); return c; }
+    const gx = Math.round(band.g * W), ry0 = Math.max(0, (band.ry0 - pad) * H), ry1 = Math.min(H, (band.ry1 + pad) * H);
+    g.drawImage(img, 0, y0, gx, y1 - y0, 0, 0, Math.round(gx * s), c.height);
+    g.drawImage(img, gx, ry0, W - gx, ry1 - ry0, Math.round(gx * s), 0, c.width - Math.round(gx * s), c.height);
+    return c;
   }
 
   const api = { flattenSpread, eraseLines, loadImage, loadURL, toCanvas, grayOf, otsu, findPageCorners, cornersFromGray, homography, warp, rotate, forReading, toBlob, strip };
