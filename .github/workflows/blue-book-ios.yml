@@ -6,6 +6,11 @@ on:
     paths: ["blue-book/**", "native/blue-book/**", "tests/blue-book.test.js", ".github/workflows/blue-book-ios.yml"]
   workflow_dispatch:
 
+# Only the newest push builds: an older build finishing late must not replace a newer download.
+concurrency:
+  group: blue-book-ios
+  cancel-in-progress: true
+
 permissions:
   contents: write
 
