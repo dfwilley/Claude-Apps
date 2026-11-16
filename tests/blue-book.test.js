@@ -184,4 +184,19 @@ test('starting columns follow the Navy logbook order; crew times are read and ch
   assert.deepStrictEqual([f.traps, f.fclp, f.cats, f.apprType], [2, 4, 1, 'P']);
 });
 
+test('approach types: P, NP, and both in one box', () => {
+  const A = (approaches, apprType) => { const c = C.approachCounts({ approaches, apprType }); return [c.total, c.precision, c.non]; };
+  assert.deepStrictEqual(A(2, 'P'), [2, 2, 0]); assert.deepStrictEqual(A(1, 'NP'), [1, 0, 1]); assert.deepStrictEqual(A(null, 'P'), [1, 1, 0]);
+  assert.deepStrictEqual(A(2, '1 P 1 NP'), [2, 1, 1]); assert.deepStrictEqual(A(null, '2P 1NP'), [3, 2, 1]); assert.deepStrictEqual(A(2, 'P NP'), [2, 1, 1]);
+  assert.deepStrictEqual(A(3, ''), [3, 0, 0]); assert.strictEqual(C.approachCounts({ approaches: 1, apprType: 'GCA' }).known, false);
+  // read off a page: "1 P" written above "1 NP" in the type box, and "1" above "1" in the number box
+  const t = X.defaultTemplate(); const mid = k => { const c = t.columns.find(c => c.field === k); return (c.x0 + c.x1) / 2; };
+  const w = (text, k, dx, y) => ({ text, conf: 95, x0: mid(k) + dx - 0.004, x1: mid(k) + dx + 0.004, y0: y, y1: y + 0.012 });
+  const r = X.extractPage([w('5', 'day', 0, 0.3), w('AV-8B', 'type', 0, 0.3), w('1.5', 'total', 0, 0.3), w('1', 'approaches', 0, 0.295), w('1', 'approaches', 0, 0.312),
+    w('NP', 'apprType', 0.008, 0.312), w('1', 'apprType', -0.008, 0.312), w('P', 'apprType', 0.008, 0.295), w('l', 'apprType', -0.008, 0.295)], t, { year: 1988, month: 3 }, { ruledLines: [0.22, 0.28, 0.34, 0.40, 0.46] });
+  const f = r.rows[0]; assert.strictEqual(f.apprType, '1 P 1 NP'); assert.strictEqual(f.approaches, 2);
+  const row = E.myFlightbook({ pages: [], flights: [Object.assign({}, f, { date: '1988-03-05' })] }).csv.trim().split('\r\n')[1].split(',');
+  assert.deepStrictEqual(row.slice(11, 14), ['2', '1', '1'], 'Approaches, precision, non-precision');
+});
+
 console.log(`${passed} tests passed`);

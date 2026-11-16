@@ -4,6 +4,18 @@
   const r1 = v => Math.round(v * 10) / 10;
   const n = v => (typeof v === 'number' && isFinite(v) ? v : 0);
 
+  // Instrument approaches on one line. The type box says P (precision) or NP (non-precision); when a flight had both,
+  // the box holds a number for each, like "1 P 1 NP". Returns {total, precision, non, known}.
+  function approachCounts(f) {
+    const s = String(f.apprType || '').toUpperCase(); const col = n(f.approaches);
+    const found = [...s.matchAll(/(\d+)?\s*(NP|N|P)(?![A-Z])/g)].map(m => ({ num: m[1] ? +m[1] : null, non: m[2] !== 'P' }));
+    if (!found.length) return { total: col, precision: 0, non: 0, known: !s.trim() };
+    const kinds = new Set(found.map(x => x.non));
+    let precision = 0, non = 0;
+    for (const x of found) { const v = x.num != null ? x.num : (kinds.size === 1 && found.length === 1 && col ? col : 1); if (x.non) non += v; else precision += v; }
+    return { total: Math.max(col, precision + non), precision, non, known: true };
+  }
+
   function blank() {
     return { flights: 0, hours: 0, pic: 0, sic: 0, acCmdr: 0, specialCrew: 0, night: 0, day: 0, instActual: 0, instSim: 0, approaches: 0, simApproaches: 0, fclp: 0, carrierTG: 0, landings: 0, nightLandings: 0,
       shipLandings: 0, nightShipLandings: 0, traps: 0, nightTraps: 0, cats: 0, first: null, last: null };
@@ -12,7 +24,7 @@
     t.flights++;
     t.hours += n(f.total); t.night += n(f.night); t.day += Math.max(0, n(f.total) - n(f.night));
     t.pic += n(f.pic); t.sic += n(f.sic); t.acCmdr += n(f.acCmdr); t.specialCrew += n(f.specialCrew);
-    t.instActual += n(f.instActual); t.instSim += n(f.instSim); t.approaches += n(f.approaches); t.simApproaches += n(f.simApproaches); t.fclp += n(f.fclp); t.carrierTG += n(f.carrierTG);
+    t.instActual += n(f.instActual); t.instSim += n(f.instSim); t.approaches += approachCounts(f).total; t.simApproaches += n(f.simApproaches); t.fclp += n(f.fclp); t.carrierTG += n(f.carrierTG);
     t.landings += n(f.dayLand) + n(f.nightLand) + n(f.landings); t.nightLandings += n(f.nightLand);
     t.shipLandings += n(f.dayShip) + n(f.nightShip) + n(f.carrierTG); t.nightShipLandings += n(f.nightShip);
     t.traps += n(f.dayTraps) + n(f.nightTraps) + n(f.traps); t.nightTraps += n(f.nightTraps); t.cats += n(f.cats);
@@ -134,7 +146,7 @@
     return false;
   }
 
-  const api = { totals, suggestDeployments, segments, milestones, search, atSea, monthYear, longDate, blank };
+  const api = { approachCounts, totals, suggestDeployments, segments, milestones, search, atSea, monthYear, longDate, blank };
   root.BBCareer = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

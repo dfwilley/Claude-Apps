@@ -101,6 +101,13 @@
     }));
   }
   const cy = w => (w.y0 + w.y1) / 2;
+  // Words in one box, top line first, then left to right (a box can hold two short lines, like "1 P" over "1 NP").
+  function readingOrder(ws) {
+    if (ws.length < 2) return ws.slice();
+    const h = median(ws.map(w => w.y1 - w.y0)) || 0.01; const lines = [];
+    for (const w of ws.slice().sort((a, b) => cy(a) - cy(b))) { const l = lines[lines.length - 1]; if (l && cy(w) - l.c < h * 0.6) { l.ws.push(w); l.c = mean(l.ws.map(cy)); } else lines.push({ c: cy(w), ws: [w] }); }
+    return lines.flatMap(l => l.ws.sort((a, b) => a.x0 - b.x0));
+  }
   const cx = w => (w.x0 + w.x1) / 2;
   function median(a) { if (!a.length) return 0; const s = [...a].sort((x, y) => x - y); const m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; }
   function mean(a) { return a.reduce((s, v) => s + v, 0) / a.length; }
@@ -223,7 +230,7 @@
     bands.forEach((band, r) => {
       const cell = cells[r];
       const keys = Object.keys(cell); if (!keys.length) return;
-      const textOf = k => (cell[k] || []).sort((a, b) => a.x0 - b.x0).map(w => w.text).join(' ');
+      const textOf = k => readingOrder(cell[k] || []).map(w => w.text).join(' ');
       const confOf = k => cell[k] ? Math.min(...cell[k].map(w => w.conf == null ? 100 : w.conf)) : 100;
       const allText = keys.map(textOf).join(' ');
       // Monthly totals / brought-forward lines are checks, not flights.
@@ -243,7 +250,10 @@
         const kind = FIELD[k].kind;
         let res;
         if (kind === 'hours') res = parseHours(raw);
+        else if (k === 'approaches' && /^\d\s+\d(\s+\d)*$/.test(digitsFix(raw.trim()))) { // one number per approach type, stacked in the box
+          res = { value: digitsFix(raw.trim()).split(/\s+/).reduce((s, v) => s + +v, 0) }; res.note = `added the numbers in this box (${raw.trim()}) to get ${res.value}`; }
         else if (kind === 'count') res = parseCount(raw);
+        else if (k === 'apprType') res = { value: raw.trim().toUpperCase().replace(/(^|\s)[LI|](?=\s*N?P(\s|$))/g, '$11').replace(/\s+/g, ' ') };
         else if (kind === 'type') res = normalizeType(raw, opts.knownTypes);
         else if (kind === 'buno') res = parseBuno(raw);
         else if (kind === 'code') res = { value: raw.trim().toUpperCase().replace(/^[IL|](?=[A-Z]\d)/, '1').replace(/(\d[A-Z])[IL|]$/, '$11').replace(/^O(?=[A-Z]\d)/, '0') };
