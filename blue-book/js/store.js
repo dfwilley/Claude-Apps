@@ -15,12 +15,13 @@
   }
   function bytesToBase64(u8) { let s = ''; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s); }
 
+  const photoVer = {}; // bumped when a photo is replaced, so the screens don't show the old picture
   const NativeStore = {
     kind: 'native',
     async loadDB() { const s = await native('readDB'); return s ? JSON.parse(s) : null; },
     async saveDB(db) { await native('writeDB', { json: JSON.stringify(db) }); },
-    async putPhoto(id, blob) { await native('putPhoto', { photoId: id, base64: await blobToBase64(blob) }); },
-    photoURL(id) { return `_files/photos/${encodeURIComponent(id)}.jpg`; },
+    async putPhoto(id, blob) { await native('putPhoto', { photoId: id, base64: await blobToBase64(blob) }); photoVer[id] = (photoVer[id] || 0) + 1; },
+    photoURL(id) { return `_files/photos/${encodeURIComponent(id)}.jpg${photoVer[id] ? '?v=' + photoVer[id] : ''}`; },
     async getPhoto(id) { const r = await fetch(this.photoURL(id)); if (!r.ok) throw new Error('Photo missing'); return new Uint8Array(await r.arrayBuffer()); },
     async deletePhoto(id) { await native('deletePhoto', { photoId: id }); },
     async share(name, bytes, mime) { await native('share', { name, mime, base64: bytesToBase64(bytes) }); },

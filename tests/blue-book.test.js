@@ -199,4 +199,11 @@ test('approach types: P, NP, and both in one box', () => {
   assert.deepStrictEqual(row.slice(11, 14), ['2', '1', '1'], 'Approaches, precision, non-precision');
 });
 
+test('notices a page lying on its side', () => {
+  const up = ['AV-8B', '163853', 'T-34C', '160529', 'FCLP', '1983'].map((text, i) => ({ text, x0: 0.1, x1: 0.18, y0: 0.1 + i * 0.05, y1: 0.12 + i * 0.05 }));
+  const side = up.map(w => ({ text: w.text, x0: w.y0, x1: w.y1, y0: w.x0, y1: w.x1 }));
+  assert.strictEqual(X.looksSideways(up, 2600, 1800), false); assert.strictEqual(X.looksSideways(side, 1800, 2600), true);
+  assert.strictEqual(X.looksSideways([], 100, 100), false);
+});
+
 console.log(`${passed} tests passed`);

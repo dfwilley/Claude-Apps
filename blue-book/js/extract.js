@@ -351,7 +351,14 @@
     return out.map(o => o.a / across);
   }
 
-  const api = { FIELDS, FIELD, NUM_FIELDS, KNOWN_TYPES, defaultTemplate, extractPage, rowBands, parseHours, parseCount, parseBuno, parseDay, parseDate,
+  // True when most words are taller than they are wide: the page was photographed lying on its side.
+  function looksSideways(words, w, h) {
+    const ws = (words || []).filter(x => String(x.text).replace(/[^A-Za-z0-9]/g, '').length >= 3);
+    if (ws.length < 5) return false;
+    return ws.filter(x => (x.y1 - x.y0) * h > 1.5 * (x.x1 - x.x0) * w).length > ws.length * 0.5;
+  }
+
+  const api = { looksSideways, FIELDS, FIELD, NUM_FIELDS, KNOWN_TYPES, defaultTemplate, extractPage, rowBands, parseHours, parseCount, parseBuno, parseDay, parseDate,
     normalizeType, sanity, recheck, findRuledLines, isoDate, hasShipWork };
   root.BBExtract = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

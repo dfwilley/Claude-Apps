@@ -110,7 +110,10 @@
     let ids;
     try { ids = await S.scan(); } catch (e) { toast(e.message, true); return; }
     for (const id of ids || []) {
-      const img = await I.loadURL(S.photoURL(id)); await newPage(id, I.toCanvas(img, 2600));
+      const img = await I.loadURL(S.photoURL(id)); let c = I.toCanvas(img, 2600);
+      const turns = db.settings.scanTurns || 0; // pages are usually all scanned the same way round
+      if (turns) { c = I.rotate(c, turns); await S.putPhoto(id, await I.toBlob(c, 'image/jpeg', 0.88)); }
+      await newPage(id, c, turns);
     }
   }
 
@@ -152,14 +155,14 @@
   }
 
   // A new page: set month/year/squadron/ship, then read it.
-  async function newPage(photoId, canvas) {
+  async function newPage(photoId, canvas, turns) {
     const prev = db.pages.slice().sort((a, b) => (b.year || 0) - (a.year || 0) || (b.month || 0) - (a.month || 0))[0];
     let month = prev && prev.month ? prev.month % 12 + 1 : null, year = prev && prev.year ? (prev.month === 12 ? prev.year + 1 : prev.year) : null;
-    const page = { id: uid('p'), photoId, added: new Date().toISOString(), status: 'review', year, month, squadron: prev ? prev.squadron : '', ship: prev ? prev.ship : '', w: canvas.width, h: canvas.height };
+    const page = { id: uid('p'), photoId, added: new Date().toISOString(), status: 'review', year, month, squadron: prev ? prev.squadron : '', ship: prev ? prev.ship : '', w: canvas.width, h: canvas.height, turns: turns || 0 };
     db.pages.push(page); save();
     const info = await pageInfo(page, true);
     if (!info) { /* kept as a page to review later */ }
-    if (!db.settings.calibrated) { ui.reviewPageId = page.id; await openColumns(page, canvas); }
+    if (!db.settings.calibrated) { ui.reviewPageId = page.id; canvas = (await openColumns(page, canvas)) || canvas; }
     await readPage(page, canvas);
   }
 
@@ -199,13 +202,15 @@
       const small = I.toCanvas(canvas, 1600); const g = I.grayOf(small);
       page.ruledLines = X.findRuledLines(g.gray, g.w, g.h, 'h', { minFrac: 0.3 }).filter(v => v > 0.015 && v < 0.985);
       page.words = await window.BBOcr.read(page.photoId, prepared.canvas, v => set(0.05 + v * 0.75));
+      page.sideways = X.looksSideways(page.words, canvas.width, canvas.height);
       const bands = X.rowBands(page.words, db.settings.template, page.ruledLines);
       const more = await window.BBOcr.secondLook(prepared, page.words, db.settings.template, bands, v => set(0.8 + v * 0.2));
       page.words = page.words.concat(more);
       extractInto(page);
       closeSheet(); ui.reviewPageId = page.id; tab = 'pages'; render();
       const flagged = page.rows.filter(r => r.rowType === 'flight' && r.flags.length).length;
-      toast(`Found ${page.rows.filter(r => r.rowType === 'flight').length} lines${flagged ? `, ${flagged} to check` : ''}.`);
+      if (page.sideways) toast('This page looks like it is lying on its side. Tap “Adjust columns & re-read” and turn it.', true);
+      else toast(`Found ${page.rows.filter(r => r.rowType === 'flight').length} lines${flagged ? `, ${flagged} to check` : ''}.`);
     } catch (e) {
       closeSheet(); page.rows = page.rows || []; save(); ui.reviewPageId = page.id; render();
       toast("Couldn't read the page: " + e.message + ' You can type the lines in.', true);
@@ -217,6 +222,14 @@
     page.rows = res.rows.map((r, i) => Object.assign(r, { id: uid('f'), row: i })); page.notes = res.notes; save();
   }
 
+  // Turn a page's photo a quarter turn at a time (1 = clockwise, 3 = counter-clockwise) and forget the old reading.
+  async function rotatePage(page, turns) {
+    const c = I.rotate(I.toCanvas(await I.loadURL(await S.photoURLAsync(page.photoId)), 2600), turns);
+    await S.putPhoto(page.photoId, await I.toBlob(c, 'image/jpeg', 0.88));
+    page.w = c.width; page.h = c.height; page.turns = ((page.turns || 0) + turns) % 4; page.words = null; page.ruledLines = null; page.sideways = false;
+    db.settings.scanTurns = page.turns; save(); return c;
+  }
+
   // ---------- Column setup ----------
   async function openColumns(page, canvas) {
     if (!page) return;
@@ -224,12 +237,17 @@
     const tpl = JSON.parse(JSON.stringify(db.settings.template));
     return new Promise(resolve => {
       openSheet(`<h2>Match the columns to your logbook</h2>
-        <p class="small">Do this once; every page after uses it. Drag the gold lines onto the printed column lines, and the blue lines to the first and last flight lines. Tap a column to say what it holds.</p>
+        <p class="small">Do this once; every page after uses it. Drag the gold lines onto the printed column lines, and the blue lines to the first and last flight lines. Tap a column to say what it holds. If the page is lying on its side, turn it first.</p>
         <div class="colscroll"><div class="colwrap" id="colwrap"><canvas id="colc"></canvas><div id="colover"></div></div></div>
-        <div class="btns"><button id="co-find">Find printed lines</button><button id="co-add">Add a column</button><button id="co-reset">Start over</button><button class="primary" id="co-ok">Save columns</button></div>`, body => {
+        <div class="btns"><button id="co-left">⟲ Turn left</button><button id="co-right">Turn right ⟳</button><button id="co-find">Find printed lines</button><button id="co-add">Add a column</button><button id="co-reset">Start over</button><button class="primary" id="co-ok">Save columns</button></div>`, body => {
         const cv = $('#colc', body), over = $('#colover', body), wrap = $('#colwrap', body);
-        const W = Math.min(1400, Math.max(900, Math.round(canvas.width * 0.45))), s = W / canvas.width; cv.width = W; cv.height = Math.round(canvas.height * s);
-        cv.getContext('2d').drawImage(canvas, 0, 0, cv.width, cv.height); wrap.style.width = cv.width + 'px'; wrap.style.height = cv.height + 'px';
+        const paint = () => {
+          const W = Math.min(1400, Math.max(900, Math.round(canvas.width * 0.45))), s = W / canvas.width; cv.width = W; cv.height = Math.round(canvas.height * s);
+          cv.getContext('2d').drawImage(canvas, 0, 0, cv.width, cv.height); wrap.style.width = cv.width + 'px'; wrap.style.height = cv.height + 'px';
+        };
+        paint();
+        const turn = async t => { try { canvas = await rotatePage(page, t); paint(); draw(); } catch (e) { toast('Could not turn the page: ' + e.message, true); } };
+        $('#co-left', body).onclick = () => turn(3); $('#co-right', body).onclick = () => turn(1);
         const draw = () => {
           tpl.columns.sort((a, b) => a.x0 - b.x0);
           over.innerHTML = tpl.columns.map((c, i) => `<button class="colband" data-c="${i}" style="left:${c.x0 * 100}%;width:${(c.x1 - c.x0) * 100}%;top:${tpl.top * 100}%;height:${(tpl.bottom - tpl.top) * 100}%"><span>${esc(X.FIELD[c.field].label)}</span></button>`).join('') +
@@ -278,9 +296,9 @@
         };
         $('#co-add', body).onclick = () => { const last = tpl.columns[tpl.columns.length - 1]; if (last.x1 < 0.97) tpl.columns.push({ field: 'skip', x0: last.x1, x1: Math.min(1, last.x1 + 0.05) }); else { const mid = (last.x0 + last.x1) / 2; tpl.columns.push({ field: 'skip', x0: mid, x1: last.x1 }); last.x1 = mid; } draw(); };
         $('#co-reset', body).onclick = () => { Object.assign(tpl, X.defaultTemplate()); draw(); };
-        $('#co-ok', body).onclick = () => { db.settings.template = tpl; db.settings.calibrated = true; save(); closeSheet(); resolve(); };
+        $('#co-ok', body).onclick = () => { db.settings.template = tpl; db.settings.calibrated = true; save(); closeSheet(); resolve(canvas); };
         draw();
-      }, { onClose: () => resolve() });
+      }, { onClose: () => resolve(canvas) });
     });
   }
 
@@ -322,6 +340,7 @@
       <section class="card">
         <div class="rowhead"><h2>${esc(pageLabel(page))}</h2><button id="rv-info">Edit month, squadron, ship</button></div>
         <p class="small">${page.ship ? 'Ship: ' + esc(page.ship) + ' · ' : ''}${flights.length} line${flights.length === 1 ? '' : 's'}${flagged ? ` · <strong class="flagtext">${flagged} flagged</strong> — yellow boxes are the ones it wasn't sure about` : ' · nothing flagged'}</p>
+        ${page.sideways ? '<p class="note">This page looks like it is lying on its side. Tap “Adjust columns &amp; re-read” below and turn it.</p>' : ''}
         ${(page.notes || []).map(n => `<p class="note">${esc(n)}</p>`).join('')}
         <details class="fullpage"><summary>Show the whole page</summary><div class="pagewrap"><img id="rv-img" alt="Logbook page photo"><div id="rv-bands"></div></div></details>
       </section>
@@ -644,6 +663,7 @@
     db.deployments = Array.isArray(db.deployments) ? db.deployments.filter(obj) : [];
     db.settings = Object.assign(emptyDB().settings, obj(db.settings) ? db.settings : {});
     if (!obj(db.settings.template) || !Array.isArray(db.settings.template.columns) || !db.settings.template.columns.length) db.settings.template = X.defaultTemplate();
+    if (!db.settings.calibrated) db.settings.template = X.defaultTemplate(); // until you set up columns, start from the current layout
     S.persist();
     render();
     if (!S.isNative && 'serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
