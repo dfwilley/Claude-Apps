@@ -160,11 +160,11 @@ test('MyFlightbook import file', () => {
     { date: null, type: 'AV-8B', buno: '163853', total: 1.0 }, { date: '1988-03-07', type: 'AV-8B', buno: '163853', total: null } ] };
   const m = E.myFlightbook(db); const rows = m.csv.trim().split('\r\n');
   assert.strictEqual(rows[0], 'Date,Tail Number,Model,Total Flight Time,PIC,SIC,Aircraft Commander Time,Military Special Crew Time,Night,IMC,Simulated Instrument,Approaches,Approaches - Precision (unspecified type),Approaches - Non-precision (unspecified type),' +
-    'Landings,Landings - Night (unspecified),Landings - Touch and Go,Landings - Field Carrier Practice (FCLP),Landings - Touch and go (Carrier),Landings - Carrier,Landings - Arrestments (Carrier),"Landings - Arrestments (Carrier), Night",Takeoffs - Catapult,Comments');
+    'Landings,FS Day Landings,FS Night Landings,Landings - Touch and Go,Landings - Touch and Go (Night),Landings - Field Carrier Practice (FCLP),Landings - Field Carrier Practice (FCLP) at Night,Landings - Touch and go (Carrier),Landings - Carrier,Landings - Arrestments (Carrier),"Landings - Arrestments (Carrier), Night",Takeoffs - Catapult,Comments');
   assert.strictEqual(rows.length, 4, 'three flights have a date and a time');
-  assert.strictEqual(rows[1], '3/4/1988,163853,AV-8B,1,,,,,,,,1,,,6,3,,,,5,2,1,,Approach type GCA', 'older day/night columns still work');
-  assert.strictEqual(rows[2], '3/5/1988,,AV-8B,1,,,,,,,,1,,1,1,,,,,,,,,');
-  assert.strictEqual(rows[3], '3/6/1988,158512,TA-4J,1.5,1.5,,1.5,0.2,0.7,0.3,,3,2,,11,,8,6,2,4,2,,2,"CQ, ""OK 3"" | VT-7 | USS Lexington (AVT-16)"');
+  assert.strictEqual(rows[1], '3/4/1988,163853,AV-8B,1,,,,,,,,1,,,6,3,3,,,,,,5,2,1,,Approach type GCA', 'older day/night columns still work');
+  assert.strictEqual(rows[2], '3/5/1988,,AV-8B,1,,,,,,,,1,,1,1,1,,,,,,,,,,,');
+  assert.strictEqual(rows[3], '3/6/1988,158512,TA-4J,1.5,1.5,,1.5,0.2,0.7,0.3,,3,2,,11,2,1,8,,6,,2,4,2,,2,"CQ, ""OK 3"" | VT-7 | USS Lexington (AVT-16)"', 'some night time: the landing that ended the flight was at night');
   assert.deepStrictEqual([m.included, m.leftOut, m.noTail, m.flagged, m.pagesInReview], [3, 2, 1, 1, 1]);
   const t = C.totals(db.flights).all; assert.deepStrictEqual([t.traps, t.fclp, t.carrierTG, t.landings, t.simApproaches], [4, 6, 2, 3, 1]);
 });
@@ -360,6 +360,18 @@ test('each page of the open book has its own row heights, joined row for row', (
   const g = new Uint8Array(1000 * 600).fill(255); for (let k = 0; k < 8; k++) for (let x = 40; x < 960; x++) { g[(100 + k * 50) * 1000 + x] = 60; g[(101 + k * 50) * 1000 + x] = 60; }
   for (let k = 0; k < 7; k++) for (let y = 112 + k * 50; y < 142 + k * 50; y++) for (let x = 60; x < 940; x++) if ((x * 31 + y * 17) % 20 < 9) g[y * 1000 + x] = 30; // rows packed with heavy writing: nearly half of every pixel row is ink
   const got = X.findRowLines(g, 1000, 600).map(v => Math.round(v * 600)); assert.strictEqual(got.length, 8, JSON.stringify(got)); got.forEach((y, k) => assert.ok(Math.abs(y - (100 + k * 50)) <= 1, `line ${k} at ${y}`));
+});
+
+test('landing rules: one full stop per flight, the rest touch and goes; night time makes the last landing a night one', () => {
+  const L = f => { const c = C.landingCounts(f); return [c.total, c.fullStops, c.touchAndGo, c.nightFS, c.nightTG, c.nightTraps, c.nightFCLP]; };
+  assert.deepStrictEqual(L({ total: 1.5, landings: 1 }), [1, 1, 0, 0, 0, 0, 0], 'one day landing');
+  assert.deepStrictEqual(L({ total: 1.5, landings: 7 }), [7, 1, 6, 0, 0, 0, 0], 'seven landings: six touch and goes and the full stop');
+  assert.deepStrictEqual(L({ total: 1.5, night: 0.4, landings: 7 }), [7, 1, 6, 1, 0, 0, 0], 'some night time: the full stop was at night, the touch and goes are not assumed to be');
+  assert.deepStrictEqual(L({ total: 1.5, night: 1.5, landings: 4, fclp: 6 }), [10, 1, 9, 1, 9, 0, 6], 'all night: every landing was');
+  assert.deepStrictEqual(L({ total: 2.0, night: 0.5, traps: 3, cats: 3 }), [3, 3, 0, 1, 0, 1, 0], 'ended aboard ship at night: the last trap was a night trap');
+  assert.deepStrictEqual(L({ total: 2.0, night: 2.0, traps: 3, carrierTG: 2 }), [5, 3, 2, 3, 2, 3, 0]);
+  assert.deepStrictEqual(L({ total: 1.0, night: 0.3 }), [0, 0, 0, 0, 0, 0, 0], 'night time but no landing logged: nothing invented');
+  const t = C.totals([{ date: '1984-01-02', total: 1.5, night: 0.4, landings: 7 }, { date: '1984-01-03', total: 2, night: 2, traps: 3 }]).all; assert.deepStrictEqual([t.nightLandings, t.nightTraps, t.traps], [1, 3, 3]);
 });
 
 console.log(`${passed} tests passed`);

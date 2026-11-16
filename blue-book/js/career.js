@@ -16,6 +16,26 @@
     return { total: Math.max(col, precision + non), precision, non, known: true };
   }
 
+  // Landings on one flight, worked out from what a Navy logbook records. The book counts landings but doesn't say which
+  // were full stops or which were at night, so two rules (the owner's) fill that in:
+  //  1. More than one in the Landing column: one was the full stop that ended the flight, the rest were touch and goes.
+  //     Carrier arrests are full stops; FCLPs and carrier touch and goes are touch and goes.
+  //  2. Night time logged: the landing that ended the flight was at night. If the whole flight was at night, every
+  //     landing on it was.
+  // (The older Landings day / night, Ship landings and Traps day / night columns already say which is which.)
+  function landingCounts(f) {
+    const L = n(f.landings), traps = n(f.traps), ctg = n(f.carrierTG), fclp = n(f.fclp);
+    const dL = n(f.dayLand), nL = n(f.nightLand), dS = n(f.dayShip), nS = n(f.nightShip), dT = n(f.dayTraps), nT = n(f.nightTraps);
+    const fieldFS = L > 0 ? 1 : 0, fieldTG = Math.max(0, L - 1);
+    const fullStops = fieldFS + traps + dL + nL + dS + nS + dT + nT, touchAndGo = fieldTG + fclp + ctg;
+    const night = n(f.night), wholeNight = night > 0 && typeof f.total === 'number' && night >= f.total - 0.051;
+    let nightField = 0, nightTraps = 0, nightTG = 0, nightFCLP = 0, nightCarrierTG = 0;
+    if (wholeNight) { nightField = fieldFS; nightTraps = traps; nightTG = touchAndGo; nightFCLP = fclp; nightCarrierTG = ctg; }
+    else if (night > 0) { if (fieldFS) nightField = 1; else if (traps) nightTraps = 1; }
+    return { total: fullStops + touchAndGo, fullStops, touchAndGo, nightFS: nightField + nightTraps + nL + nS + nT, nightField: nightField + nL, nightTraps: nightTraps + nT, nightTG, nightFCLP, nightCarrierTG,
+      carrier: traps + ctg + dS + nS + dT + nT, traps: traps + dT + nT };
+  }
+
   function blank() {
     return { flights: 0, hours: 0, pic: 0, sic: 0, acCmdr: 0, specialCrew: 0, night: 0, day: 0, instActual: 0, instSim: 0, approaches: 0, simApproaches: 0, fclp: 0, carrierTG: 0, landings: 0, nightLandings: 0,
       shipLandings: 0, nightShipLandings: 0, traps: 0, nightTraps: 0, cats: 0, first: null, last: null };
@@ -25,9 +45,10 @@
     t.hours += n(f.total); t.night += n(f.night); t.day += Math.max(0, n(f.total) - n(f.night));
     t.pic += n(f.pic); t.sic += n(f.sic); t.acCmdr += n(f.acCmdr); t.specialCrew += n(f.specialCrew);
     t.instActual += n(f.instActual); t.instSim += n(f.instSim); t.approaches += approachCounts(f).total; t.simApproaches += n(f.simApproaches); t.fclp += n(f.fclp); t.carrierTG += n(f.carrierTG);
-    t.landings += n(f.dayLand) + n(f.nightLand) + n(f.landings); t.nightLandings += n(f.nightLand);
+    const lc = landingCounts(f);
+    t.landings += n(f.dayLand) + n(f.nightLand) + n(f.landings); t.nightLandings += lc.nightField;
     t.shipLandings += n(f.dayShip) + n(f.nightShip) + n(f.carrierTG); t.nightShipLandings += n(f.nightShip);
-    t.traps += n(f.dayTraps) + n(f.nightTraps) + n(f.traps); t.nightTraps += n(f.nightTraps); t.cats += n(f.cats);
+    t.traps += n(f.dayTraps) + n(f.nightTraps) + n(f.traps); t.nightTraps += lc.nightTraps; t.cats += n(f.cats);
     if (f.date) { if (!t.first || f.date < t.first) t.first = f.date; if (!t.last || f.date > t.last) t.last = f.date; }
   }
   function tidy(t) { for (const k of ['hours', 'pic', 'sic', 'acCmdr', 'specialCrew', 'night', 'day', 'instActual', 'instSim']) t[k] = r1(t[k]); return t; }
@@ -146,7 +167,7 @@
     return false;
   }
 
-  const api = { approachCounts, totals, suggestDeployments, segments, milestones, search, atSea, monthYear, longDate, blank };
+  const api = { landingCounts, approachCounts, totals, suggestDeployments, segments, milestones, search, atSea, monthYear, longDate, blank };
   root.BBCareer = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);
