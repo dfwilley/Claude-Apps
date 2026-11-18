@@ -1,0 +1,16 @@
+{
+  "name": "Which Gear Goes Where",
+  "short_name": "Which Gear",
+  "description": "Quick mechanical puzzles: gears, belts and levers. Tap which way the last one turns or how fast it spins. Works with no signal.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F3EFE6",
+  "theme_color": "#1D2B3A",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}
