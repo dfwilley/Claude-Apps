@@ -23,6 +23,7 @@ Each app is a plain web app in its own top-level folder: HTML, CSS and JavaScrip
 | `ask-me-tomorrow/` | Ask Me Tomorrow | none |
 | `who-was-here/` | Who Was Here | none |
 | `gate-time-puzzles/` | Gate Time Puzzles | none |
+| `which-gear-goes-where/` | Which Gear Goes Where | none |
 | `blue-book/` | Blue Book | `native/blue-book/`, web app inside a native shell (TestFlight) |
 | `hgvc-binder/` | HGVC Binder | `native/hgvc-binder/`, web app inside a native shell (TestFlight) |
 | `bin-finder/` | Bin Finder | `native/bin-finder/`, separately written in SwiftUI |
@@ -45,10 +46,11 @@ node tests/blue-book.test.js
 node tests/gate-time-puzzles.test.js
 node tests/hgvc-binder.test.js
 node tests/job-jar.test.js
+node tests/which-gear-goes-where.test.js
 node tests/who-was-here.test.js
 ```
 
-All six passed on November 12, 2026. Knot of the Day, Wire Bender and Ask Me Tomorrow have no automated tests. The Swift unit tests and screenshot tests under `native/*/` need a Mac, so they run only in GitHub Actions.
+All seven passed on November 18, 2026. Knot of the Day, Wire Bender and Ask Me Tomorrow have no automated tests. The Swift unit tests and screenshot tests under `native/*/` need a Mac, so they run only in GitHub Actions.
 
 ## How a change reaches the phone
 
