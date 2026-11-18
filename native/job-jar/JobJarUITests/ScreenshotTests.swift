@@ -76,6 +76,21 @@ final class ScreenshotTests: XCTestCase {
         app.buttons["gu-history"].tap(); sleep(1)
         snap(app, "11-history")
 
+        // Special days, special chores and matching
+        app.buttons["gu-specials"].tap(); sleep(1)
+        snap(app, "22-specials")
+        for (button, shot) in [("addSpecial", "23-add-special-day"), ("addSpecialChore", "24-add-special-chore"), ("addMatch", "25-add-match")] {
+            let add = app.buttons[button]
+            if add.waitForExistence(timeout: 3), !add.isHittable { app.swipeUp(); sleep(1) }
+            if add.exists, add.isHittable {
+                add.tap(); sleep(1)
+                if button == "addSpecialChore" { app.swipeUp(); sleep(1) }
+                snap(app, shot)
+                app.buttons["Cancel"].firstMatch.tap(); sleep(1)
+            }
+            app.swipeDown(); sleep(1)
+        }
+
         app.buttons["gu-settings"].tap(); sleep(1)
         snap(app, "12-settings")
         let approval = app.switches["needsApproval"]

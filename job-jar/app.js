@@ -42,16 +42,17 @@
   function coinStack(n, key, scale) {
     const c = J.COINS[key] || J.coinOf(S);
     const k = scale || 1;
-    const rx = c.d * 0.82 * k, ry = rx * 0.36, t = 5 * k, per = 10, gap = 4 * k;
+    // Each coin sits a little to the left or right of the one below it, with a dark gap between, so a kid can count them.
+    const rx = c.d * 0.82 * k, ry = rx * 0.36, t = 6.5 * k, per = 10, shift = rx * 0.16, gap = 4 * k + shift * 2;
     const cols = Math.max(1, Math.ceil(n / per)), tallest = Math.min(n, per);
-    const W = cols * (rx * 2) + (cols - 1) * gap + 4, H = (tallest - 1) * t + ry * 2 + t + 4;
+    const W = cols * (rx * 2) + (cols - 1) * gap + 4 + shift * 2, H = (tallest - 1) * t + ry * 2 + t + 4;
     const label = c.cents >= 100 ? "$1" : c.cents + "¢";
     let out = "";
     for (let col = 0; col < cols; col++) {
-      const count = Math.min(per, n - col * per), cx = 2 + rx + col * (rx * 2 + gap);
+      const count = Math.min(per, n - col * per), mid = 2 + shift + rx + col * (rx * 2 + gap);
       for (let i = 0; i < count; i++) {
-        const cy = H - 2 - ry - t - i * t;
-        out += `<ellipse cx="${cx}" cy="${cy + t}" rx="${rx}" ry="${ry}" fill="${c.edge}"/><rect x="${cx - rx}" y="${cy}" width="${rx * 2}" height="${t}" fill="${c.edge}"/>` +
+        const cy = H - 2 - ry - t - i * t, cx = mid + (i % 2 ? shift : -shift), side = t * 0.72;
+        out += `<ellipse cx="${cx}" cy="${cy + side}" rx="${rx}" ry="${ry}" fill="${c.edge}"/><rect x="${cx - rx}" y="${cy}" width="${rx * 2}" height="${side}" fill="${c.edge}"/>` +
           `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="${c.face}" stroke="${c.edge}" stroke-width="${1.2 * k}"/>`;
         if (i === count - 1) out += `<text x="${cx}" y="${cy + ry * 0.45}" text-anchor="middle" font-size="${Math.round(ry * 1.15)}" font-weight="900" font-family="system-ui,sans-serif" fill="${c.edge}">${label}</text>`;
       }
@@ -97,6 +98,15 @@
     if (k === yk) return "Yesterday " + time;
     return d.toLocaleDateString("en-US", { weekday: "short", month: "long", day: "numeric", year: "numeric" });
   }
+  const shortDay = (key) => J.parseDay(key).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  const timesWord = (n) => (n === 2 ? "Double" : n === 3 ? "Triple" : n + "×");
+  /** "For every 2 stars earned, Grandma adds 1" */
+  function matchText(m) {
+    const unit = isMoney() ? J.coinOf(S).plural : "stars", one = isMoney() ? J.coinOf(S).name : "star";
+    const [earn, add] = { 25: [4, 1], 50: [2, 1], 100: [1, 1], 200: [1, 2] }[m.percent] || [100, m.percent];
+    return `For every ${earn === 1 ? one : earn + " " + unit} earned, ${m.who} adds ${add}`;
+  }
+  const matchGiven = (m) => Object.keys(m.given).reduce((a, id) => a + m.given[id], 0);
   function kidStyle(k) { return k ? ` style="--kid:${esc(k.color)}"` : ""; }
 
   // ---------- sound & voice ----------
@@ -252,10 +262,14 @@
     if (view.kidTab === "today") {
       const list = J.choresFor(S, k.id, today);
       const p = J.progress(S, k.id, today);
-      body = (p.allDone ? `<div class="alldone">🎉 All done today! 🎉</div>` : "") + (list.length ? `<div class="chores">${list.map(({ chore, status }) => `
+      const sp = J.specialFor(S, k.id, today), mt = J.matchesFor(S, k.id, today);
+      body = (p.allDone ? `<div class="alldone">🎉 All done today! 🎉</div>` : "") +
+        (sp ? `<div class="banner special">${sp.pic} ${esc(sp.name)}! ${timesWord(sp.times)} ${isMoney() ? "money" : "stars"} today!</div>` : "") +
+        mt.map((m) => `<div class="banner match">${m.pic} ${esc(m.who)} is adding to your jar!</div>`).join("") + (list.length ? `<div class="chores">${list.map(({ chore, status }) => `
         <div class="chore ${status}" role="button" tabindex="0" data-act="chore" data-id="${chore.id}" aria-label="${esc(chore.name)}${status === "done" ? ", done" : status === "waiting" ? ", waiting for a grown-up" : ""}">
           <button class="say" data-act="say" data-text="${esc(chore.name)}" aria-label="Say it">🔊</button>
-          <div class="pic">${chore.pic}</div><div class="label">${esc(chore.name)}</div><div class="pips">${payHTML(chore.stars)}</div>
+          <div class="pic">${chore.pic}</div><div class="label">${esc(chore.name)}</div><div class="pips">${payHTML(J.payFor(S, k.id, chore, today))}</div>
+          ${chore.until ? `<div class="ribbon">🌟 Special${chore.until === J.dayKey(today) ? " · last day" : ""}</div>` : ""}
           ${status ? `<div class="mark" aria-hidden="true">${status === "done" ? "✓" : "⏳"}</div>` : ""}
         </div>`).join("")}</div>` : `<div class="empty"><span class="big">🌈</span>No chores today. Enjoy!</div>`);
     } else if (view.kidTab === "prizes") {
@@ -296,17 +310,17 @@
 
   function renderGrownup() {
     const waiting = J.waitingList(S);
-    const tabs = [["kids", "👧 Kids"], ["chores", "🧹 Chores"], ["rewards", "🎁 Rewards"], ["history", "📜 History"], ["settings", "⚙️ Settings"]];
+    const tabs = [["kids", "👧 Kids"], ["chores", "🧹 Chores"], ["rewards", "🎁 Rewards"], ["specials", "🎉 Specials"], ["history", "📜 History"], ["settings", "⚙️ Settings"]];
     if (S.settings.needsApproval || waiting.length) tabs.unshift(["check", "✅ Check" + (waiting.length ? ` <span class="badge">${waiting.length}</span>` : "")]);
     if (!tabs.some((t) => t[0] === view.guTab)) view.guTab = "kids";
     let body = "";
     const t = view.guTab;
     if (t === "check") {
       body = waiting.length ? `<div class="list">${waiting.map((w) => {
-        const k = J.kidById(S, w.kidId);
+        const k = J.kidById(S, w.kidId), pay = J.payFor(S, w.kidId, w.chore, J.parseDay(w.day));
         return `<div class="row"><span class="pic">${w.chore.pic}</span><div class="main"><b>${esc(w.chore.name)}</b><small>${avatarHTML(k, 20)} ${esc(k.name)} · ${w.day === J.dayKey(today) ? "today" : esc(J.parseDay(w.day).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" }))}</small></div>
           <button class="btn" data-act="reject" data-kid="${w.kidId}" data-chore="${w.chore.id}" data-day="${w.day}" aria-label="Not done">✗</button>
-          <button class="btn good" data-act="approve" data-kid="${w.kidId}" data-chore="${w.chore.id}" data-day="${w.day}">✓ ${isMoney() ? esc(amt(w.chore.stars)) : stars(w.chore.stars)}</button></div>`;
+          <button class="btn good" data-act="approve" data-kid="${w.kidId}" data-chore="${w.chore.id}" data-day="${w.day}">✓ ${isMoney() || pay > 5 ? esc(amtShort(pay)) : stars(pay)}</button></div>`;
       }).join("")}</div><button class="add" data-act="approve-all">✓ OK all of them</button>` : `<div class="empty"><span class="big">👍</span>Nothing waiting to be checked.</div>`;
       body += `<p class="note">“Grown-up checks chores first” is ${S.settings.needsApproval ? "on" : "off"} (Settings). When it's on, a chore turns yellow ⏳ until you OK it here, then the stars go in the jar.</p>`;
     } else if (t === "kids") {
@@ -316,7 +330,7 @@
         `<button class="add" data-act="edit-kid">+ Add a kid</button>`;
     } else if (t === "chores") {
       body = `<div class="list">${S.chores.map((c) => `<button class="row" data-act="edit-chore" data-id="${c.id}"><span class="pic">${c.pic}</span>
-          <div class="main"><b>${esc(c.name)}</b><small>${daysText(c.days)} · ${whoText(c.kids)}</small></div><span class="end">${isMoney() ? esc(amt(c.stars)) : stars(c.stars)} ›</span></button>`).join("")}</div>
+          <div class="main"><b>${esc(c.name)}</b><small>${daysText(c.days)} · ${whoText(c.kids)}${rangeText(c) ? " · " + esc(rangeText(c)) : ""}</small></div><span class="end">${isMoney() ? esc(amt(c.stars)) : stars(c.stars)} ›</span></button>`).join("")}</div>
         <button class="add" data-act="edit-chore">+ Add a chore</button>
         <p class="note">Pick a picture for each chore so kids who can't read yet know what it is. They can also tap 🔊 to hear it.</p>`;
     } else if (t === "rewards") {
@@ -324,6 +338,24 @@
           <div class="main"><b>${esc(r.name)}</b></div><span class="end">${esc(amtShort(r.cost))} ›</span></button>`).join("")}</div>
         <button class="add" data-act="edit-reward">+ Add a reward</button>
         <p class="note">When a kid has enough ${isMoney() ? "money" : "stars"}, a “Get it!” button appears. A grown-up enters the PIN to OK it, and the ${isMoney() ? "price" : "stars"} come out of the jar.</p>`;
+    } else if (t === "specials") {
+      const tk = J.dayKey(today);
+      const limited = S.chores.filter((c) => c.from || c.until);
+      body = `<div class="section">Special days</div>
+        ${S.specials.length ? `<div class="list">${S.specials.map((x) => `<button class="row" data-act="edit-special" data-id="${x.id}"><span class="pic">${x.pic}</span>
+          <div class="main"><b>${esc(x.name)}</b><small>${esc(shortDay(x.date))}${x.yearly ? ", every year" : ", " + x.date.slice(0, 4)} · ${whoText(x.kids)}</small></div><span class="end">${timesWord(x.times)} ›</span></button>`).join("")}</div>` : ""}
+        <button class="add" data-act="edit-special">+ Add a special day</button>
+        <p class="note">On a special day, like a birthday, every chore pays double or triple.</p>
+        <div class="section">Special chores for a short time</div>
+        ${limited.length ? `<div class="list">${limited.map((c) => `<button class="row" data-act="edit-chore" data-id="${c.id}"><span class="pic">${c.pic}</span>
+          <div class="main"><b>${esc(c.name)}</b><small>${esc(rangeText(c))}${c.until && c.until < tk ? " · ended" : ""} · ${whoText(c.kids)}</small></div><span class="end">${esc(amtShort(c.stars))} ›</span></button>`).join("")}</div>` : ""}
+        <button class="add" data-act="edit-chore" data-special="1">+ Add a special chore</button>
+        <p class="note">A special chore shows on the kids' charts only between the days you pick, for example “Rake leaves” this weekend.</p>
+        <div class="section">Matching from Grandma, Granddad or anyone</div>
+        ${S.matches.length ? `<div class="list">${S.matches.map((m) => `<button class="row" data-act="edit-match" data-id="${m.id}"><span class="pic">${m.pic}</span>
+          <div class="main"><b>${esc(m.who)}</b><small>${esc(matchText(m))} · ${whoText(m.kids)}${m.until ? (m.until < tk ? " · ended " : " · until ") + esc(shortDay(m.until)) : ""}</small></div><span class="end">${esc(amtShort(matchGiven(m)))} so far ›</span></button>`).join("")}</div>` : ""}
+        <button class="add" data-act="edit-match">+ Add a match</button>
+        <p class="note">When someone offers to match what a kid earns, enter it here. The app adds their share each time a chore ${S.settings.needsApproval ? "is OK'd" : "is done"}, and keeps count of how much they have added.</p>`;
     } else if (t === "history") {
       const list = S.log.filter((e) => !view.histKid || e.kid === view.histKid).slice(0, 150);
       body = `<div class="seg" style="margin-bottom:12px"><button class="${!view.histKid ? "on" : ""}" data-act="hist-kid" data-id="">Everyone</button>${S.kids.map((k) => `<button class="${view.histKid === k.id ? "on" : ""}" data-act="hist-kid" data-id="${k.id}">${avatarHTML(k, 22)} ${esc(k.name)}</button>`).join("")}</div>` +
@@ -371,6 +403,13 @@
     if (s === "06") return "Weekends";
     return days.slice().sort().map((d) => J.DAY_NAMES[d].slice(0, 3)).join(", ");
   }
+  /** "Nov 5 – Nov 7" for a chore that only shows for a while. */
+  function rangeText(c) {
+    if (c.from && c.until) return c.from === c.until ? "only " + shortDay(c.from) : shortDay(c.from) + " – " + shortDay(c.until);
+    if (c.until) return "until " + shortDay(c.until);
+    if (c.from) return "from " + shortDay(c.from);
+    return "";
+  }
   function whoText(ids) {
     if (!ids || !ids.length) return "Everyone";
     return ids.map((id) => { const k = J.kidById(S, id); return k ? k.name : ""; }).filter(Boolean).join(", ") || "Everyone";
@@ -405,9 +444,11 @@
     drawSheet();
   }
 
-  function editChore(id) {
+  function editChore(id, special) {
     const c = id ? J.choreById(S, id) : null;
-    draft = c ? JSON.parse(JSON.stringify(c)) : { id: null, pic: "🛏️", name: "", stars: 1, days: J.ALL_DAYS.slice(), kids: [] };
+    draft = c ? JSON.parse(JSON.stringify(c)) : { id: null, pic: "🛏️", name: "", stars: 1, days: J.ALL_DAYS.slice(), kids: [], from: "", until: "" };
+    if (!c && special) { draft.pic = "🧹"; draft.from = J.dayKey(today); draft.until = J.dayKey(J.addDays(today, 6)); }
+    draft.limited = !!(draft.from || draft.until);
     drawSheet = () => {
       openSheet(`<div class="sheet-head"><h2>${c ? "Edit chore" : "Add a chore"}</h2><button class="btn" data-act="close">Cancel</button></div>
         <span class="field">Picture</span>${picGrid(J.CHORE_PICS, draft.pic, "d-pic")}
@@ -419,6 +460,8 @@
         <span class="field">Which days</span><div class="seg">${J.ALL_DAYS.map((d) => `<button class="${draft.days.includes(d) ? "on" : ""}" data-act="d-day" data-d="${d}" aria-label="${J.DAY_NAMES[d]}">${J.DAY_NAMES[d].slice(0, 3)}</button>`).join("")}
           <button data-act="d-everyday">Every day</button></div>
         <span class="field">Who does it</span><div class="seg"><button class="${!draft.kids.length ? "on" : ""}" data-act="d-kid" data-id="">Everyone</button>${S.kids.map((k) => `<button class="${draft.kids.includes(k.id) ? "on" : ""}" data-act="d-kid" data-id="${k.id}">${avatarHTML(k, 22)} ${esc(k.name)}</button>`).join("")}</div>
+        <label class="toggle-row" style="margin-top:14px"><span>Special chore for a short time<small>Shows on the charts only between two days</small></span><input type="checkbox" class="switch" data-draft="limited" ${draft.limited ? "checked" : ""}></label>
+        ${draft.limited ? `<div class="dates"><label>First day<input class="text" type="date" data-draft="from" value="${esc(draft.from || "")}"></label><label>Last day<input class="text" type="date" data-draft="until" value="${esc(draft.until || "")}"></label></div>` : ""}
         <div class="actions">${c ? `<button class="btn danger" data-act="del-chore">Delete</button>` : ""}<button class="btn primary grow" data-act="save-chore">Save</button></div>`);
     };
     drawSheet();
@@ -436,6 +479,48 @@
         ${isMoney() ? `<p class="note">${esc(J.coinCount(S, draft.cost))}.</p>` : ""}
         <p class="note">Tip: a small treat that takes a few days to earn keeps young kids excited; save bigger trips for a week or two of chores.</p>
         <div class="actions">${r ? `<button class="btn danger" data-act="del-reward">Delete</button>` : ""}<button class="btn primary grow" data-act="save-reward">Save</button></div>`);
+    };
+    drawSheet();
+  }
+
+  const SPECIAL_PICS = [["🎂", "Birthday"], ["🎉", "Special day"], ["🎄", "Christmas"], ["🎃", "Halloween"], ["🦃", "Thanksgiving"], ["🐣", "Easter"], ["🎆", "Fourth of July"], ["❄️", "Snow day"], ["🏖️", "Vacation day"], ["🏫", "Last day of school"], ["👵", "Grandparents' visit"], ["⭐", "Bonus day"]];
+  const MATCH_PICS = [["👵", "Grandma"], ["👴", "Granddad"], ["🧓", "Nana"], ["👩", "Aunt"], ["👨", "Uncle"], ["💝", "A helper"]];
+  const kidSeg = () => `<div class="seg"><button class="${!draft.kids.length ? "on" : ""}" data-act="d-kid" data-id="">Everyone</button>${S.kids.map((k) => `<button class="${draft.kids.includes(k.id) ? "on" : ""}" data-act="d-kid" data-id="${k.id}">${avatarHTML(k, 22)} ${esc(k.name)}</button>`).join("")}</div>`;
+
+  function editSpecial(id) {
+    const x = id ? S.specials.find((s) => s.id === id) : null;
+    draft = x ? JSON.parse(JSON.stringify(x)) : { id: null, pic: "🎂", name: "", date: J.dayKey(today), yearly: true, times: 2, kids: [] };
+    drawSheet = () => {
+      openSheet(`<div class="sheet-head"><h2>${x ? "Edit special day" : "Add a special day"}</h2><button class="btn" data-act="close">Cancel</button></div>
+        <span class="field">Picture</span>${picGrid(SPECIAL_PICS, draft.pic, "d-pic2")}
+        <label class="field" for="nm">Name (kids see this on the day)</label><input class="text" id="nm" value="${esc(draft.name)}" maxlength="30" autocomplete="off" placeholder="Ava's birthday">
+        <div class="dates"><label>Which day<input class="text" type="date" data-draft="date" value="${esc(draft.date)}"></label></div>
+        <div class="seg" style="margin-top:10px"><button class="${draft.yearly ? "on" : ""}" data-act="d-yearly" data-y="1">Every year</button><button class="${!draft.yearly ? "on" : ""}" data-act="d-yearly" data-y="0">Just this once</button></div>
+        <span class="field">What chores pay that day</span><div class="seg">${[2, 3].map((n) => `<button class="${draft.times === n ? "on" : ""}" data-act="d-times" data-n="${n}">${timesWord(n)}</button>`).join("")}</div>
+        <span class="field">Who it's for</span>${kidSeg()}
+        <div class="actions">${x ? `<button class="btn danger" data-act="del-special">Delete</button>` : ""}<button class="btn primary grow" data-act="save-special">Save</button></div>`);
+    };
+    drawSheet();
+  }
+
+  function editMatch(id) {
+    const m = id ? S.matches.find((x) => x.id === id) : null;
+    draft = m ? { id: m.id, pic: m.pic, name: m.who, percent: m.percent, kids: m.kids.slice(), until: m.until, cap: m.cap } : { id: null, pic: "👵", name: "Grandma", percent: 100, kids: [], until: "", cap: 0 };
+    draft.limited = !!draft.until;
+    drawSheet = () => {
+      const preview = { who: draft.name.trim() || "they", percent: draft.percent };
+      openSheet(`<div class="sheet-head"><h2>${m ? "Edit match" : "Add a match"}</h2><button class="btn" data-act="close">Cancel</button></div>
+        <span class="field">Who is matching</span>${picGrid(MATCH_PICS, draft.pic, "d-pic2")}
+        <input class="text" id="nm" value="${esc(draft.name)}" maxlength="20" autocomplete="off" placeholder="Grandma">
+        <span class="field">How much they add</span><div class="seg">${J.MATCH_PERCENTS.map((n) => `<button class="${draft.percent === n ? "on" : ""}" data-act="d-percent" data-n="${n}">${{ 25: "A quarter", 50: "Half", 100: "The same", 200: "Double" }[n]}</button>`).join("")}</div>
+        <p class="note">${esc(matchText(preview))}.</p>
+        <span class="field">Whose earnings they match</span>${kidSeg()}
+        <span class="field">The most they will add for each kid</span>
+        <div class="stepper"><button data-act="d-cap" data-n="-5" aria-label="5 less">−5</button><button data-act="d-cap" data-n="-1" aria-label="Less">−</button><output>${draft.cap ? esc(amtShort(draft.cap)) : "No limit"}</output><button data-act="d-cap" data-n="1" aria-label="More">+</button><button data-act="d-cap" data-n="5" aria-label="5 more">+5</button></div>
+        <label class="toggle-row" style="margin-top:14px"><span>The match has a last day<small>Chores done after that day aren't matched</small></span><input type="checkbox" class="switch" data-draft="limited" ${draft.limited ? "checked" : ""}></label>
+        ${draft.limited ? `<div class="dates"><label>Last day<input class="text" type="date" data-draft="until" value="${esc(draft.until || J.dayKey(J.addDays(today, 30)))}"></label></div>` : ""}
+        ${m ? `<p class="note">${esc(m.who)} has added ${esc(amt(matchGiven(m)))} so far${Object.keys(m.given).length ? ": " + Object.keys(m.given).map((id) => { const k = J.kidById(S, id); return k ? esc(k.name) + " " + esc(amtShort(m.given[id])) : ""; }).filter(Boolean).join(", ") : ""}.${isMoney() ? " That is what they owe the jar." : ""}</p>` : `<p class="note">Matching starts with chores finished from now on.</p>`}
+        <div class="actions">${m ? `<button class="btn danger" data-act="del-match">Stop</button>` : ""}<button class="btn primary grow" data-act="save-match">Save</button></div>`);
     };
     drawSheet();
   }
@@ -483,16 +568,19 @@
         say(st === "done" ? c.name + ". Done!" : c.name + ". Waiting for a grown-up.");
         return;
       }
+      const had = k.stars;
       const got = J.markDone(S, k.id, c.id, today);
+      const extra = k.stars - had - got; // added by someone's match
+      const plus = got ? "+" + amt(got) + (extra > 0 ? " and +" + amt(extra) + " match" : "") : "";
       save(); render(); ding();
       const p = J.progress(S, k.id, today);
       if (p.allDone) {
         setTimeout(fanfare, 250);
-        celebrate("🏆", "All done today!", got ? "+" + amt(got) : "", true);
+        celebrate("🏆", "All done today!", plus, true);
         say("Great job " + k.name + "! All your chores are done!");
       } else if (got) {
-        celebrate(c.pic, "Great job!", "+" + amt(got));
-        say(c.name + ". Great job! " + amtSay(got) + "!");
+        celebrate(c.pic, "Great job!", plus);
+        say(c.name + ". Great job! " + amtSay(got) + "!" + (extra > 0 ? " And " + amtSay(extra) + " more from a match!" : ""));
       } else {
         celebrate("⏳", "Nice work!", "A grown-up will check it");
         say("Nice work! A grown-up will check it.");
@@ -517,7 +605,39 @@
     reject(d) { J.reject(S, d.kid, d.chore, d.day); save(); render(); },
     "approve-all"() { J.waitingList(S).forEach((w) => J.approve(S, w.kidId, w.chore.id, w.day)); save(); render(); fanfare(); },
     "edit-kid"(d) { editKid(d.id); },
-    "edit-chore"(d) { editChore(d.id); },
+    "edit-chore"(d) { editChore(d.id, d.special); },
+    "edit-special"(d) { editSpecial(d.id); },
+    "edit-match"(d) { editMatch(d.id); },
+    "d-times"(d) { keepName(); draft.times = Number(d.n); drawSheet(); },
+    "d-yearly"(d) { keepName(); draft.yearly = d.y === "1"; drawSheet(); },
+    "d-percent"(d) { keepName(); draft.percent = Number(d.n); drawSheet(); },
+    "d-cap"(d) { keepName(); draft.cap = Math.max(0, Math.min(1000, draft.cap + Number(d.n))); drawSheet(); },
+    "d-pic2"(d) { keepName(); draft.pic = d.pic; if (d.name && (!draft.name.trim() || SPECIAL_PICS.concat(MATCH_PICS).some((p) => p[1] === draft.name))) draft.name = d.name; drawSheet(); },
+    "save-special"() {
+      keepName();
+      const name = draft.name.trim();
+      if (!name) { const n = document.getElementById("nm"); n.focus(); n.placeholder = "Type a name first"; return; }
+      if (!J.validDay(draft.date)) { alert("Pick the day."); return; }
+      const x = { pic: draft.pic, name, date: draft.date, yearly: !!draft.yearly, times: draft.times, kids: draft.kids.slice() };
+      const old = draft.id && S.specials.find((s) => s.id === draft.id);
+      if (old) Object.assign(old, x); else S.specials.push(Object.assign({ id: J.newId("s") }, x));
+      save(); closeSheet(); render();
+    },
+    "del-special"() { if (!confirm("Delete this special day?")) return; S.specials = S.specials.filter((x) => x.id !== draft.id); save(); closeSheet(); render(); },
+    "save-match"() {
+      keepName();
+      const who = draft.name.trim();
+      if (!who) { const n = document.getElementById("nm"); n.focus(); n.placeholder = "Who is matching?"; return; }
+      const until = draft.limited && J.validDay(draft.until) ? draft.until : "";
+      const m = { pic: draft.pic, who, percent: draft.percent, kids: draft.kids.slice(), until, cap: draft.cap };
+      const old = draft.id && S.matches.find((x) => x.id === draft.id);
+      if (old) Object.assign(old, m); else S.matches.push(Object.assign({ id: J.newId("m"), earned: {}, given: {} }, m));
+      save(); closeSheet(); render();
+    },
+    "del-match"() {
+      if (!confirm("Stop this match? What it already added stays in the jars.")) return;
+      S.matches = S.matches.filter((x) => x.id !== draft.id); save(); closeSheet(); render();
+    },
     "edit-reward"(d) { editReward(d.id); },
     "d-avatar"(d) { keepName(); draft.avatar = d.pic; draft.photo = ""; drawSheet(); },
     "d-nophoto"() { keepName(); draft.photo = ""; drawSheet(); },
@@ -588,7 +708,10 @@
       const name = draft.name.trim();
       if (!name) { const n = document.getElementById("nm"); n.focus(); n.placeholder = "Type a name first"; return; }
       if (!draft.days.length) { alert("Pick at least one day."); return; }
-      const c = { pic: draft.pic, name, stars: draft.stars, days: draft.days.slice().sort(), kids: draft.kids.slice() };
+      const from = draft.limited && J.validDay(draft.from) ? draft.from : "", until = draft.limited && J.validDay(draft.until) ? draft.until : "";
+      if (draft.limited && !from && !until) { alert("Pick the first and last day for this special chore, or turn that switch off."); return; }
+      if (from && until && until < from) { alert("The last day is before the first day."); return; }
+      const c = { pic: draft.pic, name, stars: draft.stars, days: draft.days.slice().sort(), kids: draft.kids.slice(), from, until };
       if (draft.id) Object.assign(J.choreById(S, draft.id), c); else S.chores.push(Object.assign({ id: J.newId("c") }, c));
       save(); closeSheet(); render();
     },
@@ -651,6 +774,17 @@
         if (target === "self") { const k = kid(); if (k) { k.photo = data; save(); closeSheet(); render(); say("Looking good!"); } }
         else if (draft) { keepName(); draft.photo = data; drawSheet(); }
       }).catch(() => alert("That picture couldn't be opened. Try a photo, or a JPEG or PNG file."));
+      return;
+    }
+    const dk = e.target.dataset && e.target.dataset.draft;
+    if (dk && draft) {
+      keepName();
+      if (e.target.type === "checkbox") {
+        draft[dk] = e.target.checked;
+        if (dk === "limited" && draft.limited && "from" in draft && !draft.from && !draft.until) { draft.from = J.dayKey(today); draft.until = J.dayKey(J.addDays(today, 6)); }
+        if (dk === "limited" && draft.limited && !("from" in draft) && !draft.until) draft.until = J.dayKey(J.addDays(today, 30));
+        drawSheet();
+      } else draft[dk] = e.target.value;
       return;
     }
     const k = e.target.dataset && e.target.dataset.set;

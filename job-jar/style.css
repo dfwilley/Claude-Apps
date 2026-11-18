@@ -238,3 +238,11 @@ h1, h2, h3 { margin: 0; }
 .kid-head .face { line-height: 1; padding: 0; }
 .photo-row { display: flex; align-items: center; gap: 14px; margin: 6px 0 10px; }
 .photo-btn { display: block; text-align: center; margin: 6px 0 12px; cursor: pointer; }
+
+/* Special days, special chores and matching */
+.banner { text-align: center; border-radius: var(--radius); padding: 14px; font-size: 22px; font-weight: 900; margin-bottom: 14px; }
+.banner.special { background: linear-gradient(135deg, #FFD1E8, #FF9CC8); color: #5A0A33; }
+.banner.match { background: linear-gradient(135deg, #D9F2FF, #A9DCFF); color: #0A3558; font-size: 19px; }
+.chore .ribbon { margin-top: 6px; display: inline-block; background: #FFE45C; color: #4A2E00; border-radius: 999px; padding: 3px 12px; font-size: 14px; font-weight: 900; }
+.dates { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+.dates label { flex: 1 1 150px; font-weight: 700; font-size: 15px; display: grid; gap: 4px; }

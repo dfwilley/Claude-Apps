@@ -172,12 +172,26 @@ struct TodayGrid: View {
                     .background(LinearGradient(colors: [Color(hex: "#FFE45C"), Theme.gold], startPoint: .topLeading, endPoint: .bottomTrailing), in: RoundedRectangle(cornerRadius: 22))
                     .accessibilityIdentifier("allDone")
             }
+            if let sp = store.data.special(kid.id, store.today) {
+                Text("\(sp.pic) \(sp.name)! \(timesWord(sp.times)) \(store.data.settings.money ? "money" : "stars") today!")
+                    .font(.system(size: 22, weight: .black, design: .rounded)).multilineTextAlignment(.center).foregroundStyle(Color(hex: "#5A0A33"))
+                    .frame(maxWidth: .infinity).padding(14)
+                    .background(LinearGradient(colors: [Color(hex: "#FFD1E8"), Color(hex: "#FF9CC8")], startPoint: .topLeading, endPoint: .bottomTrailing), in: RoundedRectangle(cornerRadius: 22))
+                    .accessibilityIdentifier("specialDay")
+            }
+            ForEach(store.data.matchesFor(kid.id, store.today)) { m in
+                Text("\(m.pic) \(m.who) is adding to your jar!")
+                    .font(.system(size: 19, weight: .black, design: .rounded)).multilineTextAlignment(.center).foregroundStyle(Color(hex: "#0A3558"))
+                    .frame(maxWidth: .infinity).padding(14)
+                    .background(LinearGradient(colors: [Color(hex: "#D9F2FF"), Color(hex: "#A9DCFF")], startPoint: .topLeading, endPoint: .bottomTrailing), in: RoundedRectangle(cornerRadius: 22))
+            }
             if list.isEmpty {
                 VStack { Text("🌈").font(.system(size: 80)); Text("No chores today. Enjoy!").font(.title3).foregroundStyle(.secondary) }.padding(.top, 40)
             }
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 158), spacing: 16)], spacing: 16) {
                 ForEach(list) { item in
-                    ChoreCard(chore: item.chore, status: item.status) { tap(item.chore, item.status) }
+                    ChoreCard(chore: item.chore, status: item.status, pay: store.data.pay(kid.id, item.chore, store.today),
+                              ribbon: item.chore.until.isEmpty ? "" : item.chore.until == dayKey(store.today) ? "🌟 Special · last day" : "🌟 Special") { tap(item.chore, item.status) }
                 }
             }
         }
@@ -196,15 +210,19 @@ struct TodayGrid: View {
             store.say(st == .done ? "\(c.name). Done!" : "\(c.name). Waiting for a grown-up.")
             return
         }
+        let had = store.data.kid(kid.id)?.stars ?? 0
         let got = sync.perform(SyncOp("done", kid: kid.id, chore: c.id, day: dayKey(store.today)))
+        let extra = (store.data.kid(kid.id)?.stars ?? 0) - had - got   // added by someone's match
+        let s = store.data.settings
+        let plus = got > 0 ? "+" + s.amountText(got) + (extra > 0 ? " and +" + s.amountText(extra) + " match" : "") : ""
         store.ding()
         if store.data.progress(kid.id, store.today).allDone {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { store.fanfare() }
-            ui.celebrate("🏆", "All done today!", got > 0 ? "+" + store.data.settings.amountText(got) : "", big: true)
+            ui.celebrate("🏆", "All done today!", plus, big: true)
             store.say("Great job \(kid.name)! All your chores are done!")
         } else if got > 0 {
-            ui.celebrate(c.pic, "Great job!", "+" + store.data.settings.amountText(got))
-            store.say("\(c.name). Great job! \(store.data.settings.amountSpeech(got))!")
+            ui.celebrate(c.pic, "Great job!", plus)
+            store.say("\(c.name). Great job! \(s.amountSpeech(got))!" + (extra > 0 ? " And \(s.amountSpeech(extra)) more from a match!" : ""))
         } else {
             ui.celebrate("⏳", "Nice work!", "A grown-up will check it")
             store.say("Nice work! A grown-up will check it.")
@@ -216,6 +234,8 @@ struct ChoreCard: View {
     @EnvironmentObject var store: JarStore
     let chore: Chore
     let status: ChoreStatus
+    var pay: Int? = nil       // what it pays today (more on a special day)
+    var ribbon: String = ""   // marks a special chore
     let action: () -> Void
 
     var body: some View {
@@ -223,7 +243,11 @@ struct ChoreCard: View {
             VStack(spacing: 6) {
                 Text(chore.pic).font(.system(size: 80)).opacity(status == .done ? 0.8 : 1)
                 Text(chore.name).font(.system(size: 20, weight: .heavy, design: .rounded)).multilineTextAlignment(.center).lineLimit(2).minimumScaleFactor(0.7)
-                PayView(n: chore.stars)
+                PayView(n: pay ?? chore.stars)
+                if !ribbon.isEmpty {
+                    Text(ribbon).font(.system(size: 14, weight: .black, design: .rounded)).foregroundStyle(Color(hex: "#4A2E00"))
+                        .padding(.horizontal, 12).padding(.vertical, 3).background(Color(hex: "#FFE45C"), in: Capsule())
+                }
             }
             .padding(.horizontal, 8).padding(.vertical, 18)
             .frame(maxWidth: .infinity, minHeight: 200)

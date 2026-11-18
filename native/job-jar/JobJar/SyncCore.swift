@@ -102,6 +102,22 @@ extension AppData {
             return copy
         }
         d.rewards = rewards
+        d.specials = specials.compactMap { x -> SpecialDay? in
+            if x.kids.isEmpty { return x }
+            var copy = x
+            copy.kids = x.kids.filter { ids.contains($0) }
+            return copy.kids.isEmpty ? nil : copy
+        }
+        d.matches = matches.compactMap { m -> MatchOffer? in
+            var copy = m
+            if !m.kids.isEmpty {
+                copy.kids = m.kids.filter { ids.contains($0) }
+                if copy.kids.isEmpty { return nil }
+            }
+            copy.earned = m.earned.filter { ids.contains($0.key) }
+            copy.given = m.given.filter { ids.contains($0.key) }
+            return copy
+        }
         for (day, byKid) in done {
             let mine = byKid.filter { ids.contains($0.key) && !$0.value.isEmpty }
             if !mine.isEmpty { d.done[day] = mine }

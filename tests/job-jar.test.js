@@ -157,4 +157,112 @@ assert(!J.validPhoto("javascript:alert(1)")); assert(!J.validPhoto("data:text/ht
 assert.equal(J.normalize({ kids: [{ name: "Pat", photo: png }] }).kids[0].photo, png);
 assert.equal(J.normalize({ kids: [{ name: "Pat", photo: "http://example.com/x.png" }] }).kids[0].photo, "");
 
+// ---- Special days: a birthday doubles what chores pay, for that kid only
+{
+  const f = J.defaultState();
+  f.settings.needsApproval = false;
+  f.kids.push({ id: "a", name: "Ava", avatar: "🦊", color: "#f00", stars: 0 }, { id: "b", name: "Ben", avatar: "🐻", color: "#00f", stars: 0 });
+  const c0 = f.chores[0], c1 = f.chores[1];
+  c1.stars = 3;
+  f.specials.push({ id: "s1", pic: "🎂", name: "Ava's birthday", date: "2020-11-05", yearly: true, times: 2, kids: ["a"] });
+  assert.equal(J.timesFor(f, "a", thu), 2); assert.equal(J.timesFor(f, "b", thu), 1);
+  assert.equal(J.timesFor(f, "a", fri), 1, "only on the day");
+  assert.equal(J.specialFor(f, "a", thu).name, "Ava's birthday");
+  assert.equal(J.payFor(f, "a", c1, thu), 6);
+  assert.equal(J.markDone(f, "a", c1.id, thu, thu), 6);
+  assert.equal(J.markDone(f, "b", c1.id, thu, thu), 3);
+  assert.equal(J.kidById(f, "a").stars, 6);
+  assert(/×2 Ava's birthday/.test(f.log.find((e) => e.kid === "a").text));
+  assert.equal(J.undo(f, "a", c1.id, thu), 6, "undo takes the doubled pay back");
+  assert.equal(J.kidById(f, "a").stars, 0);
+  // a one-time special day for everyone, tripled; the biggest special wins
+  f.specials.push({ id: "s2", pic: "🎉", name: "Snow day", date: "2026-11-05", yearly: false, times: 3, kids: [] });
+  assert.equal(J.timesFor(f, "a", thu), 3); assert.equal(J.timesFor(f, "b", thu), 3);
+  assert.equal(J.timesFor(f, "b", J.addDays(thu, 365)), 1, "a one-time day doesn't repeat");
+  assert.equal(J.timesFor(f, "a", J.addDays(thu, 365)), 2, "the birthday comes back next year");
+  // with the grown-up check on, the special day counts by the day the chore was done
+  f.settings.needsApproval = true;
+  assert.equal(J.markDone(f, "a", c0.id, thu, thu), 0);
+  assert.equal(J.approve(f, "a", c0.id, "2026-11-05", sat), 3);
+  f.settings.needsApproval = false;
+  // loading: bad special days are dropped, the multiplier is kept between 2 and 3
+  const ns = J.normalize({ specials: [{ name: "X", date: "soon" }, { name: "Y", date: "2026-12-25", times: 9 }] });
+  assert.equal(ns.specials.length, 1); assert.equal(ns.specials[0].times, 3); assert(ns.specials[0].id);
+  // removing the only kid a special day was for removes the special day
+  J.removeKid(f, "a");
+  assert.deepEqual(f.specials.map((x) => x.id), ["s2"]);
+}
+
+// ---- A special chore that only shows for a few days
+{
+  const f = J.defaultState();
+  f.settings.needsApproval = false;
+  f.kids.push({ id: "a", name: "Ava", avatar: "🦊", color: "#f00", stars: 0 });
+  const leaves = { id: "lv", pic: "🍂", name: "Rake leaves", stars: 5, days: J.ALL_DAYS.slice(), kids: [], from: "2026-11-05", until: "2026-11-07" };
+  f.chores.push(leaves);
+  assert(!J.isDue(leaves, J.addDays(thu, -1), "a")); assert(J.isDue(leaves, thu, "a")); assert(J.isDue(leaves, sat, "a"));
+  assert(!J.isDue(leaves, J.addDays(sat, 1), "a"));
+  assert.equal(J.choresFor(f, "a", thu).length, 7); assert.equal(J.choresFor(f, "a", J.addDays(sat, 1)).length, 6);
+  const row = J.weekChart(f, "a", thu).rows.find((r) => r.chore.id === "lv");
+  assert.deepEqual(row.cells, ["off", "off", "off", "off", "", "future", "future"]);
+  const nc = J.normalize(JSON.parse(JSON.stringify(f))).chores.find((c) => c.id === "lv");
+  assert.equal(nc.from, "2026-11-05"); assert.equal(nc.until, "2026-11-07");
+  assert.equal(J.normalize({ chores: [{ name: "X", from: "junk" }] }).chores[0].from, "");
+}
+
+// ---- Grandma matches what a kid earns
+{
+  const f = J.defaultState();
+  f.settings.needsApproval = false;
+  f.kids.push({ id: "a", name: "Ava", avatar: "🦊", color: "#f00", stars: 0 }, { id: "b", name: "Ben", avatar: "🐻", color: "#00f", stars: 0 });
+  const [c0, c1, c2, c3] = f.chores;
+  f.matches.push({ id: "m1", pic: "👵", who: "Grandma", percent: 50, kids: ["a"], until: "2026-11-06", cap: 0, earned: {}, given: {} });
+  assert.equal(J.matchesFor(f, "a", thu).length, 1); assert.equal(J.matchesFor(f, "b", thu).length, 0);
+  assert.equal(J.markDone(f, "a", c0.id, thu, thu), 1, "the chore itself still pays 1");
+  assert.equal(J.kidById(f, "a").stars, 1, "half a star isn't given yet");
+  J.markDone(f, "a", c1.id, thu, thu);
+  assert.equal(J.kidById(f, "a").stars, 3, "2 earned, Grandma adds 1");
+  assert.equal(f.log[0].kind, "match"); assert.equal(f.log[0].text, "Grandma's match"); assert.equal(f.log[0].delta, 1);
+  assert.equal(f.matches[0].given.a, 1); assert.equal(f.matches[0].earned.a, 2);
+  J.markDone(f, "b", c0.id, thu, thu);
+  assert.equal(J.kidById(f, "b").stars, 1, "Ben isn't matched");
+  assert.equal(J.weekChart(f, "a", thu).earned[4], 3, "the week chart counts the match");
+  // taking a chore back takes the match back
+  J.undo(f, "a", c1.id, thu);
+  assert.equal(J.kidById(f, "a").stars, 1); assert.equal(f.matches[0].given.a || 0, 0);
+  J.markDone(f, "a", c1.id, thu, thu);
+  assert.equal(J.kidById(f, "a").stars, 3);
+  // after the last day of the match, nothing more is added
+  J.markDone(f, "a", c0.id, sat, sat); J.markDone(f, "a", c1.id, sat, sat);
+  assert.equal(J.kidById(f, "a").stars, 5);
+  // a limit, and a 200% match
+  f.matches.push({ id: "m2", pic: "👴", who: "Granddad", percent: 200, kids: [], until: "", cap: 3, earned: {}, given: {} });
+  J.markDone(f, "b", c1.id, thu, thu);
+  assert.equal(J.kidById(f, "b").stars, 1 + 1 + 2, "1 earned, Granddad adds 2");
+  J.markDone(f, "b", c2.id, thu, thu);
+  assert.equal(J.kidById(f, "b").stars, 4 + 1 + 1, "only 1 more: Granddad's limit is 3");
+  J.markDone(f, "b", c3.id, thu, thu);
+  assert.equal(J.kidById(f, "b").stars, 7, "the limit is reached");
+  // a match and a special day together: the match counts the doubled pay
+  f.specials.push({ id: "s", pic: "🎂", name: "Birthday", date: "2026-11-06", yearly: false, times: 2, kids: [] });
+  const before = J.kidById(f, "a").stars, m1 = f.matches[0];
+  f.matches = [m1];
+  J.markDone(f, "a", c0.id, fri, fri);
+  assert.equal(J.kidById(f, "a").stars, before + 2 + 1, "2 for the chore, and Grandma's half of 2");
+  // with the grown-up check on, the match is only added when the chore is OK'd
+  f.settings.needsApproval = true;
+  const b2 = J.kidById(f, "a").stars;
+  J.markDone(f, "a", c1.id, fri, fri);
+  assert.equal(J.kidById(f, "a").stars, b2);
+  J.approve(f, "a", c1.id, "2026-11-06", sat);
+  assert.equal(J.kidById(f, "a").stars, b2 + 2 + 1);
+  // saving and loading keeps the running totals; odd values are tidied
+  const nm = J.normalize(JSON.parse(JSON.stringify(f))).matches[0];
+  assert.deepEqual(nm.earned, m1.earned); assert.deepEqual(nm.given, m1.given); assert.equal(nm.percent, 50);
+  const odd = J.normalize({ matches: [{ percent: "abc", cap: -4, earned: { a: "2", z: -1 } }] }).matches[0];
+  assert.equal(odd.percent, 100); assert.equal(odd.cap, 0); assert.deepEqual(odd.earned, { a: 2 }); assert.equal(odd.who, "Grandma");
+  J.removeKid(f, "a");
+  assert.equal(f.matches.length, 0, "a match made only for a removed kid goes away");
+}
+
 console.log("Job Jar tests passed");

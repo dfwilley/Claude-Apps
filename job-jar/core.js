@@ -39,6 +39,8 @@
   };
   const COIN_KEYS = Object.keys(COINS);
   const MAX_PAY = 20; // most stars or coins one chore can earn
+  const MAX_TIMES = 3; // a special day can double or triple what chores pay
+  const MATCH_PERCENTS = [25, 50, 100, 200];
   const COLORS = ["#FF8A3D", "#3DA5FF", "#34C47C", "#B36BFF", "#FF5C8A", "#F2B800", "#20B8B0", "#8A6CFF"];
 
   let counter = 0;
@@ -74,6 +76,8 @@
         reward("📖", "Extra story time", 5), reward("🌙", "Stay up 15 minutes late", 8),
         reward("🎬", "Pick the movie", 10), reward("🍦", "Ice cream trip", 15),
       ],
+      specials: [], // special days: { id, pic, name, date: "YYYY-MM-DD", yearly, times: 2 | 3, kids: [] }
+      matches: [], // someone matching what kids earn: { id, pic, who, percent, kids: [], until, cap, earned: { kidId: n }, given: { kidId: n } }
       done: {}, // { "YYYY-MM-DD": { kidId: { choreId: "done" | "waiting" } } }
       log: [], // newest first: { t, kid, kind, text, pic, delta }
       settings: { pin: "", needsApproval: true, sound: true, speak: true, money: false, coin: "nickel" },
@@ -104,6 +108,17 @@
       stars: clamp(Math.round(Number(c.stars) || 1), 1, MAX_PAY),
       days: Array.isArray(c.days) && c.days.length ? c.days.filter((x) => x >= 0 && x <= 6) : ALL_DAYS.slice(),
       kids: Array.isArray(c.kids) ? c.kids : [],
+      from: validDay(c.from) ? c.from : "", until: validDay(c.until) ? c.until : "", // a special chore only shows between these days
+    }));
+    out.specials = (Array.isArray(s.specials) ? s.specials : []).filter((x) => x && validDay(x.date)).map((x) => ({
+      id: x.id || newId("s"), pic: x.pic || "🎉", name: String(x.name || "Special day"), date: x.date, yearly: !!x.yearly,
+      times: clamp(Math.round(Number(x.times) || 2), 2, MAX_TIMES), kids: Array.isArray(x.kids) ? x.kids : [],
+    }));
+    out.matches = (Array.isArray(s.matches) ? s.matches : []).filter((m) => m && typeof m === "object").map((m) => ({
+      id: m.id || newId("m"), pic: m.pic || "💝", who: String(m.who || "Grandma"),
+      percent: clamp(Math.round(Number(m.percent) || 100), 1, 500), kids: Array.isArray(m.kids) ? m.kids : [],
+      until: validDay(m.until) ? m.until : "", cap: Math.max(0, Math.round(Number(m.cap) || 0)),
+      earned: counts(m.earned), given: counts(m.given),
     }));
     out.rewards = (Array.isArray(s.rewards) ? s.rewards : d.rewards).map((r) => ({
       id: r.id || newId("r"), pic: r.pic || "🎁", name: String(r.name || "Reward"), cost: Math.max(1, Math.round(Number(r.cost) || 1)),
@@ -115,6 +130,12 @@
   }
 
   function clamp(n, lo, hi) { return Math.min(hi, Math.max(lo, n)); }
+  function validDay(k) { return typeof k === "string" && /^\d{4}-\d{2}-\d{2}$/.test(k); }
+  function counts(o) {
+    const out = {};
+    if (o && typeof o === "object") Object.keys(o).forEach((k) => { const n = Math.round(Number(o[k]) || 0); if (n > 0) out[k] = n; });
+    return out;
+  }
   function kidById(s, id) { return s.kids.find((k) => k.id === id); }
   function choreById(s, id) { return s.chores.find((c) => c.id === id); }
   function rewardById(s, id) { return s.rewards.find((r) => r.id === id); }
@@ -122,7 +143,66 @@
   /** Is this chore on this kid's list for this day? */
   function isDue(chore, date, kidId) {
     if (chore.kids && chore.kids.length && !chore.kids.includes(kidId)) return false;
+    const k = dayKey(date);
+    if ((chore.from && k < chore.from) || (chore.until && k > chore.until)) return false; // a special chore outside its days
     return (chore.days || ALL_DAYS).includes(date.getDay());
+  }
+
+  /** The special day (birthday, holiday...) that counts for this kid on this date, or null. The biggest one wins. */
+  function specialFor(s, kidId, date) {
+    const k = dayKey(date);
+    let best = null;
+    (s.specials || []).forEach((x) => {
+      if (x.kids && x.kids.length && !x.kids.includes(kidId)) return;
+      const hit = x.yearly ? x.date.slice(5) === k.slice(5) && k >= x.date : x.date === k;
+      if (hit && (!best || x.times > best.times)) best = x;
+    });
+    return best;
+  }
+  /** 1 on an ordinary day, 2 or 3 on a special day. */
+  function timesFor(s, kidId, date) { const x = specialFor(s, kidId, date); return x ? x.times : 1; }
+  /** What a chore pays this kid on this date (doubled or tripled on a special day). */
+  function payFor(s, kidId, chore, date) { return chore.stars * timesFor(s, kidId, date); }
+
+  /** Is this match counting for this kid on this day? */
+  function matchActive(m, kidId, day) {
+    return (!m.kids.length || m.kids.includes(kidId)) && (!m.until || day <= m.until);
+  }
+  function matchesFor(s, kidId, date) { const k = dayKey(date); return (s.matches || []).filter((m) => matchActive(m, kidId, k)); }
+
+  /**
+   * After a kid's chore earnings change by `delta` on `day`, brings every match up to date:
+   * a 50% match has given half of what the kid earned so far (rounded down), up to its limit.
+   * Returns the total added by matches (negative if some was taken back).
+   */
+  function settleMatches(s, kidId, day, delta, now) {
+    const kid = kidById(s, kidId);
+    let total = 0;
+    if (!kid || !delta) return 0;
+    (s.matches || []).forEach((m) => {
+      if (!matchActive(m, kidId, day)) return;
+      m.earned[kidId] = Math.max(0, (m.earned[kidId] || 0) + delta);
+      let target = Math.floor((m.earned[kidId] * m.percent) / 100);
+      if (m.cap > 0) target = Math.min(target, m.cap);
+      const given = m.given[kidId] || 0;
+      let diff = target - given;
+      if (diff < 0) diff = -Math.min(kid.stars, -diff);
+      if (!diff) return;
+      kid.stars += diff;
+      m.given[kidId] = given + diff;
+      total += diff;
+      addLog(s, { t: (now || new Date()).toISOString(), kid: kidId, kind: "match", text: m.who + (diff > 0 ? "'s match" : "'s match (taken back)"), pic: m.pic, delta: diff, day });
+    });
+    return total;
+  }
+
+  /** Puts a finished chore's pay in the jar, then any matching. Returns the chore's own pay. */
+  function payChore(s, kid, chore, date, now) {
+    const x = specialFor(s, kid.id, date), pay = payFor(s, kid.id, chore, date), day = dayKey(date);
+    kid.stars += pay;
+    addLog(s, { t: (now || new Date()).toISOString(), kid: kid.id, kind: "chore", text: chore.name + (x ? " (×" + x.times + " " + x.name + ")" : ""), pic: chore.pic, delta: pay, day });
+    settleMatches(s, kid.id, day, pay, now);
+    return pay;
   }
 
   function statusOf(s, kidId, choreId, date) {
@@ -166,9 +246,7 @@
       return 0;
     }
     setStatus(s, kidId, choreId, date, "done");
-    kid.stars += chore.stars;
-    addLog(s, { t: (now || new Date()).toISOString(), kid: kidId, kind: "chore", text: chore.name, pic: chore.pic, delta: chore.stars, day: dayKey(date) });
-    return chore.stars;
+    return payChore(s, kid, chore, date, now);
   }
 
   /** "Not done yet" — takes the check off and the stars back (never below zero). */
@@ -178,9 +256,10 @@
     if (!kid || !st) return 0;
     setStatus(s, kidId, choreId, date, "");
     if (st !== "done" || !chore) return 0;
-    const back = Math.min(kid.stars, chore.stars);
+    const back = Math.min(kid.stars, payFor(s, kidId, chore, date));
     kid.stars -= back;
     addLog(s, { t: (now || new Date()).toISOString(), kid: kidId, kind: "undo", text: chore.name + " (taken off)", pic: chore.pic, delta: -back, day: dayKey(date) });
+    settleMatches(s, kidId, dayKey(date), -back, now);
     return back;
   }
 
@@ -202,9 +281,7 @@
     const date = parseDay(day), kid = kidById(s, kidId), chore = choreById(s, choreId);
     if (!kid || !chore || statusOf(s, kidId, choreId, date) !== "waiting") return 0;
     setStatus(s, kidId, choreId, date, "done");
-    kid.stars += chore.stars;
-    addLog(s, { t: (now || new Date()).toISOString(), kid: kidId, kind: "chore", text: chore.name, pic: chore.pic, delta: chore.stars, day });
-    return chore.stars;
+    return payChore(s, kid, chore, date, now); // a special day counts by the day the chore was done, not the day it was OK'd
   }
 
   function reject(s, kidId, choreId, day) {
@@ -256,7 +333,7 @@
       }),
     }));
     const earned = days.map((d) => s.log
-      .filter((e) => e.kid === kidId && (e.kind === "chore" || e.kind === "undo") && e.day === dayKey(d))
+      .filter((e) => e.kid === kidId && (e.kind === "chore" || e.kind === "undo" || e.kind === "match") && e.day === dayKey(d))
       .reduce((a, e) => a + e.delta, 0));
     return { days: days.map(dayKey), rows, earned, total: earned.reduce((a, b) => a + b, 0) };
   }
@@ -268,6 +345,11 @@
     const kidIds = new Set(s.kids.map((k) => k.id));
     Object.keys(s.done).forEach((day) => Object.keys(s.done[day]).forEach((kid) => { if (!kidIds.has(kid)) delete s.done[day][kid]; }));
     s.chores.forEach((c) => { c.kids = c.kids.filter((id) => kidIds.has(id)); });
+    // A special day or a match made for kids who were all removed goes away too (empty would mean "everyone").
+    const keep = (x) => { const had = x.kids.length; x.kids = x.kids.filter((id) => kidIds.has(id)); return !had || x.kids.length; };
+    s.specials = (s.specials || []).filter(keep);
+    s.matches = (s.matches || []).filter(keep);
+    s.matches.forEach((m) => [m.earned, m.given].forEach((o) => Object.keys(o).forEach((id) => { if (!kidIds.has(id)) delete o[id]; })));
     return s;
   }
 
@@ -305,7 +387,8 @@
   function coinCount(s, n) { const c = coinOf(s); return n + " " + (n === 1 ? c.name : c.plural); }
 
   return {
-    ALL_DAYS, DAY_LETTERS, DAY_NAMES, CHORE_PICS, REWARD_PICS, AVATARS, COLORS, KEEP_DAYS, COINS, COIN_KEYS, MAX_PAY,
+    ALL_DAYS, DAY_LETTERS, DAY_NAMES, CHORE_PICS, REWARD_PICS, AVATARS, COLORS, KEEP_DAYS, COINS, COIN_KEYS, MAX_PAY, MAX_TIMES, MATCH_PERCENTS,
+    validDay, specialFor, timesFor, payFor, matchesFor, matchActive, settleMatches,
     validPhoto, coinOf, money, moneyWords, amountText, amountShort, amountSpeech, coinCount,
     newId, dayKey, parseDay, addDays, weekStart, defaultState, normalize, kidById, choreById, rewardById,
     isDue, statusOf, choresFor, progress, markDone, undo, waitingList, approve, reject,

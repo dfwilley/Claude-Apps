@@ -24,6 +24,7 @@ struct CoinFace: View {
 }
 
 /// A stack of n coins seen from the side, 10 to a stack, drawn to scale (a nickel is bigger than a dime).
+/// Each coin sits a little to the left or right of the one below it, so a kid can count them.
 struct CoinStack: View {
     let coin: CoinKind
     let count: Int
@@ -31,12 +32,13 @@ struct CoinStack: View {
 
     private var rx: CGFloat { CGFloat(coin.d) * 0.82 * scale }
     private var ry: CGFloat { rx * 0.36 }
-    private var t: CGFloat { 5 * scale }
-    private var gap: CGFloat { 4 * scale }
+    private var t: CGFloat { 6.5 * scale }
+    private var shift: CGFloat { rx * 0.16 }
+    private var gap: CGFloat { 4 * scale + shift * 2 }
     private var cols: Int { max(1, Int((Double(count) / 10).rounded(.up))) }
     private var tallest: Int { min(count, 10) }
     private var size: CGSize {
-        CGSize(width: CGFloat(cols) * rx * 2 + CGFloat(cols - 1) * gap + 4, height: CGFloat(max(tallest, 1) - 1) * t + ry * 2 + t + 4)
+        CGSize(width: CGFloat(cols) * rx * 2 + CGFloat(cols - 1) * gap + 4 + shift * 2, height: CGFloat(max(tallest, 1) - 1) * t + ry * 2 + t + 4)
     }
 
     var body: some View {
@@ -44,11 +46,13 @@ struct CoinStack: View {
             let face = Color(hex: coin.face), edge = Color(hex: coin.edge)
             for col in 0..<cols {
                 let n = min(10, count - col * 10)
-                let cx = 2 + rx + CGFloat(col) * (rx * 2 + gap)
+                let mid = 2 + shift + rx + CGFloat(col) * (rx * 2 + gap)
                 for i in 0..<max(n, 0) {
                     let cy = sz.height - 2 - ry - t - CGFloat(i) * t
-                    ctx.fill(Path(ellipseIn: CGRect(x: cx - rx, y: cy + t - ry, width: rx * 2, height: ry * 2)), with: .color(edge))
-                    ctx.fill(Path(CGRect(x: cx - rx, y: cy, width: rx * 2, height: t)), with: .color(edge))
+                    let cx = mid + (i % 2 == 1 ? shift : -shift)
+                    let side = t * 0.72
+                    ctx.fill(Path(ellipseIn: CGRect(x: cx - rx, y: cy + side - ry, width: rx * 2, height: ry * 2)), with: .color(edge))
+                    ctx.fill(Path(CGRect(x: cx - rx, y: cy, width: rx * 2, height: side)), with: .color(edge))
                     let top = Path(ellipseIn: CGRect(x: cx - rx, y: cy - ry, width: rx * 2, height: ry * 2))
                     ctx.fill(top, with: .color(face))
                     ctx.stroke(top, with: .color(edge), lineWidth: 1.2 * scale)

@@ -2,7 +2,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 enum GUTab: String, CaseIterable, Identifiable {
-    case check = "✅ Check", kids = "👧 Kids", chores = "🧹 Chores", rewards = "🎁 Rewards", history = "📜 History", devices = "📱 Devices", settings = "⚙️ Settings"
+    case check = "✅ Check", kids = "👧 Kids", chores = "🧹 Chores", rewards = "🎁 Rewards", specials = "🎉 Specials", history = "📜 History", devices = "📱 Devices", settings = "⚙️ Settings"
     var id: String { rawValue }
 }
 
@@ -18,6 +18,8 @@ struct GrownUpView: View {
     @State private var editKid: KidDraftID?
     @State private var editChore: ChoreDraft?
     @State private var editReward: RewardDraft?
+    @State private var editSpecial: SpecialDraft?
+    @State private var editMatch: MatchDraft?
     @State private var historyKid = ""
     @State private var showRestore = false
     @State private var shareURL: URL?
@@ -73,6 +75,8 @@ struct GrownUpView: View {
         .sheet(item: $editKid) { d in KidEditor(kidId: d.id).environmentObject(store) }
         .sheet(item: $editChore) { d in ChoreEditor(draft: d).environmentObject(store) }
         .sheet(item: $editReward) { d in RewardEditor(draft: d).environmentObject(store) }
+        .sheet(item: $editSpecial) { d in SpecialEditor(draft: d).environmentObject(store) }
+        .sheet(item: $editMatch) { d in MatchEditor(draft: d).environmentObject(store) }
         .sheet(item: Binding(get: { shareURL.map { ShareItem(url: $0) } }, set: { if $0 == nil { shareURL = nil } })) { item in
             ActivityView(items: [item.url])
         }
@@ -105,6 +109,7 @@ struct GrownUpView: View {
             case .kids: kidsTab
             case .chores: choresTab
             case .rewards: rewardsTab
+            case .specials: specialsTab
             case .history: historyTab
             case .settings: settingsTab
             }
@@ -157,7 +162,8 @@ struct GrownUpView: View {
                     Spacer()
                     Button { store.data.reject(w.kidId, w.chore.id, w.day) } label: { Image(systemName: "xmark").font(.headline).padding(10) }
                         .buttonStyle(.bordered).accessibilityLabel("Not done")
-                    Button { store.data.approve(w.kidId, w.chore.id, w.day); store.ding() } label: { Text("✓ " + (store.data.settings.money ? store.data.settings.amountText(w.chore.stars) : String(repeating: "⭐", count: w.chore.stars))).font(.headline) }
+                    let pay = store.data.pay(w.kidId, w.chore, parseDay(w.day))
+                    Button { store.data.approve(w.kidId, w.chore.id, w.day); store.ding() } label: { Text("✓ " + (store.data.settings.money || pay > 5 ? store.data.settings.amountShort(pay) : String(repeating: "⭐", count: pay))).font(.headline) }
                         .buttonStyle(.borderedProminent).tint(Theme.green).accessibilityIdentifier("approve")
                 }
             }
@@ -203,7 +209,7 @@ struct GrownUpView: View {
                         Text(c.pic).font(.system(size: 34))
                         VStack(alignment: .leading) {
                             Text(c.name).font(.headline)
-                            Text("\(daysText(c.days)) · \(whoText(c.kids))").font(.subheadline).foregroundStyle(.secondary)
+                            Text("\(daysText(c.days)) · \(whoText(c.kids))" + (rangeText(c).isEmpty ? "" : " · " + rangeText(c))).font(.subheadline).foregroundStyle(.secondary)
                         }
                         Spacer()
                         Text(store.data.settings.money ? store.data.settings.amountText(c.stars) : c.stars <= 5 ? String(repeating: "⭐", count: c.stars) : "⭐ \(c.stars)").font(store.data.settings.money ? .subheadline.bold() : .caption)
@@ -234,6 +240,71 @@ struct GrownUpView: View {
             Button { editReward = RewardDraft(nil) } label: { Label("Add a reward", systemImage: "plus.circle.fill").bold() }
         } footer: {
             Text(store.data.settings.money ? "When a kid has enough money, a “Get it!” button appears. A grown-up enters the PIN to OK it, and the price comes out of the jar." : "When a kid has enough stars, a “Get it!” button appears. A grown-up enters the PIN to OK it, and the stars come out of the jar.")
+        }
+    }
+
+    @ViewBuilder private var specialsTab: some View {
+        let todayKey = dayKey(store.today)
+        let s = store.data.settings
+        Section {
+            ForEach(store.data.specials) { x in
+                Button { editSpecial = SpecialDraft(x) } label: {
+                    HStack(spacing: 12) {
+                        Text(x.pic).font(.system(size: 34))
+                        VStack(alignment: .leading) {
+                            Text(x.name).font(.headline)
+                            Text("\(shortDay(x.date))\(x.yearly ? ", every year" : ", " + String(x.date.prefix(4))) · \(whoText(x.kids))").font(.subheadline).foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Text(timesWord(x.times)).bold().foregroundStyle(.secondary)
+                    }
+                }
+                .foregroundStyle(.primary)
+            }
+            Button { editSpecial = SpecialDraft(nil) } label: { Label("Add a special day", systemImage: "plus.circle.fill").bold() }
+                .accessibilityIdentifier("addSpecial")
+        } header: { Text("Special days") } footer: {
+            Text("On a special day, like a birthday, every chore pays double or triple.")
+        }
+        Section {
+            ForEach(store.data.chores.filter { !$0.from.isEmpty || !$0.until.isEmpty }) { c in
+                Button { editChore = ChoreDraft(c) } label: {
+                    HStack(spacing: 12) {
+                        Text(c.pic).font(.system(size: 34))
+                        VStack(alignment: .leading) {
+                            Text(c.name).font(.headline)
+                            Text(rangeText(c) + (!c.until.isEmpty && c.until < todayKey ? " · ended" : "") + " · " + whoText(c.kids)).font(.subheadline).foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Text(s.amountShort(c.stars)).bold().foregroundStyle(.secondary)
+                    }
+                }
+                .foregroundStyle(.primary)
+            }
+            Button { editChore = ChoreDraft(nil, special: true) } label: { Label("Add a special chore", systemImage: "plus.circle.fill").bold() }
+                .accessibilityIdentifier("addSpecialChore")
+        } header: { Text("Special chores for a short time") } footer: {
+            Text("A special chore shows on the kids' charts only between the days you pick, for example “Rake leaves” this weekend.")
+        }
+        Section {
+            ForEach(store.data.matches) { m in
+                Button { editMatch = MatchDraft(m) } label: {
+                    HStack(spacing: 12) {
+                        Text(m.pic).font(.system(size: 34))
+                        VStack(alignment: .leading) {
+                            Text(m.who).font(.headline)
+                            Text(matchText(m.who, m.percent, s) + " · " + whoText(m.kids) + (m.until.isEmpty ? "" : (m.until < todayKey ? " · ended " : " · until ") + shortDay(m.until))).font(.subheadline).foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Text("\(s.amountShort(m.totalGiven)) so far").bold().foregroundStyle(.secondary)
+                    }
+                }
+                .foregroundStyle(.primary)
+            }
+            Button { editMatch = MatchDraft(nil) } label: { Label("Add a match", systemImage: "plus.circle.fill").bold() }
+                .accessibilityIdentifier("addMatch")
+        } header: { Text("Matching from Grandma, Granddad or anyone") } footer: {
+            Text("When someone offers to match what a kid earns, enter it here. The app adds their share each time a chore \(s.needsApproval ? "is OK'd" : "is done"), and keeps count of how much they have added.")
         }
     }
 
@@ -324,6 +395,41 @@ struct GrownUpView: View {
         return names.isEmpty ? "Everyone" : names.joined(separator: ", ")
     }
 }
+
+func shortDay(_ key: String) -> String {
+    let f = DateFormatter(); f.dateFormat = "MMM d"
+    return f.string(from: parseDay(key))
+}
+
+func timesWord(_ n: Int) -> String { n == 2 ? "Double" : n == 3 ? "Triple" : "\(n)×" }
+
+/// "Nov 5 – Nov 7" for a chore that only shows for a while.
+func rangeText(_ c: Chore) -> String {
+    if !c.from.isEmpty && !c.until.isEmpty { return c.from == c.until ? "only " + shortDay(c.from) : shortDay(c.from) + " – " + shortDay(c.until) }
+    if !c.until.isEmpty { return "until " + shortDay(c.until) }
+    if !c.from.isEmpty { return "from " + shortDay(c.from) }
+    return ""
+}
+
+/// "For every 2 stars earned, Grandma adds 1"
+func matchText(_ who: String, _ percent: Int, _ s: Settings) -> String {
+    let unit = s.money ? s.coinKind.plural : "stars", one = s.money ? s.coinKind.name : "star"
+    let pair: (Int, Int)
+    switch percent {
+    case 25: pair = (4, 1)
+    case 50: pair = (2, 1)
+    case 100: pair = (1, 1)
+    case 200: pair = (1, 2)
+    default: pair = (100, percent)
+    }
+    return "For every \(pair.0 == 1 ? one : "\(pair.0) \(unit)") earned, \(who) adds \(pair.1)"
+}
+
+let specialPics: [(String, String)] = [
+    ("🎂", "Birthday"), ("🎉", "Special day"), ("🎄", "Christmas"), ("🎃", "Halloween"), ("🦃", "Thanksgiving"), ("🐣", "Easter"),
+    ("🎆", "Fourth of July"), ("❄️", "Snow day"), ("🏖️", "Vacation day"), ("🏫", "Last day of school"), ("👵", "Grandparents' visit"), ("⭐", "Bonus day"),
+]
+let matchPics: [(String, String)] = [("👵", "Grandma"), ("👴", "Granddad"), ("🧓", "Nana"), ("👩", "Aunt"), ("👨", "Uncle"), ("💝", "A helper")]
 
 func daysText(_ days: [Int]) -> String {
     let s = days.sorted()
@@ -471,9 +577,10 @@ struct ChoreDraft: Identifiable {
     var id: String
     var isNew: Bool
     var chore: Chore
-    init(_ c: Chore?) {
+    init(_ c: Chore?, special: Bool = false) {
         isNew = c == nil
-        chore = c ?? Chore(pic: "🛏️", name: "")
+        chore = c ?? Chore(pic: special ? "🧹" : "🛏️", name: "")
+        if c == nil && special { chore.from = dayKey(Date()); chore.until = dayKey(addDays(Date(), 6)) }
         id = chore.id
     }
 }
@@ -536,6 +643,23 @@ struct ChoreEditor: View {
                         } label: { check("\(k.avatar) \(k.name)", draft.chore.kids.contains(k.id)) }
                     }
                 }
+                Section {
+                    Toggle("Special chore for a short time", isOn: Binding(
+                        get: { !draft.chore.from.isEmpty || !draft.chore.until.isEmpty },
+                        set: { on in
+                            draft.chore.from = on ? dayKey(Date()) : ""
+                            draft.chore.until = on ? dayKey(addDays(Date(), 6)) : ""
+                        }))
+                        .tint(Theme.green).accessibilityIdentifier("limitedChore")
+                    if !draft.chore.from.isEmpty || !draft.chore.until.isEmpty {
+                        DatePicker("First day", selection: Binding(
+                            get: { parseDay(draft.chore.from.isEmpty ? dayKey(Date()) : draft.chore.from) },
+                            set: { draft.chore.from = dayKey($0) }), displayedComponents: .date)
+                        DatePicker("Last day", selection: Binding(
+                            get: { parseDay(draft.chore.until.isEmpty ? dayKey(Date()) : draft.chore.until) },
+                            set: { draft.chore.until = dayKey($0) }), displayedComponents: .date)
+                    }
+                } footer: { Text("A special chore shows on the charts only between its first and last day.") }
                 if !draft.isNew {
                     Section { Button("Delete this chore", role: .destructive) { confirmDelete = true } }
                 }
@@ -562,6 +686,7 @@ struct ChoreEditor: View {
     private func save() {
         var c = draft.chore
         c.name = c.name.trimmingCharacters(in: .whitespaces)
+        if !c.from.isEmpty && !c.until.isEmpty && c.until < c.from { c.until = c.from }
         if let i = store.data.chores.firstIndex(where: { $0.id == c.id }) { store.data.chores[i] = c } else { store.data.chores.append(c) }
         dismiss()
     }
@@ -626,6 +751,203 @@ struct RewardEditor: View {
         var r = draft.reward
         r.name = r.name.trimmingCharacters(in: .whitespaces)
         if let i = store.data.rewards.firstIndex(where: { $0.id == r.id }) { store.data.rewards[i] = r } else { store.data.rewards.append(r) }
+        dismiss()
+    }
+}
+
+// MARK: - Special days
+
+struct SpecialDraft: Identifiable {
+    var id: String
+    var isNew: Bool
+    var day: SpecialDay
+    init(_ x: SpecialDay?) {
+        isNew = x == nil
+        day = x ?? SpecialDay(pic: "🎂", name: "", date: dayKey(Date()))
+        id = day.id
+    }
+}
+
+/// "Everyone" plus one row per kid, with check marks. An empty list means everyone.
+struct WhoPicker: View {
+    @EnvironmentObject var store: JarStore
+    @Binding var kids: [String]
+
+    var body: some View {
+        Button { kids = [] } label: { row("Everyone", kids.isEmpty) }
+        ForEach(store.data.kids) { k in
+            Button {
+                if kids.contains(k.id) { kids.removeAll { $0 == k.id } } else { kids.append(k.id) }
+                if kids.count == store.data.kids.count { kids = [] }
+            } label: { row("\(k.avatar) \(k.name)", kids.contains(k.id)) }
+        }
+    }
+
+    private func row(_ label: String, _ on: Bool) -> some View {
+        HStack { Text(label).foregroundStyle(.primary); Spacer(); if on { Image(systemName: "checkmark").foregroundStyle(Theme.purple).bold() } }
+    }
+}
+
+struct SpecialEditor: View {
+    @EnvironmentObject var store: JarStore
+    @Environment(\.dismiss) private var dismiss
+    @State var draft: SpecialDraft
+    @State private var confirmDelete = false
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Picture") {
+                    PicGrid(pics: specialPics, selected: $draft.day.pic) { _, label in
+                        let wasDefault = specialPics.contains { $0.1 == draft.day.name }
+                        if draft.day.name.trimmingCharacters(in: .whitespaces).isEmpty || wasDefault { draft.day.name = label }
+                    }
+                }
+                Section("Name (kids see this on the day)") {
+                    TextField("Ava's birthday", text: $draft.day.name).font(.title3).accessibilityIdentifier("specialName")
+                }
+                Section("Which day") {
+                    DatePicker("Day", selection: Binding(get: { parseDay(draft.day.date) }, set: { draft.day.date = dayKey($0) }), displayedComponents: .date)
+                    Picker("Repeats", selection: $draft.day.yearly) {
+                        Text("Every year").tag(true)
+                        Text("Just this once").tag(false)
+                    }
+                    .pickerStyle(.segmented)
+                }
+                Section("What chores pay that day") {
+                    Picker("Pay", selection: $draft.day.times) {
+                        Text("Double").tag(2)
+                        Text("Triple").tag(3)
+                    }
+                    .pickerStyle(.segmented)
+                }
+                Section("Who it's for") { WhoPicker(kids: $draft.day.kids) }
+                if !draft.isNew {
+                    Section { Button("Delete this special day", role: .destructive) { confirmDelete = true } }
+                }
+            }
+            .navigationTitle(draft.isNew ? "Add a special day" : "Edit special day")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") { save() }.bold().disabled(draft.day.name.trimmingCharacters(in: .whitespaces).isEmpty)
+                        .accessibilityIdentifier("saveSpecial")
+                }
+            }
+            .confirmationDialog("Delete this special day?", isPresented: $confirmDelete, titleVisibility: .visible) {
+                Button("Delete", role: .destructive) { store.data.specials.removeAll { $0.id == draft.day.id }; dismiss() }
+            }
+        }
+    }
+
+    private func save() {
+        var x = draft.day
+        x.name = x.name.trimmingCharacters(in: .whitespaces)
+        if let i = store.data.specials.firstIndex(where: { $0.id == x.id }) { store.data.specials[i] = x } else { store.data.specials.append(x) }
+        dismiss()
+    }
+}
+
+// MARK: - Matching
+
+struct MatchDraft: Identifiable {
+    var id: String
+    var isNew: Bool
+    var match: MatchOffer
+    init(_ m: MatchOffer?) {
+        isNew = m == nil
+        match = m ?? MatchOffer(pic: "👵", who: "Grandma")
+        id = match.id
+    }
+}
+
+struct MatchEditor: View {
+    @EnvironmentObject var store: JarStore
+    @Environment(\.dismiss) private var dismiss
+    @State var draft: MatchDraft
+    @State private var confirmStop = false
+
+    var body: some View {
+        let s = store.data.settings
+        NavigationStack {
+            Form {
+                Section("Who is matching") {
+                    PicGrid(pics: matchPics, selected: $draft.match.pic) { _, label in
+                        let wasDefault = matchPics.contains { $0.1 == draft.match.who }
+                        if draft.match.who.trimmingCharacters(in: .whitespaces).isEmpty || wasDefault { draft.match.who = label }
+                    }
+                    TextField("Grandma", text: $draft.match.who).font(.title3).accessibilityIdentifier("matchWho")
+                }
+                Section {
+                    Picker("How much", selection: $draft.match.percent) {
+                        Text("A quarter").tag(25)
+                        Text("Half").tag(50)
+                        Text("The same").tag(100)
+                        Text("Double").tag(200)
+                        if !matchPercents.contains(draft.match.percent) { Text("\(draft.match.percent)%").tag(draft.match.percent) }
+                    }
+                    .pickerStyle(.segmented)
+                } header: { Text("How much they add") } footer: {
+                    Text(matchText(draft.match.who.trimmingCharacters(in: .whitespaces).isEmpty ? "they" : draft.match.who, draft.match.percent, s) + ".")
+                }
+                Section("Whose earnings they match") { WhoPicker(kids: $draft.match.kids) }
+                Section {
+                    Stepper(draft.match.cap == 0 ? "No limit" : s.amountShort(draft.match.cap), value: $draft.match.cap, in: 0...1000).font(.headline)
+                    HStack {
+                        Button("−5") { draft.match.cap = max(0, draft.match.cap - 5) }.buttonStyle(.bordered)
+                        Spacer()
+                        Button("+5") { draft.match.cap = min(1000, draft.match.cap + 5) }.buttonStyle(.bordered)
+                    }
+                } header: { Text("The most they will add for each kid") }
+                Section {
+                    Toggle("The match has a last day", isOn: Binding(
+                        get: { !draft.match.until.isEmpty },
+                        set: { draft.match.until = $0 ? dayKey(addDays(Date(), 30)) : "" }))
+                        .tint(Theme.green)
+                    if !draft.match.until.isEmpty {
+                        DatePicker("Last day", selection: Binding(get: { parseDay(draft.match.until) }, set: { draft.match.until = dayKey($0) }), displayedComponents: .date)
+                    }
+                } footer: {
+                    Text(draft.isNew ? "Matching starts with chores finished from now on." : given(s))
+                }
+                if !draft.isNew {
+                    Section { Button("Stop this match", role: .destructive) { confirmStop = true } }
+                }
+            }
+            .navigationTitle(draft.isNew ? "Add a match" : "Edit match")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") { save() }.bold().disabled(draft.match.who.trimmingCharacters(in: .whitespaces).isEmpty)
+                        .accessibilityIdentifier("saveMatch")
+                }
+            }
+            .confirmationDialog("Stop this match? What it already added stays in the jars.", isPresented: $confirmStop, titleVisibility: .visible) {
+                Button("Stop the match", role: .destructive) { store.data.matches.removeAll { $0.id == draft.match.id }; dismiss() }
+            }
+        }
+    }
+
+    /// "Grandma has added 25¢ so far: Ava 15¢, Ben 10¢."
+    private func given(_ s: Settings) -> String {
+        let m = draft.match
+        let parts = m.given.sorted { $0.key < $1.key }.compactMap { pair in store.data.kid(pair.key).map { "\($0.name) \(s.amountShort(pair.value))" } }
+        return "\(m.who) has added \(s.amountText(m.totalGiven)) so far" + (parts.isEmpty ? "" : ": " + parts.joined(separator: ", ")) + "." + (s.money ? " That is what they owe the jar." : "")
+    }
+
+    private func save() {
+        var m = draft.match
+        m.who = m.who.trimmingCharacters(in: .whitespaces)
+        if let i = store.data.matches.firstIndex(where: { $0.id == m.id }) {
+            // keep the running totals: chores may have been OK'd while this sheet was open
+            m.earned = store.data.matches[i].earned
+            m.given = store.data.matches[i].given
+            store.data.matches[i] = m
+        } else {
+            store.data.matches.append(m)
+        }
         dismiss()
     }
 }

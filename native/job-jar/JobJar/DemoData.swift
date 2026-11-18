@@ -25,6 +25,10 @@ enum DemoData {
         for item in d.choresFor(ava.id, today).prefix(2) { d.markDone(ava.id, item.chore.id, today) }
         d.adjust(ava.id, 2, reason: "Helped Granddad wash the airplane")
         d.adjust(ben.id, 6, reason: "Helped rake leaves")
+        // A special day, a special chore and a match, so those screens have something in them
+        d.specials = [SpecialDay(pic: "🎂", name: "Ben's birthday", date: dayKey(today), yearly: true, times: 2, kids: [ben.id])]
+        d.chores.append(Chore(pic: "🧹", name: "Sweep the porch", stars: 3, from: dayKey(today), until: dayKey(addDays(today, 2))))
+        d.matches = [MatchOffer(pic: "👵", who: "Grandma", percent: 50)]
         s.data = d
     }
 

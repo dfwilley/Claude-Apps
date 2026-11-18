@@ -155,6 +155,123 @@ final class CoreTests: XCTestCase {
         XCTAssertGreaterThan(JarStore.chime([784, 1175], step: 0.11).count, 1000)
     }
 
+    // MARK: special days, special chores, matching (the same cases as tests/job-jar.test.js)
+
+    func plainFamily() -> AppData {
+        var f = AppData.starter()
+        f.settings.needsApproval = false
+        f.kids = [Kid(id: "a", name: "Ava", avatar: "🦊", color: "#f00"), Kid(id: "b", name: "Ben", avatar: "🐻", color: "#00f")]
+        return f
+    }
+
+    func testSpecialDays() throws {
+        let thu = day(2026, 11, 5), fri = addDays(thu, 1), sat = addDays(thu, 2)
+        var f = plainFamily()
+        let c0 = f.chores[0].id, c1 = f.chores[1].id
+        f.chores[1].stars = 3
+        f.specials.append(SpecialDay(id: "s1", pic: "🎂", name: "Ava's birthday", date: "2020-11-05", yearly: true, times: 2, kids: ["a"]))
+        XCTAssertEqual(f.times("a", thu), 2); XCTAssertEqual(f.times("b", thu), 1)
+        XCTAssertEqual(f.times("a", fri), 1, "only on the day")
+        XCTAssertEqual(f.special("a", thu)?.name, "Ava's birthday")
+        XCTAssertEqual(f.pay("a", f.chores[1], thu), 6)
+        XCTAssertEqual(f.markDone("a", c1, thu, now: thu), 6)
+        XCTAssertEqual(f.markDone("b", c1, thu, now: thu), 3)
+        XCTAssertEqual(f.kid("a")?.stars, 6)
+        XCTAssertTrue(f.log.first { $0.kid == "a" }?.text.contains("×2 Ava's birthday") ?? false)
+        XCTAssertEqual(f.undo("a", c1, thu), 6, "undo takes the doubled pay back")
+        XCTAssertEqual(f.kid("a")?.stars, 0)
+        f.specials.append(SpecialDay(id: "s2", pic: "🎉", name: "Snow day", date: "2026-11-05", yearly: false, times: 3))
+        XCTAssertEqual(f.times("a", thu), 3); XCTAssertEqual(f.times("b", thu), 3)
+        XCTAssertEqual(f.times("b", addDays(thu, 365)), 1, "a one-time day doesn't repeat")
+        XCTAssertEqual(f.times("a", addDays(thu, 365)), 2, "the birthday comes back next year")
+        // with the grown-up check on, the special day counts by the day the chore was done
+        f.settings.needsApproval = true
+        XCTAssertEqual(f.markDone("a", c0, thu, now: thu), 0)
+        XCTAssertEqual(f.approve("a", c0, "2026-11-05", now: sat), 3)
+        // loading: bad special days are dropped, the multiplier is kept between 2 and 3
+        let ns = try JSONDecoder().decode(AppData.self, from: Data(#"{"specials":[{"name":"X","date":"soon"},{"name":"Y","date":"2026-12-25","times":9}]}"#.utf8))
+        XCTAssertEqual(ns.specials.count, 1); XCTAssertEqual(ns.specials.first?.times, 3)
+        let again = try JSONDecoder().decode(AppData.self, from: JSONEncoder().encode(f))
+        XCTAssertEqual(again, f, "special days are kept in a backup")
+        f.removeKid("a")
+        XCTAssertEqual(f.specials.map(\.id), ["s2"])
+    }
+
+    func testSpecialChore() throws {
+        let thu = day(2026, 11, 5), sat = addDays(thu, 2)
+        var f = plainFamily()
+        let leaves = Chore(id: "lv", pic: "🍂", name: "Rake leaves", stars: 5, from: "2026-11-05", until: "2026-11-07")
+        f.chores.append(leaves)
+        XCTAssertFalse(AppData.isDue(leaves, addDays(thu, -1), "a")); XCTAssertTrue(AppData.isDue(leaves, thu, "a"))
+        XCTAssertTrue(AppData.isDue(leaves, sat, "a")); XCTAssertFalse(AppData.isDue(leaves, addDays(sat, 1), "a"))
+        XCTAssertEqual(f.choresFor("a", thu).count, 7); XCTAssertEqual(f.choresFor("a", addDays(sat, 1)).count, 6)
+        XCTAssertEqual(f.weekChart("a", thu).rows.first { $0.chore.id == "lv" }?.cells, [.off, .off, .off, .off, .todo, .future, .future])
+        let back = try JSONDecoder().decode(AppData.self, from: JSONEncoder().encode(f))
+        XCTAssertEqual(back.chore("lv")?.from, "2026-11-05"); XCTAssertEqual(back.chore("lv")?.until, "2026-11-07")
+        let odd = try JSONDecoder().decode(AppData.self, from: Data(#"{"chores":[{"name":"X","from":"junk"}]}"#.utf8))
+        XCTAssertEqual(odd.chores.first?.from, "")
+    }
+
+    func testMatching() throws {
+        let thu = day(2026, 11, 5), fri = addDays(thu, 1), sat = addDays(thu, 2)
+        var f = plainFamily()
+        let c = f.chores.map(\.id)
+        f.matches.append(MatchOffer(id: "m1", pic: "👵", who: "Grandma", percent: 50, kids: ["a"], until: "2026-11-06"))
+        XCTAssertEqual(f.matchesFor("a", thu).count, 1); XCTAssertEqual(f.matchesFor("b", thu).count, 0)
+        XCTAssertEqual(f.markDone("a", c[0], thu, now: thu), 1, "the chore itself still pays 1")
+        XCTAssertEqual(f.kid("a")?.stars, 1, "half a star isn't given yet")
+        f.markDone("a", c[1], thu, now: thu)
+        XCTAssertEqual(f.kid("a")?.stars, 3, "2 earned, Grandma adds 1")
+        XCTAssertEqual(f.log[0].kind, "match"); XCTAssertEqual(f.log[0].text, "Grandma's match"); XCTAssertEqual(f.log[0].delta, 1)
+        XCTAssertEqual(f.matches[0].given["a"], 1); XCTAssertEqual(f.matches[0].earned["a"], 2)
+        f.markDone("b", c[0], thu, now: thu)
+        XCTAssertEqual(f.kid("b")?.stars, 1, "Ben isn't matched")
+        XCTAssertEqual(f.weekChart("a", thu).earned[4], 3, "the week chart counts the match")
+        f.undo("a", c[1], thu)
+        XCTAssertEqual(f.kid("a")?.stars, 1); XCTAssertNil(f.matches[0].given["a"])
+        f.markDone("a", c[1], thu, now: thu)
+        XCTAssertEqual(f.kid("a")?.stars, 3)
+        // after the last day of the match, nothing more is added
+        f.markDone("a", c[0], sat, now: sat); f.markDone("a", c[1], sat, now: sat)
+        XCTAssertEqual(f.kid("a")?.stars, 5)
+        // a limit, and a 200% match
+        f.matches.append(MatchOffer(id: "m2", pic: "👴", who: "Granddad", percent: 200, cap: 3))
+        f.markDone("b", c[1], thu, now: thu)
+        XCTAssertEqual(f.kid("b")?.stars, 4, "1 earned, Granddad adds 2")
+        f.markDone("b", c[2], thu, now: thu)
+        XCTAssertEqual(f.kid("b")?.stars, 6, "only 1 more: Granddad's limit is 3")
+        f.markDone("b", c[3], thu, now: thu)
+        XCTAssertEqual(f.kid("b")?.stars, 7, "the limit is reached")
+        // a match and a special day together: the match counts the doubled pay
+        f.specials.append(SpecialDay(id: "s", name: "Birthday", date: "2026-11-06", yearly: false, times: 2))
+        f.matches.removeAll { $0.id == "m2" }
+        let before = f.kid("a")!.stars
+        f.markDone("a", c[0], fri, now: fri)
+        XCTAssertEqual(f.kid("a")?.stars, before + 2 + 1, "2 for the chore, and Grandma's half of 2")
+        // with the grown-up check on, the match is only added when the chore is OK'd
+        f.settings.needsApproval = true
+        let b2 = f.kid("a")!.stars
+        f.markDone("a", c[1], fri, now: fri)
+        XCTAssertEqual(f.kid("a")?.stars, b2)
+        f.approve("a", c[1], "2026-11-06", now: sat)
+        XCTAssertEqual(f.kid("a")?.stars, b2 + 2 + 1)
+        // a backup keeps the running totals; odd values are tidied
+        let back = try JSONDecoder().decode(AppData.self, from: JSONEncoder().encode(f))
+        XCTAssertEqual(back.matches, f.matches)
+        let odd = try JSONDecoder().decode(AppData.self, from: Data(#"{"matches":[{"percent":"abc","cap":-4,"earned":{"a":2,"z":-1}}]}"#.utf8))
+        XCTAssertEqual(odd.matches.first?.percent, 100); XCTAssertEqual(odd.matches.first?.cap, 0)
+        XCTAssertEqual(odd.matches.first?.earned, ["a": 2]); XCTAssertEqual(odd.matches.first?.who, "Grandma")
+        // a kid's device gets only its own kid's share of a match
+        f.matches.append(MatchOffer(id: "m3", who: "Nana", percent: 100))
+        f.settings.needsApproval = false
+        f.markDone("b", c[4], fri, now: fri)
+        let slice = f.slice(for: ["b"])
+        XCTAssertEqual(slice.matches.map(\.id), ["m3"], "Grandma's match is only for Ava")
+        XCTAssertEqual(slice.matches.first?.given.keys.sorted(), ["b"])
+        f.removeKid("a")
+        XCTAssertEqual(f.matches.map(\.id), ["m3"], "a match made only for a removed kid goes away")
+    }
+
     // MARK: linking a grown-up's device and a kid's device
 
     func family() -> (AppData, Date) {

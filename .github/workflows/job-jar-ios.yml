@@ -102,7 +102,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release delete job-jar-latest --repo "${{ github.repository }}" --cleanup-tag -y || true
-          gh release create job-jar-latest Job-Jar.ipa --repo "${{ github.repository }}" \
-            --title "The Job Jar! (build ${{ github.run_number }})" --latest=false \
-            --notes "Download Job-Jar.ipa below and install it with Sideloadly. For TestFlight, see the 'The Job Jar! - upload to TestFlight' workflow. Built from commit ${GITHUB_SHA:0:7}."
+          # A build from main replaces job-jar-latest. A build started by hand from a work-in-progress
+          # branch goes to job-jar-dev instead, so trying something out never replaces the released app.
+          if [ "${{ github.ref_name }}" = "main" ]; then TAG=job-jar-latest; KIND=""; else TAG=job-jar-dev; KIND=" development build, not released yet"; fi
+          gh release delete "$TAG" --repo "${{ github.repository }}" --cleanup-tag -y || true
+          gh release create "$TAG" Job-Jar.ipa --repo "${{ github.repository }}" --target "${{ github.sha }}" \
+            --title "The Job Jar!${KIND} (build ${{ github.run_number }})" --latest=false --prerelease=$([ "$TAG" = job-jar-dev ] && echo true || echo false) \
+            --notes "Download Job-Jar.ipa below and install it with Sideloadly. For TestFlight, see the 'The Job Jar! - upload to TestFlight' workflow. Built from commit ${GITHUB_SHA:0:7} on ${{ github.ref_name }}."

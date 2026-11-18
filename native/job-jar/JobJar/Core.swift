@@ -38,6 +38,15 @@ let coins: [CoinKind] = [
 ]
 func coinKind(_ key: String) -> CoinKind { coins.first { $0.key == key } ?? coins[1] }
 let maxPay = 20 // most stars or coins one chore can earn
+let maxTimes = 3 // a special day can double or triple what chores pay
+let matchPercents = [25, 50, 100, 200]
+
+/// "YYYY-MM-DD"
+func validDay(_ k: String) -> Bool {
+    let p = k.split(separator: "-", omittingEmptySubsequences: false)
+    guard k.count == 10, p.count == 3, p[0].count == 4, p[1].count == 2, p[2].count == 2 else { return false }
+    return p.allSatisfy { part in part.allSatisfy { $0.isASCII && $0.isNumber } }
+}
 
 /// 25 -> "25¢", 135 -> "$1.35"
 func money(_ cents: Int) -> String {
@@ -134,9 +143,12 @@ struct Chore: Codable, Identifiable, Equatable {
     var stars: Int
     var days: [Int]
     var kids: [String]
+    /// A special chore only shows between these days ("YYYY-MM-DD", or "" for no limit).
+    var from: String = ""
+    var until: String = ""
 
-    init(id: String = newId("c"), pic: String, name: String, stars: Int = 1, days: [Int] = allDays, kids: [String] = []) {
-        self.id = id; self.pic = pic; self.name = name; self.stars = stars; self.days = days; self.kids = kids
+    init(id: String = newId("c"), pic: String, name: String, stars: Int = 1, days: [Int] = allDays, kids: [String] = [], from: String = "", until: String = "") {
+        self.id = id; self.pic = pic; self.name = name; self.stars = stars; self.days = days; self.kids = kids; self.from = from; self.until = until
     }
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -147,7 +159,76 @@ struct Chore: Codable, Identifiable, Equatable {
         let d = ((try? c.decode([Int].self, forKey: .days)) ?? []).filter { (0...6).contains($0) }
         days = d.isEmpty ? allDays : d
         kids = (try? c.decode([String].self, forKey: .kids)) ?? []
+        let f = (try? c.decode(String.self, forKey: .from)) ?? "", u = (try? c.decode(String.self, forKey: .until)) ?? ""
+        from = validDay(f) ? f : ""
+        until = validDay(u) ? u : ""
     }
+}
+
+/// A day when chores pay double or triple: a birthday, a holiday, a snow day.
+struct SpecialDay: Codable, Identifiable, Equatable {
+    var id: String
+    var pic: String
+    var name: String
+    var date: String   // "YYYY-MM-DD"
+    var yearly: Bool
+    var times: Int     // 2 or 3
+    var kids: [String] // empty = everyone
+
+    init(id: String = newId("s"), pic: String = "🎂", name: String, date: String, yearly: Bool = true, times: Int = 2, kids: [String] = []) {
+        self.id = id; self.pic = pic; self.name = name; self.date = date; self.yearly = yearly; self.times = times; self.kids = kids
+    }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = (try? c.decode(String.self, forKey: .id)) ?? newId("s")
+        pic = (try? c.decode(String.self, forKey: .pic)) ?? "🎉"
+        name = (try? c.decode(String.self, forKey: .name)) ?? "Special day"
+        date = (try? c.decode(String.self, forKey: .date)) ?? ""
+        yearly = (try? c.decode(Bool.self, forKey: .yearly)) ?? false
+        let n = (try? c.decode(Double.self, forKey: .times)) ?? 2
+        times = min(maxTimes, max(2, Int(n.rounded())))
+        kids = (try? c.decode([String].self, forKey: .kids)) ?? []
+    }
+}
+
+/// Someone (Grandma, Granddad...) adding a share of what a kid earns from chores.
+struct MatchOffer: Codable, Identifiable, Equatable {
+    var id: String
+    var pic: String
+    var who: String
+    var percent: Int      // 50 = adds half of what the kid earns
+    var kids: [String]    // empty = everyone
+    var until: String     // last day that counts, or "" for no end
+    var cap: Int          // the most it adds for each kid, 0 = no limit
+    var earned: [String: Int] = [:]  // per kid: earned from chores while the match was on
+    var given: [String: Int] = [:]   // per kid: added by the match so far
+
+    init(id: String = newId("m"), pic: String = "👵", who: String, percent: Int = 100, kids: [String] = [], until: String = "", cap: Int = 0) {
+        self.id = id; self.pic = pic; self.who = who; self.percent = percent; self.kids = kids; self.until = until; self.cap = cap
+    }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = (try? c.decode(String.self, forKey: .id)) ?? newId("m")
+        pic = (try? c.decode(String.self, forKey: .pic)) ?? "💝"
+        who = (try? c.decode(String.self, forKey: .who)) ?? "Grandma"
+        let pc = (try? c.decode(Double.self, forKey: .percent)) ?? 100
+        percent = min(500, max(1, Int(pc.rounded())))
+        kids = (try? c.decode([String].self, forKey: .kids)) ?? []
+        let u = (try? c.decode(String.self, forKey: .until)) ?? ""
+        until = validDay(u) ? u : ""
+        cap = max(0, Int(((try? c.decode(Double.self, forKey: .cap)) ?? 0).rounded()))
+        earned = MatchOffer.counts((try? c.decode([String: Double].self, forKey: .earned)) ?? [:])
+        given = MatchOffer.counts((try? c.decode([String: Double].self, forKey: .given)) ?? [:])
+    }
+    private static func counts(_ raw: [String: Double]) -> [String: Int] {
+        var out: [String: Int] = [:]
+        for (k, v) in raw where Int(v.rounded()) > 0 { out[k] = Int(v.rounded()) }
+        return out
+    }
+    func active(_ kidId: String, _ day: String) -> Bool {
+        (kids.isEmpty || kids.contains(kidId)) && (until.isEmpty || day <= until)
+    }
+    var totalGiven: Int { given.values.reduce(0, +) }
 }
 
 struct Reward: Codable, Identifiable, Equatable {
@@ -172,7 +253,7 @@ struct LogEntry: Codable, Identifiable, Equatable {
     var id: String
     var t: String
     var kid: String
-    var kind: String // chore, undo, reward, bonus, minus
+    var kind: String // chore, undo, match, reward, bonus, minus
     var text: String
     var pic: String
     var delta: Int
@@ -260,6 +341,8 @@ struct AppData: Codable, Equatable {
     var kids: [Kid] = []
     var chores: [Chore] = []
     var rewards: [Reward] = []
+    var specials: [SpecialDay] = []
+    var matches: [MatchOffer] = []
     var done: [String: [String: [String: String]]] = [:]
     var log: [LogEntry] = []
     var settings = Settings()
@@ -289,6 +372,8 @@ struct AppData: Codable, Equatable {
         kids = (try? c.decode([Kid].self, forKey: .kids)) ?? []
         chores = (try? c.decode([Chore].self, forKey: .chores)) ?? start.chores
         rewards = (try? c.decode([Reward].self, forKey: .rewards)) ?? start.rewards
+        specials = ((try? c.decode([SpecialDay].self, forKey: .specials)) ?? []).filter { validDay($0.date) }
+        matches = (try? c.decode([MatchOffer].self, forKey: .matches)) ?? []
         done = (try? c.decode([String: [String: [String: String]]].self, forKey: .done)) ?? [:]
         log = (try? c.decode([LogEntry].self, forKey: .log)) ?? []
         settings = (try? c.decode(Settings.self, forKey: .settings)) ?? Settings()
@@ -308,7 +393,63 @@ struct AppData: Codable, Equatable {
     // MARK: rules
     static func isDue(_ chore: Chore, _ date: Date, _ kidId: String) -> Bool {
         if !chore.kids.isEmpty && !chore.kids.contains(kidId) { return false }
+        let k = dayKey(date)
+        if (!chore.from.isEmpty && k < chore.from) || (!chore.until.isEmpty && k > chore.until) { return false } // a special chore outside its days
         return chore.days.contains(weekday(date))
+    }
+
+    /// The special day (birthday, holiday...) that counts for this kid on this date. The biggest one wins.
+    func special(_ kidId: String, _ date: Date) -> SpecialDay? {
+        let k = dayKey(date)
+        var best: SpecialDay?
+        for x in specials {
+            if !x.kids.isEmpty && !x.kids.contains(kidId) { continue }
+            let hit = x.yearly ? (x.date.suffix(5) == k.suffix(5) && k >= x.date) : x.date == k
+            if hit && x.times > (best?.times ?? 0) { best = x }
+        }
+        return best
+    }
+    /// 1 on an ordinary day, 2 or 3 on a special day.
+    func times(_ kidId: String, _ date: Date) -> Int { special(kidId, date)?.times ?? 1 }
+    /// What a chore pays this kid on this date (doubled or tripled on a special day).
+    func pay(_ kidId: String, _ chore: Chore, _ date: Date) -> Int { chore.stars * times(kidId, date) }
+
+    func matchesFor(_ kidId: String, _ date: Date) -> [MatchOffer] {
+        let k = dayKey(date)
+        return matches.filter { $0.active(kidId, k) }
+    }
+
+    /// After a kid's chore earnings change by `delta` on `day`, brings every match up to date:
+    /// a 50% match has given half of what the kid earned so far (rounded down), up to its limit.
+    /// Returns the total added by matches (negative if some was taken back).
+    @discardableResult
+    mutating func settleMatches(_ kidId: String, _ day: String, _ delta: Int, now: Date = Date()) -> Int {
+        guard let ki = kidIndex(kidId), delta != 0 else { return 0 }
+        var total = 0
+        for i in matches.indices where matches[i].active(kidId, day) {
+            let earned = max(0, (matches[i].earned[kidId] ?? 0) + delta)
+            matches[i].earned[kidId] = earned > 0 ? earned : nil
+            var target = earned * matches[i].percent / 100
+            if matches[i].cap > 0 { target = min(target, matches[i].cap) }
+            let given = matches[i].given[kidId] ?? 0
+            var diff = target - given
+            if diff < 0 { diff = -min(kids[ki].stars, -diff) }
+            if diff == 0 { continue }
+            kids[ki].stars += diff
+            matches[i].given[kidId] = given + diff > 0 ? given + diff : nil
+            total += diff
+            addLog(LogEntry(t: now, kid: kidId, kind: "match", text: matches[i].who + (diff > 0 ? "'s match" : "'s match (taken back)"), pic: matches[i].pic, delta: diff, day: day))
+        }
+        return total
+    }
+
+    /// Puts a finished chore's pay in the jar, then any matching. Returns the chore's own pay.
+    private mutating func payChore(_ ki: Int, _ c: Chore, _ date: Date, now: Date) -> Int {
+        let kidId = kids[ki].id, x = special(kidId, date), amount = pay(kidId, c, date), day = dayKey(date)
+        kids[ki].stars += amount
+        addLog(LogEntry(t: now, kid: kidId, kind: "chore", text: c.name + (x.map { " (×\($0.times) \($0.name))" } ?? ""), pic: c.pic, delta: amount, day: day))
+        settleMatches(kidId, day, amount, now: now)
+        return amount
     }
 
     func status(_ kidId: String, _ choreId: String, _ date: Date) -> ChoreStatus {
@@ -345,9 +486,7 @@ struct AppData: Codable, Equatable {
         guard let ki = kidIndex(kidId), let c = chore(choreId), status(kidId, choreId, date) == .todo else { return 0 }
         if settings.needsApproval { setStatus(kidId, choreId, date, .waiting); return 0 }
         setStatus(kidId, choreId, date, .done)
-        kids[ki].stars += c.stars
-        addLog(LogEntry(t: now, kid: kidId, kind: "chore", text: c.name, pic: c.pic, delta: c.stars, day: dayKey(date)))
-        return c.stars
+        return payChore(ki, c, date, now: now)
     }
 
     /// "Not done yet": takes the check off and the stars back (never below zero).
@@ -357,9 +496,10 @@ struct AppData: Codable, Equatable {
         guard let ki = kidIndex(kidId), st != .todo else { return 0 }
         setStatus(kidId, choreId, date, .todo)
         guard st == .done, let c = chore(choreId) else { return 0 }
-        let back = min(kids[ki].stars, c.stars)
+        let back = min(kids[ki].stars, pay(kidId, c, date))
         kids[ki].stars -= back
         addLog(LogEntry(t: now, kid: kidId, kind: "undo", text: c.name + " (taken off)", pic: c.pic, delta: -back, day: dayKey(date)))
+        settleMatches(kidId, dayKey(date), -back, now: now)
         return back
     }
 
@@ -380,9 +520,7 @@ struct AppData: Codable, Equatable {
         let date = parseDay(day)
         guard let ki = kidIndex(kidId), let c = chore(choreId), status(kidId, choreId, date) == .waiting else { return 0 }
         setStatus(kidId, choreId, date, .done)
-        kids[ki].stars += c.stars
-        addLog(LogEntry(t: now, kid: kidId, kind: "chore", text: c.name, pic: c.pic, delta: c.stars, day: day))
-        return c.stars
+        return payChore(ki, c, date, now: now) // a special day counts by the day the chore was done, not the day it was OK'd
     }
 
     mutating func reject(_ kidId: String, _ choreId: String, _ day: String) {
@@ -430,7 +568,7 @@ struct AppData: Codable, Equatable {
             })
         }
         let earned = keys.map { k in
-            log.filter { $0.kid == kidId && ($0.kind == "chore" || $0.kind == "undo") && $0.day == k }.reduce(0) { $0 + $1.delta }
+            log.filter { $0.kid == kidId && ($0.kind == "chore" || $0.kind == "undo" || $0.kind == "match") && $0.day == k }.reduce(0) { $0 + $1.delta }
         }
         return WeekChart(days: keys, rows: rows, earned: earned, total: earned.reduce(0, +))
     }
@@ -444,6 +582,21 @@ struct AppData: Codable, Equatable {
             done[k] = done[k]?.filter { ids.contains($0.key) }
         }
         for i in chores.indices { chores[i].kids = chores[i].kids.filter { ids.contains($0) } }
+        // A special day or a match made for kids who were all removed goes away too (empty would mean "everyone").
+        specials = specials.compactMap { x -> SpecialDay? in
+            var x = x
+            let had = !x.kids.isEmpty
+            x.kids = x.kids.filter { ids.contains($0) }
+            return had && x.kids.isEmpty ? nil : x
+        }
+        matches = matches.compactMap { m -> MatchOffer? in
+            var m = m
+            let had = !m.kids.isEmpty
+            m.kids = m.kids.filter { ids.contains($0) }
+            m.earned = m.earned.filter { ids.contains($0.key) }
+            m.given = m.given.filter { ids.contains($0.key) }
+            return had && m.kids.isEmpty ? nil : m
+        }
         let rewardIds = Set(rewards.map(\.id))
         requests.removeAll { !ids.contains($0.kid) || !rewardIds.contains($0.reward) }
     }
