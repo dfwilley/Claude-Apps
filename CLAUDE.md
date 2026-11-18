@@ -25,6 +25,7 @@ Each app is a plain web app in its own top-level folder: HTML, CSS and JavaScrip
 | `gate-time-puzzles/` | Gate Time Puzzles | none |
 | `which-gear-goes-where/` | Which Gear Goes Where | none |
 | `wing-rib-riddles/` | Wing Rib Riddles | none |
+| `bend-it-right/` | Bend It Right | none |
 | `blue-book/` | Blue Book | `native/blue-book/`, web app inside a native shell (TestFlight) |
 | `hgvc-binder/` | HGVC Binder | `native/hgvc-binder/`, web app inside a native shell (TestFlight) |
 | `bin-finder/` | Bin Finder | `native/bin-finder/`, separately written in SwiftUI |
@@ -42,6 +43,7 @@ Each native app is defined by a `project.yml` that XcodeGen turns into an Xcode 
 No install is needed. Run them with Node from the repository root:
 
 ```
+node tests/bend-it-right.test.js
 node tests/bin-finder.test.js
 node tests/blue-book.test.js
 node tests/gate-time-puzzles.test.js
@@ -52,7 +54,7 @@ node tests/who-was-here.test.js
 node tests/wing-rib-riddles.test.js
 ```
 
-All eight passed on November 18, 2026. Knot of the Day, Wire Bender and Ask Me Tomorrow have no automated tests. The Swift unit tests and screenshot tests under `native/*/` need a Mac, so they run only in GitHub Actions.
+All nine passed on November 18, 2026. Knot of the Day, Wire Bender and Ask Me Tomorrow have no automated tests. The Swift unit tests and screenshot tests under `native/*/` need a Mac, so they run only in GitHub Actions.
 
 ## How a change reaches the phone
 
@@ -75,6 +77,7 @@ For anything larger than a small fix, work on a branch and merge to `main` only 
 - **Everything stays on the device** is a promise made in several apps' descriptions. Don't add analytics, accounts or cloud storage without the owner asking.
 - The Job Jar! is used by young children. It links a kid's device to a grown-up's over home Wi-Fi only, with no internet or cloud. Keep it that way.
 - Wing Rib Riddles draws every picture in code (`ITEMS` in `wing-rib-riddles/core.js`, each a 200 x 200 drawing with a close-up window). A new riddle needs a drawing, at least three wrong choices and a checked fact. The riddle of the day comes from the day number, so adding riddles reshuffles which one falls on which day.
+- Bend It Right's shapes (`RAW` in `bend-it-right/core.js`) are corner points; leg lengths are rounded to 1/8 inch and turns to 1 degree, so pick points whose slanted legs land near eighths (3-4-5 triangles) or a closed shape will not close. Saved patterns are the player's bends for a shape id, so changing an existing shape's points makes old saved patterns for it look wrong; add new shapes rather than reshaping old ones.
 - Who Was Here uses live Wikidata, Wikipedia and OpenStreetMap services. Be gentle with request volume and keep the attribution.
 - New web apps go in a new top-level folder and get a line in `README.md`. A native version goes under `native/<app>/` with its own workflows copied from an existing app of the same kind.
 
