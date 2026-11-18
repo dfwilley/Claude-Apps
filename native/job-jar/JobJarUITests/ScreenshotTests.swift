@@ -81,14 +81,19 @@ final class ScreenshotTests: XCTestCase {
         snap(app, "22-specials")
         for (button, shot) in [("addSpecial", "23-add-special-day"), ("addSpecialChore", "24-add-special-chore"), ("addMatch", "25-add-match")] {
             let add = app.buttons[button]
-            if add.waitForExistence(timeout: 3), !add.isHittable { app.swipeUp(); sleep(1) }
+            _ = add.waitForExistence(timeout: 3)
+            // On an iPhone the lower buttons start off the bottom of the screen
+            for _ in 0..<3 where add.exists && !add.isHittable { app.swipeUp(); sleep(1) }
             if add.exists, add.isHittable {
                 add.tap(); sleep(1)
-                if button == "addSpecialChore" { app.swipeUp(); sleep(1) }
-                snap(app, shot)
-                app.buttons["Cancel"].firstMatch.tap(); sleep(1)
+                let cancel = app.buttons["Cancel"].firstMatch
+                if cancel.waitForExistence(timeout: 3) {
+                    if button == "addSpecialChore" { app.swipeUp(); sleep(1) }
+                    snap(app, shot)
+                    cancel.tap(); sleep(1)
+                }
             }
-            app.swipeDown(); sleep(1)
+            app.swipeDown(); app.swipeDown(); sleep(1)
         }
 
         app.buttons["gu-settings"].tap(); sleep(1)
