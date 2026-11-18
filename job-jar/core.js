@@ -64,7 +64,7 @@
     const chore = (pic, name, stars) => ({ id: newId("c"), pic, name, stars: stars || 1, days: ALL_DAYS.slice(), kids: [] });
     const reward = (pic, name, cost) => ({ id: newId("r"), pic, name, cost });
     return {
-      version: 1,
+      version: 2, // 2 = "grown-up checks chores first" starts switched on
       kids: [],
       chores: [
         chore("🛏️", "Make bed"), chore("🪥", "Brush teeth"), chore("🧸", "Pick up toys"),
@@ -76,7 +76,7 @@
       ],
       done: {}, // { "YYYY-MM-DD": { kidId: { choreId: "done" | "waiting" } } }
       log: [], // newest first: { t, kid, kind, text, pic, delta }
-      settings: { pin: "", needsApproval: false, sound: true, speak: true, money: false, coin: "nickel" },
+      settings: { pin: "", needsApproval: true, sound: true, speak: true, money: false, coin: "nickel" },
       setupDone: false,
     };
   }
@@ -87,6 +87,11 @@
     if (!s || typeof s !== "object") return d;
     const out = Object.assign({}, d, s);
     out.settings = Object.assign({}, d.settings, s.settings || {});
+    // Saves from before version 2 had the grown-up check off unless someone turned it on.
+    // Switch it on once; a grown-up can still turn it off in Settings.
+    if ((Number(s.version) || 1) < 2) out.settings.needsApproval = true;
+    out.settings.needsApproval = !!out.settings.needsApproval;
+    out.version = 2;
     out.settings.money = !!out.settings.money;
     if (!COINS[out.settings.coin]) out.settings.coin = "nickel";
     out.kids = (Array.isArray(s.kids) ? s.kids : []).map((k, i) => ({
@@ -150,8 +155,8 @@
   }
 
   /**
-   * Kid taps "I did it!". Gives the stars right away, or marks it "waiting"
-   * when a grown-up has to check chores first. Returns the stars given (0 if waiting or already done).
+   * Kid taps "I did it!". Marks it "waiting" until a grown-up OKs it (the usual setting),
+   * or gives the stars right away when the grown-up check is turned off. Returns the stars given (0 if waiting or already done).
    */
   function markDone(s, kidId, choreId, date, now) {
     const kid = kidById(s, kidId), chore = choreById(s, choreId);

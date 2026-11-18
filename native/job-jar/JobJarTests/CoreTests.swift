@@ -19,6 +19,9 @@ final class CoreTests: XCTestCase {
         let thu = day(2026, 11, 5), fri = addDays(thu, 1)
         var s = AppData.starter()
         XCTAssertEqual(s.chores.count, 6)
+        XCTAssertTrue(s.settings.needsApproval, "a new family starts with the grown-up check on")
+        XCTAssertEqual(s.version, 2)
+        s.settings.needsApproval = false   // first, the rules with the grown-up check turned off
         s.kids = [Kid(id: "a", name: "Ava", avatar: "🦊", color: "#f00"), Kid(id: "b", name: "Ben", avatar: "🐻", color: "#00f")]
         let bed = s.chores[0].id
         s.chores[5].kids = ["b"]; s.chores[5].days = [1, 3, 5]; s.chores[5].stars = 2
@@ -94,6 +97,10 @@ final class CoreTests: XCTestCase {
         XCTAssertEqual(d.rewards.count, 4)
         XCTAssertEqual(d.settings.pin, "1234")
         XCTAssertTrue(d.settings.sound)
+        XCTAssertTrue(d.settings.needsApproval, "the grown-up check is switched on once for older saves")
+        XCTAssertEqual(d.version, 2)
+        let off = try JSONDecoder().decode(AppData.self, from: Data(#"{"version":2,"settings":{"needsApproval":false}}"#.utf8))
+        XCTAssertFalse(off.settings.needsApproval, "after that, a grown-up's choice to turn it off is kept")
         XCTAssertEqual(d.status("k1", "c1", parseDay("2026-11-05")), .done)
         XCTAssertNotNil(isoDate(d.log[0].t))
         // and round-trips
@@ -154,6 +161,7 @@ final class CoreTests: XCTestCase {
         let thu = day(2026, 11, 5)
         var s = AppData.starter()
         s.settings.pin = "1234"
+        s.settings.needsApproval = false
         s.kids = [Kid(id: "a", name: "Ava", avatar: "🦊", color: "#f00", stars: 6, photo: ""), Kid(id: "b", name: "Ben", avatar: "🐻", color: "#00f", stars: 2)]
         s.chores[5].kids = ["b"]          // only Ben feeds the dog
         s.chores[4].kids = ["a", "b"]

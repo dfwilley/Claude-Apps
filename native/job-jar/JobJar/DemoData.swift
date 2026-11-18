@@ -9,6 +9,7 @@ enum DemoData {
         d.settings.pin = "1234"
         d.settings.sound = false
         d.settings.speak = false
+        d.settings.needsApproval = false   // the sample family earns stars right away; the screenshot test switches the check on itself
         let ava = Kid(name: "Ava", avatar: "🦊", color: kidColors[0], stars: 0, photo: demoPhoto())
         let ben = Kid(name: "Ben", avatar: "🦖", color: kidColors[1], stars: 0)
         d.kids = [ava, ben]

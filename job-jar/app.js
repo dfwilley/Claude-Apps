@@ -342,7 +342,7 @@
           <div class="coin-pick">${J.COIN_KEYS.map((key) => { const c = J.COINS[key]; return `<button class="${S.settings.coin === key ? "on" : ""}" data-act="coin" data-key="${key}">${coinFace(key, 44)}<b>${c.name[0].toUpperCase() + c.name.slice(1)}</b><small>${J.money(c.cents)}</small></button>`; }).join("")}</div>
           <p class="note">Changing the coin changes what's already in each jar too (10 nickels become 10 dimes).</p>` : ""}
         <div class="section">How it works</div><div class="list">
-          ${toggle("needsApproval", "Grown-up checks chores first", "Stars go in the jar after you OK each chore")}
+          ${toggle("needsApproval", "Grown-up checks chores first", "Kids get their stars only after you OK each chore")}
           ${toggle("sound", "Sounds", "A happy chime when a star is earned")}
           ${toggle("speak", "Read chores out loud", "Says the chore name when a kid taps 🔊 or finishes a chore")}
         </div>

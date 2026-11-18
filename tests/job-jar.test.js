@@ -11,6 +11,9 @@ assert.equal(J.dayKey(J.parseDay("2026-03-08")), "2026-03-08"); // daylight savi
 
 let s = J.defaultState();
 assert.equal(s.chores.length, 6); assert.equal(s.rewards.length, 4); assert.equal(s.setupDone, false);
+assert.equal(s.settings.needsApproval, true, "a new family starts with the grown-up check on");
+assert.equal(s.version, 2);
+s.settings.needsApproval = false; // first, the rules with the grown-up check turned off
 s.kids.push({ id: "a", name: "Ava", avatar: "🦊", color: "#f00", stars: 0 }, { id: "b", name: "Ben", avatar: "🐻", color: "#00f", stars: 0 });
 const bed = s.chores[0], dog = s.chores[5];
 dog.kids = ["b"]; // only Ben feeds the dog
@@ -106,6 +109,20 @@ assert.equal(n.kids[0].stars, 3); assert(n.kids[0].id); assert(n.kids[0].avatar)
 assert.equal(n.chores[0].stars, 9); assert.deepEqual(n.chores[0].days, J.ALL_DAYS);
 assert.equal(n.rewards.length, 4); assert.equal(n.settings.pin, "1234"); assert.equal(n.settings.sound, true);
 assert.equal(J.normalize(null).chores.length, 6);
+// The grown-up check is switched on once for saves made before it became the usual setting...
+assert.equal(n.settings.needsApproval, true); assert.equal(n.version, 2);
+assert.equal(J.normalize({ version: 1, settings: { needsApproval: false } }).settings.needsApproval, true);
+// ...and after that a grown-up's choice to turn it off is kept
+assert.equal(J.normalize({ version: 2, settings: { needsApproval: false } }).settings.needsApproval, false);
+assert.equal(J.normalize(JSON.parse(JSON.stringify(J.normalize({ version: 1 })))).settings.needsApproval, true);
+// With the check on, nothing reaches the kid's jar until a grown-up says OK
+const q = J.defaultState();
+q.kids.push({ id: "k", name: "Kay", avatar: "🦊", color: "#f00", stars: 0 });
+assert.equal(J.markDone(q, "k", q.chores[0].id, thu, thu), 0);
+assert.equal(J.kidById(q, "k").stars, 0); assert.equal(q.log.length, 0);
+assert.equal(J.weekChart(q, "k", thu).total, 0);
+assert.equal(J.approve(q, "k", q.chores[0].id, "2026-11-05", thu), 1);
+assert.equal(J.kidById(q, "k").stars, 1);
 assert.equal(J.normalize(JSON.parse(JSON.stringify(s))).kids[0].name, "Ava");
 
 // Small helpers

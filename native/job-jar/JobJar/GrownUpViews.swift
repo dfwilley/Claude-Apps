@@ -276,7 +276,7 @@ struct GrownUpView: View {
         }
         Section {
             Toggle(isOn: $store.data.settings.needsApproval) {
-                VStack(alignment: .leading) { Text("Grown-up checks chores first"); Text("Stars go in the jar after you OK each chore").font(.caption).foregroundStyle(.secondary) }
+                VStack(alignment: .leading) { Text("Grown-up checks chores first"); Text("Kids get their stars only after you OK each chore").font(.caption).foregroundStyle(.secondary) }
             }
             .accessibilityIdentifier("needsApproval")
             Toggle(isOn: $store.data.settings.sound) {

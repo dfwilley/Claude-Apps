@@ -196,7 +196,7 @@ struct LogEntry: Codable, Identifiable, Equatable {
 
 struct Settings: Codable, Equatable {
     var pin = ""
-    var needsApproval = false
+    var needsApproval = true
     var sound = true
     var speak = true
     var money = false
@@ -206,7 +206,7 @@ struct Settings: Codable, Equatable {
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         pin = (try? c.decode(String.self, forKey: .pin)) ?? ""
-        needsApproval = (try? c.decode(Bool.self, forKey: .needsApproval)) ?? false
+        needsApproval = (try? c.decode(Bool.self, forKey: .needsApproval)) ?? true
         sound = (try? c.decode(Bool.self, forKey: .sound)) ?? true
         speak = (try? c.decode(Bool.self, forKey: .speak)) ?? true
         money = (try? c.decode(Bool.self, forKey: .money)) ?? false
@@ -256,7 +256,7 @@ struct WaitingItem: Identifiable {
 
 /// Everything the app saves. `done` is { "YYYY-MM-DD": { kidId: { choreId: "done" | "waiting" } } }.
 struct AppData: Codable, Equatable {
-    var version = 1
+    var version = 2   // 2 = "grown-up checks chores first" starts switched on
     var kids: [Kid] = []
     var chores: [Chore] = []
     var rewards: [Reward] = []
@@ -294,6 +294,9 @@ struct AppData: Codable, Equatable {
         settings = (try? c.decode(Settings.self, forKey: .settings)) ?? Settings()
         setupDone = (try? c.decode(Bool.self, forKey: .setupDone)) ?? false
         requests = (try? c.decode([RewardRequest].self, forKey: .requests)) ?? []
+        // Saves from before version 2 had the grown-up check off unless someone turned it on.
+        // Switch it on once; a grown-up can still turn it off in Settings.
+        if version < 2 { settings.needsApproval = true; version = 2 }
     }
 
     // MARK: lookups
