@@ -1,0 +1,16 @@
+{
+  "name": "Fit the Part",
+  "short_name": "Fit the Part",
+  "description": "A dimension puzzle: a flat part with a few sizes missing, and clues to work them out. Each solved puzzle ends with a small part to model in SolidWorks. Works with no signal.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#EDF1F5",
+  "theme_color": "#1F5FA8",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}
