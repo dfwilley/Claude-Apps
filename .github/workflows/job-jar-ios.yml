@@ -32,7 +32,9 @@ jobs:
       - name: Run tests and take screenshots on an iPhone simulator
         working-directory: native/job-jar
         run: |
-          LINE=$(xcrun simctl list devices available | grep -E '^[[:space:]]+iPhone' | head -1)
+          # Prefer the biggest iPhone: its screenshots are the size the App Store asks for (6.9-inch)
+          LINE=$(xcrun simctl list devices available | grep -E '^[[:space:]]+iPhone [0-9]+ Pro Max' | head -1)
+          [ -z "$LINE" ] && LINE=$(xcrun simctl list devices available | grep -E '^[[:space:]]+iPhone' | head -1)
           DEVICE=$(echo "$LINE" | grep -oE '[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}')
           echo "::notice::Simulator: $LINE"
           xcodebuild test \
@@ -50,7 +52,9 @@ jobs:
         if: always()
         working-directory: native/job-jar
         run: |
-          LINE=$(xcrun simctl list devices available | grep -E '^[[:space:]]+iPad' | head -1)
+          # Prefer the 13-inch iPad: its screenshots are the size the App Store asks for
+          LINE=$(xcrun simctl list devices available | grep -E '^[[:space:]]+iPad Pro 13' | head -1)
+          [ -z "$LINE" ] && LINE=$(xcrun simctl list devices available | grep -E '^[[:space:]]+iPad' | head -1)
           IPAD=$(echo "$LINE" | grep -oE '[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}')
           echo "::notice::iPad simulator: $LINE"
           xcodebuild test \
