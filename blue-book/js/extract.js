@@ -453,7 +453,7 @@
         else if (k === 'approaches' && /^\d\s+\d(\s+\d)*$/.test(digitsFix(raw.trim()))) { // one number per approach type, stacked in the box
           res = { value: digitsFix(raw.trim()).split(/\s+/).reduce((s, v) => s + +v, 0) }; res.note = `added the numbers in this box (${raw.trim()}) to get ${res.value}`; }
         else if (kind === 'count') res = parseCount(raw);
-        else if (k === 'apprType') res = { value: raw.trim().toUpperCase().replace(/(^|\s)[LI|](?=\s*N?P(\s|$))/g, '$11').replace(/\s+/g, ' ') };
+        else if (k === 'apprType') res = { value: normApprType(raw.trim().toUpperCase().replace(/(^|\s)[LI|](?=\s*N?P(\s|$))/g, '$11')) };
         else if (kind === 'type') {
           // A line drawn through the box means "same aircraft as above". Readers turn a drawn line into all sorts of marks
           // (dashes, underscores, tildes, an equals sign), so any reading with no letter or digit in it counts as that line.
@@ -553,7 +553,7 @@
     if (kind === 'buno') return parseBuno(t);
     if (kind === 'type') { const p = normalizeType(t, knownTypes); if (!p.ditto && ![...(knownTypes || []), ...KNOWN_TYPES].includes(p.value)) p.unsure = true; return p; }
     if (kind === 'code') { const v = fixKind(t); return { value: v, unsure: !/^\d[A-Z]\d$/.test(v) }; }
-    if (field === 'apprType') { const v = t.toUpperCase(); return { value: v, unsure: !/^(\d?\s*N?P\s*)+$/.test(v) }; }
+    if (field === 'apprType') { const v = normApprType(t); return { value: v, unsure: !/^(\d?\s*N?P\s*)+$/.test(v) }; }
     return { value: t };
   }
   const cleanRead = p => !p.empty && !p.bad && !p.unsure && !p.note && (p.ditto || (p.value != null && p.value !== ''));
@@ -582,7 +582,16 @@
   function flag(f, field, reason) { if (!f.flags.some(x => x.field === field && x.reason === reason)) f.flags.push({ field, reason }); }
 
   // Checks that look at the whole line. Clears and re-adds its own flags so it can run after edits.
+  // The approach-type box is written in the owner's own code: A is a precision approach, B a non-precision one.
+  // Blue Book keeps them as P and NP. "1 A 1 B" becomes "1 P 1 NP"; anything else is left as written.
+  function normApprType(s) {
+    return String(s || '').toUpperCase().replace(/\s+/g, ' ').trim().replace(/(^|[\s\d,\/])(A|B)(?=$|[\s\d,\/])/g, (m, pre, code) => pre + (code === 'A' ? 'P' : 'NP'));
+  }
+  // Harriers are never catapulted, so on these types anything read in the Catapult column is a stray mark or a
+  // value that belongs to the next box. It is dropped.
+  const NO_CATAPULT = new Set(['TAV-8B', 'TAV-8A', 'AV-8B']);
   function sanity(f) {
+    if (NO_CATAPULT.has(f.type) && f.cats != null && f.cats !== '') { f.cats = null; f.flags = (f.flags || []).filter(x => x.field !== 'cats'); }
     f.flags = (f.flags || []).filter(x => !x.check);
     const add = (field, reason) => f.flags.push({ field, reason, check: true });
     if (f.total != null && (f.total <= 0 || f.total > 12)) add('total', 'flight time outside 0.1–12.0');
@@ -670,7 +679,7 @@
     return ws.filter(x => (x.y1 - x.y0) * h > 1.5 * (x.x1 - x.x0) * w).length > ws.length * 0.5;
   }
 
-  const api = { pageLines, sideBand, commonGap, skipHeaderRows, trackLines, findColLines, fitTemplate, headerDate, rowLineFits, findRowLines, rowPitch, readingOrder, fixKind, parseField, chooseReading, cellAt, looksSideways, FIELDS, FIELD, NUM_FIELDS, KNOWN_TYPES, defaultTemplate, extractPage, rowBands, parseHours, parseCount, parseBuno, parseDay, parseDate,
+  const api = { normApprType, NO_CATAPULT, pageLines, sideBand, commonGap, skipHeaderRows, trackLines, findColLines, fitTemplate, headerDate, rowLineFits, findRowLines, rowPitch, readingOrder, fixKind, parseField, chooseReading, cellAt, looksSideways, FIELDS, FIELD, NUM_FIELDS, KNOWN_TYPES, defaultTemplate, extractPage, rowBands, parseHours, parseCount, parseBuno, parseDay, parseDate,
     normalizeType, sanity, recheck, findRuledLines, isoDate, hasShipWork };
   root.BBExtract = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

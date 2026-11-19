@@ -488,6 +488,7 @@
       if (kind === 'hours') { const p = X.parseHours(v); v = p.value; if (p.bad) { toast('Flight times look like 1.5'); } }
       else if (kind === 'count') { const p = X.parseCount(v); v = p.value; }
       else if (k === 'type') v = X.normalizeType(v, knownTypes()).value;
+      else if (k === 'apprType') v = X.normApprType(v);
       if (k === 'date') { r.day = v ? +v.slice(8, 10) : null; X.recheck(r, 'day'); }
       r[k] = v === '' ? (kind === 'hours' || kind === 'count' ? null : '') : v;
       const also = [];

@@ -184,7 +184,7 @@ test('starting columns follow the Navy logbook order; crew times are read and ch
   const f = r.rows[0]; assert.deepStrictEqual([f.total, f.pic, f.acCmdr, f.instSim, f.kind], [1.5, 1.5, 2, 0.3, '1A1']);
   assert.ok(f.flags.some(x => x.field === 'acCmdr' && /more than the flight time/.test(x.reason)));
   assert.strictEqual(C.totals([f]).all.pic, 1.5);
-  assert.deepStrictEqual([f.traps, f.fclp, f.cats, f.apprType], [2, 4, 1, 'P']);
+  assert.deepStrictEqual([f.traps, f.fclp, f.cats, f.apprType], [2, 4, null, 'P'], 'an AV-8B line: the cat shot box is ignored');
 });
 
 test('approach types: P, NP, and both in one box', () => {
@@ -405,7 +405,7 @@ test('AI reader: what is asked, and how the answer becomes flights', () => {
   const rem = words.find(w => w.text === '251 231'); assert.ok(rem.y0 > 0.152 && rem.y1 < 0.152 + 0.0366, 'right-page boxes sit at the right page\'s row height');
   const r = X.extractPage(words, t, { year: 1990, month: 1 }, { ruledLines: { left: bands.map(b => b.y0).concat([bands[2].y1]), right: bands.map(b => b.ry0).concat([bands[2].ry1]), gutter: 0.525 } });
   assert.strictEqual(r.rows.length, 2);
-  const [a, b] = r.rows; assert.deepStrictEqual([a.date, a.type, a.buno, a.total, a.pic, a.night, a.landings, a.approaches, a.apprType], ['1990-01-02', 'AV-8B', '163205', 3.1, 3.1, 1.2, 5, 1, 'A']);
+  const [a, b] = r.rows; assert.deepStrictEqual([a.date, a.type, a.buno, a.total, a.pic, a.night, a.landings, a.approaches, a.apprType], ['1990-01-02', 'AV-8B', '163205', 3.1, 3.1, 1.2, 5, 1, 'P']);
   assert.deepStrictEqual([b.date, b.type, b.typeSame, b.traps], ['1990-01-03', 'AV-8B', true, 2]); assert.ok(b.flags.some(f => f.field === 'buno' && /hard to read/.test(f.reason)), 'a box the reader was unsure of is marked');
   assert.deepStrictEqual(A.dateFrom(answer), { month: 1, year: 1990 }); assert.deepStrictEqual(A.dateFrom({ month: 'MARCH', year: '90' }), { month: 3, year: 1990 }); assert.deepStrictEqual(A.dateFrom({ month: '?', year: '' }), { month: null, year: null });
 });
@@ -424,6 +424,20 @@ test('AI reader: landing counts written by kind, and plain messages when the ser
   await fails(() => A.read('k', t, [1], ['L', 'R'], async () => { throw new TypeError('Failed to fetch'); }), /Could not reach/);
   let sent; await A.read('sk-ant-x', t, [1], ['L', 'R'], async (url, o) => { sent = { url, o }; return { ok: true, status: 200, json: async () => ({ stop_reason: 'end_turn', content: [{ type: 'text', text: '{"month":"","year":"","rows":[]}' }] }) }; });
   assert.strictEqual(sent.url, 'https://api.anthropic.com/v1/messages'); assert.strictEqual(sent.o.headers['x-api-key'], 'sk-ant-x'); assert.strictEqual(sent.o.headers['anthropic-version'], '2026-10-21');
+});
+
+test('Harriers have no cat shots; approach codes A and B become P and NP', () => {
+  for (const [raw, want] of [['A', 'P'], ['B', 'NP'], ['a', 'P'], ['1 A 1 B', '1 P 1 NP'], ['1A 1B', '1P 1NP'], ['A B', 'P NP'], ['P', 'P'], ['NP', 'NP'], ['GCA', 'GCA'], ['TACAN', 'TACAN'], ['', '']]) assert.strictEqual(X.normApprType(raw), want, raw);
+  const t = { top: 0.1, bottom: 0.9, columns: [{ field: 'day', x0: 0, x1: 0.1 }, { field: 'type', x0: 0.1, x1: 0.3 }, { field: 'total', x0: 0.3, x1: 0.4 }, { field: 'cats', x0: 0.4, x1: 0.5 }, { field: 'approaches', x0: 0.5, x1: 0.6 }, { field: 'apprType', x0: 0.6, x1: 0.7 }] };
+  const w = (text, x, row) => ({ text, conf: 95, x0: x - 0.02, x1: x + 0.02, y0: 0.12 + row * 0.05, y1: 0.15 + row * 0.05 });
+  const words = []; ['AV-8B', '—', 'TAV-8B', 'TAV-8A', 'TA-4J', 'AV-8A'].forEach((type, i) => words.push(w(String(i + 1), 0.05, i), w(type, 0.2, i), w('1.0', 0.35, i), w('2', 0.45, i), w('1', 0.55, i), w(i % 2 ? 'B' : 'A', 0.65, i)));
+  const ys = []; for (let k = 0; k <= 12; k++) ys.push(0.11 + k * 0.05);
+  const rows = X.extractPage(words, t, { year: 1990, month: 1, ship: 'USS Nassau (LHA-4)' }, { ruledLines: ys }).rows;
+  assert.deepStrictEqual(rows.map(f => [f.type, f.cats, f.apprType]), [['AV-8B', null, 'P'], ['AV-8B', null, 'NP'], ['TAV-8B', null, 'P'], ['TAV-8A', null, 'NP'], ['TA-4J', 2, 'P'], ['AV-8A', 2, 'NP']], 'cat shots dropped only on the three types named; the line in the Model box counts as AV-8B');
+  assert.ok(!rows[0].flags.some(x => x.field === 'cats' || x.field === 'ship'), 'no leftover warnings about cat shots or a missing ship');
+  assert.deepStrictEqual([C.approachCounts(rows[0]).precision, C.approachCounts(rows[1]).non], [1, 1]);
+  // typing a cat shot onto a Harrier line, or changing a line to a Harrier, clears it too
+  const f = X.sanity({ type: 'TA-4J', total: 1, cats: 3, flags: [] }); assert.strictEqual(f.cats, 3); f.type = 'AV-8B'; X.recheck(f, 'type'); assert.strictEqual(f.cats, null);
 });
 
 Promise.all(pending).then(() => console.log(`${passed} tests passed`));
