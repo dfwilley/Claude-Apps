@@ -445,15 +445,15 @@ test('squadron periods and instructor time', () => {
   assert.deepStrictEqual(['1987-07-31', '1987-08-01', '1988-06-15', '1989-09-30', '1989-10-01', '1992-01-01', null].map(d => C.squadronFor(d, periods)), ['', 'VMAT-203', 'VMAT-203', 'VMAT-203', 'VMA-231', '', '']);
   const exact = [{ from: '1987-08-25', to: '1989-09-29', name: 'VMAT-203', instructor: true }];
   assert.deepStrictEqual(['1987-08-24', '1987-08-25', '1989-09-29', '1989-09-30'].map(d => C.squadronFor(d, exact)), ['', 'VMAT-203', 'VMAT-203', ''], 'exact first and last days, both included');
-  assert.strictEqual(C.instructorTime({ date: '1987-08-10', type: 'TAV-8B', total: 1, sic: 1 }, exact), 0);
+  assert.strictEqual(C.instructorTime({ date: '1987-08-10', type: 'TAV-8B', total: 1, acCmdr: 1 }, exact), 0);
   const I = f => C.instructorTime(f, periods);
-  assert.strictEqual(I({ date: '1988-03-01', type: 'TAV-8B', total: 1.4, pic: 0.8, sic: 0.6 }), 1.4, 'TAV-8B with co-pilot time in the instructor period: the whole flight');
-  assert.strictEqual(I({ date: '1988-03-01', type: 'TAV-8B', total: 1.4, pic: 1.4 }), 0, 'no co-pilot time: not instructor time');
-  assert.strictEqual(I({ date: '1988-03-01', type: 'AV-8B', total: 1.4, sic: 0.6 }), 0, 'single-seat type');
-  assert.strictEqual(I({ date: '1990-03-01', type: 'TAV-8B', total: 1.4, sic: 0.6 }), 0, 'outside the instructor period');
-  const m = E.myFlightbook({ pages: [], settings: { squadrons: periods }, flights: [{ date: '1988-03-01', type: 'TAV-8B', buno: '162747', total: 1.4, pic: 0.8, sic: 0.6, squadron: 'VMAT-203' }, { date: '1990-03-01', type: 'TAV-8B', buno: '162747', total: 1.0, pic: 0.5, sic: 0.5 }] });
+  assert.strictEqual(I({ date: '1988-03-01', type: 'TAV-8B', total: 1.4, pic: 1.4, acCmdr: 1.2 }), 1.2, 'TAV-8B in the instructor period: the Acft Cmdr time');
+  assert.strictEqual(I({ date: '1988-03-01', type: 'TAV-8B', total: 1.4, pic: 0.8, sic: 0.6 }), 0, 'co-pilot time alone is not instructor time');
+  assert.strictEqual(I({ date: '1988-03-01', type: 'AV-8B', total: 1.4, acCmdr: 1.4 }), 0, 'single-seat type');
+  assert.strictEqual(I({ date: '1990-03-01', type: 'TAV-8B', total: 1.4, acCmdr: 1.4 }), 0, 'outside the instructor period');
+  const m = E.myFlightbook({ pages: [], settings: { squadrons: periods }, flights: [{ date: '1988-03-01', type: 'TAV-8B', buno: '162747', total: 1.4, pic: 1.4, acCmdr: 1.2, squadron: 'VMAT-203' }, { date: '1990-03-01', type: 'TAV-8B', buno: '162747', total: 1.0, pic: 1.0, acCmdr: 1.0 }] });
   const rows = m.csv.trim().split('\r\n'), head = rows[0].split(','), col = head.indexOf('Military Instructor Pilot Time');
-  assert.ok(col > 0); assert.strictEqual(rows[1].split(',')[col], '1.4'); assert.strictEqual(rows[2].split(',')[col], '');
+  assert.ok(col > 0); assert.strictEqual(rows[1].split(',')[col], '1.2'); assert.strictEqual(rows[2].split(',')[col], '');
 });
 
 Promise.all(pending).then(() => console.log(`${passed} tests passed`));

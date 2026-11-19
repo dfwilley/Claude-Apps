@@ -44,11 +44,11 @@
     return null;
   }
   function squadronFor(date, periods) { const p = periodFor(date, periods); return p ? p.name : ''; }
-  // Instructor time: during an instructor period, a flight in the two-seat TAV-8B with co-pilot (SIC) time logged was
-  // flown as the instructor, and the whole flight counts.
+  // Instructor time: during an instructor period, time in the two-seat TAV-8B written in the Acft Cmdr column was
+  // flown as the instructor.
   function instructorTime(f, periods) {
     const p = periodFor(f.date, periods);
-    return p && p.instructor && f.type === 'TAV-8B' && n(f.sic) > 0 && n(f.total) > 0 ? f.total : 0;
+    return p && p.instructor && f.type === 'TAV-8B' && n(f.acCmdr) > 0 ? f.acCmdr : 0;
   }
 
   function blank() {

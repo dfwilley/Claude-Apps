@@ -756,7 +756,7 @@
       </section>
       <section class="card">
         <h2>Squadrons by date</h2>
-        <p class="small">Every flight dated from the first day through the last day of a period is given that squadron. Tick “Instructor” for a period you spent as an instructor pilot: TAV-8B flights with co-pilot (SIC) time then go to MyFlightbook with their whole flight time as instructor time.</p>
+        <p class="small">Every flight dated from the first day through the last day of a period is given that squadron. Tick “Instructor” for a period you spent as an instructor pilot: the Acft Cmdr time on TAV-8B flights then also goes to MyFlightbook as instructor time.</p>
         <div id="sq-list">${(db.settings.squadrons || []).map((p, i) => `<div class="sqrow" data-i="${i}">
           <label>From<input type="date" data-sq="from" value="${esc(sqDay(p.from, 1))}"></label><label>Through<input type="date" data-sq="to" value="${esc(sqDay(p.to, 0))}"></label>
           <label>Squadron<input data-sq="name" value="${esc(p.name || '')}" placeholder="e.g. VMAT-203"></label>
