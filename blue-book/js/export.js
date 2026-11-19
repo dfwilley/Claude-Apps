@@ -9,7 +9,7 @@
 
   const FLIGHT_COLS = [
     ['Date', 'date', 14, 'date'], ['Type/model', 'type', 11], ['BuNo', 'buno', 9], ['Squadron', 'squadron', 12], ['Kind of flight', 'kind', 9],
-    ['Flight time', 'total', 8, 'hours'], ['PIC', 'pic', 7, 'hours'], ['SIC', 'sic', 7, 'hours'], ['Acft Cmdr', 'acCmdr', 8, 'hours'], ['Special crew', 'specialCrew', 8, 'hours'],
+    ['Flight time', 'total', 8, 'hours'], ['PIC', 'pic', 7, 'hours'], ['SIC', 'sic', 7, 'hours'], ['Acft Cmdr', 'acCmdr', 8, 'hours'], ['Special crew', 'specialCrew', 8, 'hours'], ['Instructor', '_instr', 8, 'hours'],
     ['Night', 'night', 7, 'hours'], ['Day', '_day', 7, 'hours'], ['Instr. actual', 'instActual', 8, 'hours'], ['Instr. sim', 'instSim', 8, 'hours'],
     ['Carrier arrest', 'traps', 8, 'num'], ['Carrier touch and go', 'carrierTG', 8, 'num'], ['FCLP', 'fclp', 7, 'num'], ['Landing', 'landings', 8, 'num'],
     ['Approaches', 'approaches', 8, 'num'], ['Approach type', 'apprType', 10], ['Simulated approaches', 'simApproaches', 9, 'num'], ['Landings day', 'dayLand', 8, 'num'], ['Landings night', 'nightLand', 8, 'num'],
@@ -17,6 +17,7 @@
     ['Cat shots', 'cats', 7, 'num'], ['Ship', 'ship', 18], ['Remarks', 'remarks', 34], ['Logbook page', '_page', 16], ['Page photo', '_photo', 26, 'link'], ['Needs a look', '_flags', 30],
   ];
   function flightValue(db, f, key) {
+    if (key === '_instr') return C.instructorTime(f, (db.settings && db.settings.squadrons) || []) || null;
     if (key === '_day') return f.total != null ? Math.round(Math.max(0, f.total - (f.night || 0)) * 10) / 10 : null;
     if (key === '_photo') return photoName(db, f);
     if (key === '_page') return pageLabel(db, f);
@@ -67,6 +68,7 @@
     ['SIC', f => f.sic],
     ['Aircraft Commander Time', f => f.acCmdr],
     ['Military Special Crew Time', f => f.specialCrew],
+    ['Military Instructor Pilot Time', (f, periods) => C.instructorTime(f, periods)],
     ['Night', f => f.night],
     ['IMC', f => f.instActual],
     ['Simulated Instrument', f => f.instSim],
@@ -92,7 +94,8 @@
   function myFlightbook(db) {
     const all = sorted(db.flights);
     const ok = all.filter(f => /^\d{4}-\d{2}-\d{2}$/.test(f.date || '') && typeof f.total === 'number' && f.total > 0);
-    const rows = ok.map(f => MFB_COLS.map(([, get]) => { const v = get(f); return v === 0 || v == null ? '' : v; }));
+    const periods = (db.settings && db.settings.squadrons) || [];
+    const rows = ok.map(f => MFB_COLS.map(([, get]) => { const v = get(f, periods); return v === 0 || v == null ? '' : v; }));
     const aircraft = {};
     for (const f of ok) if (f.buno) aircraft[f.buno] = f.type || aircraft[f.buno] || '';
     return { csv: F.csv([MFB_COLS.map(c => c[0]), ...rows]), included: ok.length, leftOut: all.length - ok.length,

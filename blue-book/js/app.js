@@ -16,7 +16,7 @@
 
   function emptyDB() { return { version: 1, settings: { name: '', template: X.defaultTemplate(), calibrated: false }, pages: [], flights: [], deployments: [] }; }
   function save(now) {
-    clearTimeout(saveTimer);
+    applySquadrons(); clearTimeout(saveTimer);
     const go = () => { saveTimer = null; return S.saveDB(db).catch(e => e && e.code === 'changed' ? changedElsewhere() : toast('Could not save: ' + e.message, true)); };
     if (now) return go(); saveTimer = setTimeout(go, 350);
   }
@@ -28,6 +28,7 @@
     d.pages = Array.isArray(d.pages) ? d.pages.filter(obj) : [];
     d.flights = Array.isArray(d.flights) ? d.flights.filter(obj) : [];
     d.deployments = Array.isArray(d.deployments) ? d.deployments.filter(obj) : [];
+    if (obj(d.settings)) d.settings.squadrons = Array.isArray(d.settings.squadrons) ? d.settings.squadrons.filter(obj) : [];
     d.settings = Object.assign(emptyDB().settings, obj(d.settings) ? d.settings : {});
     if (!obj(d.settings.template) || !Array.isArray(d.settings.template.columns) || !d.settings.template.columns.length) d.settings.template = X.defaultTemplate();
     if (!d.settings.calibrated) d.settings.template = X.defaultTemplate(); // until you set up columns, start from the current layout
@@ -312,9 +313,18 @@
     for (const f of db.flights) if (f.type && f.date && f.date < first && f.pageId !== page.id && (!best || f.date > best.date || (f.date === best.date && (f.row || 0) > (best.row || 0)))) best = f;
     return best ? best.type : '';
   }
+  // Squadron periods (Export tab): every flight dated inside a period is given that period's squadron, and so is a page
+  // whose month falls inside it. Runs after a page is read, when a date changes, and when the periods are edited.
+  function applySquadrons() {
+    const ps = (db && db.settings && db.settings.squadrons) || []; if (!ps.length) return;
+    const fix = f => { const s = C.squadronFor(f.date, ps); if (s) f.squadron = s; };
+    db.flights.forEach(fix);
+    for (const p of db.pages) { (p.rows || []).forEach(r => { if (r.rowType !== 'totals') fix(r); }); if (p.year && p.month) { const s = C.squadronFor(X.isoDate(p.year, p.month, 1), ps); if (s) { p.squadron = s; p.label = pageLabel(p); } } }
+  }
   function extractInto(page) {
     const res = X.extractPage(page.words || [], page.tpl || db.settings.template, page, { ruledLines: page.ruledLines, rowPitch: page.rowPitch, knownTypes: knownTypes(), carryType: carryType(page) });
     page.rows = res.rows.map((r, i) => Object.assign(r, { id: uid('f'), row: i })); page.notes = res.notes;
+    applySquadrons();
     if (page.autoDate && !page.dateRead) page.notes.push(`Couldn't read the month and year at the top of this page, so ${page.month && page.year ? MONTHS[page.month - 1] + ' ' + page.year + ' was assumed' : 'none is set'}. Tap “Edit month, squadron, ship” to check.`);
     save();
   }
@@ -491,6 +501,7 @@
       else if (k === 'apprType') v = X.normApprType(v);
       if (k === 'date') { r.day = v ? +v.slice(8, 10) : null; X.recheck(r, 'day'); }
       r[k] = v === '' ? (kind === 'hours' || kind === 'count' ? null : '') : v;
+      if (k === 'date') applySquadrons();
       const also = [];
       if (k === 'type') { // lines below that have a line in the type box take their type from this one
         r.typeSame = false; const all = rowsOf(page); for (let i = all.indexOf(r) + 1; i < all.length; i++) { const n = all[i]; if (n.rowType === 'totals') continue; if (!n.typeSame) break; n.type = r.type; X.recheck(n, 'type'); also.push(n); }
@@ -563,7 +574,7 @@
       for (const r of rows) { delete r.rowType; r.pageId = page.id; db.flights.push(r); }
       page.status = 'saved'; page.totalsRows = (page.rows || []).filter(r => r.rowType === 'totals'); delete page.rows;
     }
-    page.label = pageLabel(page);
+    applySquadrons(); page.label = pageLabel(page);
     refreshDeployments(); save(true);
     const left = db.flights.filter(f => f.pageId === page.id && f.flags && f.flags.length).length;
     toast(left ? `Saved. ${left} line${left > 1 ? 's' : ''} still marked “needs a look” — find them under Search.` : 'Page saved.');
@@ -741,6 +752,15 @@
         <p class="small">${S.isNative ? "Everything is kept in this app's own folder on your iPhone. It's included in your normal iPhone backup." : S.folder.active ? "Everything is kept in the folder you chose on this computer (see below). A full backup now and then is still a good idea." : "Everything is kept in this browser's private storage on this device. Make a full backup now and then — clearing the browser's website data would erase it."}</p>
         <div class="stack"><button id="m-cols">Column setup</button><button id="m-restore">Restore from a backup</button><button class="danger" id="m-wipe">Erase everything</button></div>
       </section>
+      <section class="card">
+        <h2>Squadrons by date</h2>
+        <p class="small">Every flight dated inside a period is given that squadron. Tick “Instructor” for a period you spent as an instructor pilot: TAV-8B flights with co-pilot (SIC) time then go to MyFlightbook with their whole flight time as instructor time.</p>
+        <div id="sq-list">${(db.settings.squadrons || []).map((p, i) => `<div class="sqrow" data-i="${i}">
+          <label>From<input type="month" data-sq="from" value="${esc(p.from || '')}"></label><label>Through<input type="month" data-sq="to" value="${esc(p.to || '')}"></label>
+          <label>Squadron<input data-sq="name" value="${esc(p.name || '')}" placeholder="e.g. VMAT-203"></label>
+          <label class="check"><input type="checkbox" data-sq="instructor" ${p.instructor ? 'checked' : ''}> Instructor</label><button data-sq="del" aria-label="Remove this period">Remove</button></div>`).join('') || '<p class="empty">No periods yet.</p>'}</div>
+        <div class="stack"><button id="sq-add">Add a period</button></div>
+      </section>
       ${S.isNative ? '' : `<section class="card">
         <h2>Reading handwriting</h2>
         ${aiKey ? `<p><strong>On.</strong> Each page you add or re-read is read by Claude, Anthropic's AI.${use && use.pages ? ` So far: ${use.pages} page${use.pages === 1 ? '' : 's'}, about $${((use.input * 4 + use.output * 20) / 1e6).toFixed(2)} at list prices.` : ''}</p>
@@ -785,6 +805,14 @@
     $('#x-zip').onclick = () => run('Packing the backup…', async set => S.share(`Blue Book Backup ${stamp}.zip`, await E.backup(db, S, set), 'application/zip'));
     $('#m-cols').onclick = () => { const p = db.pages[db.pages.length - 1]; if (!p) toast('Add a logbook page first.'); else openColumns(p); };
     $('#m-restore').onclick = () => $('#pick-backup').click();
+    $('#sq-add').onclick = () => { (db.settings.squadrons = db.settings.squadrons || []).push({ from: '', to: '', name: '', instructor: false }); save(); render(); };
+    $('#sq-list').addEventListener('change', e => {
+      const el = e.target.closest('[data-sq]'), row = e.target.closest('.sqrow'); if (!el || !row) return; const p = db.settings.squadrons[+row.dataset.i]; if (!p) return;
+      if (el.dataset.sq === 'instructor') p.instructor = el.checked; else p[el.dataset.sq] = el.value.trim();
+      if (p.from && p.to && p.from > p.to) { toast('“From” is after “Through” on that period.', true); }
+      applySquadrons(); save(); const n = db.flights.filter(f => C.periodFor(f.date, [p])).length; if (p.name && p.from && p.to) toast(`${p.name}: ${n} flight${n === 1 ? '' : 's'} in that period so far.`);
+    });
+    $('#sq-list').addEventListener('click', e => { const b = e.target.closest('button[data-sq="del"]'); if (!b) return; db.settings.squadrons.splice(+b.closest('.sqrow').dataset.i, 1); save(); render(); });
     if ($('#ai-on')) $('#ai-on').onclick = async () => {
       const k = $('#ai-key').value.trim(); if (!/^sk-ant-[\w-]{20,}$/.test(k)) { toast('That does not look like an Anthropic API key. It starts with sk-ant-', true); return; }
       await S.setAiKey(k); toast('Handwriting will now be read by Claude. Re-read a page to try it.'); render();

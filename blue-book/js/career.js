@@ -36,6 +36,21 @@
       carrier: traps + ctg + dS + nS + dT + nT, traps: traps + dT + nT };
   }
 
+  // Squadron periods, set by the owner on the Export tab: [{from: 'YYYY-MM', to: 'YYYY-MM', name, instructor}].
+  // A flight dated inside a period belongs to that squadron. `instructor` marks a period spent as an instructor pilot.
+  function periodFor(date, periods) {
+    if (!date) return null; const ym = String(date).slice(0, 7);
+    for (const p of periods || []) if (p && p.name && p.from && p.to && ym >= p.from && ym <= p.to) return p;
+    return null;
+  }
+  function squadronFor(date, periods) { const p = periodFor(date, periods); return p ? p.name : ''; }
+  // Instructor time: during an instructor period, a flight in the two-seat TAV-8B with co-pilot (SIC) time logged was
+  // flown as the instructor, and the whole flight counts.
+  function instructorTime(f, periods) {
+    const p = periodFor(f.date, periods);
+    return p && p.instructor && f.type === 'TAV-8B' && n(f.sic) > 0 && n(f.total) > 0 ? f.total : 0;
+  }
+
   function blank() {
     return { flights: 0, hours: 0, pic: 0, sic: 0, acCmdr: 0, specialCrew: 0, night: 0, day: 0, instActual: 0, instSim: 0, approaches: 0, simApproaches: 0, fclp: 0, carrierTG: 0, landings: 0, nightLandings: 0,
       shipLandings: 0, nightShipLandings: 0, traps: 0, nightTraps: 0, cats: 0, first: null, last: null };
@@ -167,7 +182,7 @@
     return false;
   }
 
-  const api = { landingCounts, approachCounts, totals, suggestDeployments, segments, milestones, search, atSea, monthYear, longDate, blank };
+  const api = { periodFor, squadronFor, instructorTime, landingCounts, approachCounts, totals, suggestDeployments, segments, milestones, search, atSea, monthYear, longDate, blank };
   root.BBCareer = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

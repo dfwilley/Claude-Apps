@@ -162,12 +162,12 @@ test('MyFlightbook import file', () => {
     { date: '1988-03-04', type: 'AV-8B', buno: '163853', total: 1.0, dayShip: 2, nightShip: 1, dayTraps: 1, nightTraps: 1, nightLand: 1, approaches: 1, apprType: 'GCA' },
     { date: null, type: 'AV-8B', buno: '163853', total: 1.0 }, { date: '1988-03-07', type: 'AV-8B', buno: '163853', total: null } ] };
   const m = E.myFlightbook(db); const rows = m.csv.trim().split('\r\n');
-  assert.strictEqual(rows[0], 'Date,Tail Number,Model,Total Flight Time,PIC,SIC,Aircraft Commander Time,Military Special Crew Time,Night,IMC,Simulated Instrument,Approaches,Approaches - Precision (unspecified type),Approaches - Non-precision (unspecified type),' +
+  assert.strictEqual(rows[0], 'Date,Tail Number,Model,Total Flight Time,PIC,SIC,Aircraft Commander Time,Military Special Crew Time,Military Instructor Pilot Time,Night,IMC,Simulated Instrument,Approaches,Approaches - Precision (unspecified type),Approaches - Non-precision (unspecified type),' +
     'Landings,FS Day Landings,FS Night Landings,Landings - Touch and Go,Landings - Touch and Go (Night),Landings - Field Carrier Practice (FCLP),Landings - Field Carrier Practice (FCLP) at Night,Landings - Touch and go (Carrier),Landings - Carrier,Landings - Arrestments (Carrier),"Landings - Arrestments (Carrier), Night",Takeoffs - Catapult,Comments');
   assert.strictEqual(rows.length, 4, 'three flights have a date and a time');
-  assert.strictEqual(rows[1], '3/4/1988,163853,AV-8B,1,,,,,,,,1,,,6,3,3,,,,,,5,2,1,,Approach type GCA', 'older day/night columns still work');
-  assert.strictEqual(rows[2], '3/5/1988,,AV-8B,1,,,,,,,,1,,1,1,1,,,,,,,,,,,');
-  assert.strictEqual(rows[3], '3/6/1988,158512,TA-4J,1.5,1.5,,1.5,0.2,0.7,0.3,,3,2,,11,2,1,8,,6,,2,4,2,,2,"CQ, ""OK 3"" | VT-7 | USS Lexington (AVT-16)"', 'some night time: the landing that ended the flight was at night');
+  assert.strictEqual(rows[1], '3/4/1988,163853,AV-8B,1,,,,,,,,,1,,,6,3,3,,,,,,5,2,1,,Approach type GCA', 'older day/night columns still work');
+  assert.strictEqual(rows[2], '3/5/1988,,AV-8B,1,,,,,,,,,1,,1,1,1,,,,,,,,,,,');
+  assert.strictEqual(rows[3], '3/6/1988,158512,TA-4J,1.5,1.5,,1.5,0.2,,0.7,0.3,,3,2,,11,2,1,8,,6,,2,4,2,,2,"CQ, ""OK 3"" | VT-7 | USS Lexington (AVT-16)"', 'some night time: the landing that ended the flight was at night');
   assert.deepStrictEqual([m.included, m.leftOut, m.noTail, m.flagged, m.pagesInReview], [3, 2, 1, 1, 1]);
   const t = C.totals(db.flights).all; assert.deepStrictEqual([t.traps, t.fclp, t.carrierTG, t.landings, t.simApproaches], [4, 6, 2, 3, 1]);
 });
@@ -199,7 +199,7 @@ test('approach types: P, NP, and both in one box', () => {
     w('NP', 'apprType', 0.008, 0.312), w('1', 'apprType', -0.008, 0.312), w('P', 'apprType', 0.008, 0.295), w('l', 'apprType', -0.008, 0.295)], t, { year: 1988, month: 3 }, { ruledLines: [0.22, 0.28, 0.34, 0.40, 0.46] });
   const f = r.rows[0]; assert.strictEqual(f.apprType, '1 P 1 NP'); assert.strictEqual(f.approaches, 2);
   const row = E.myFlightbook({ pages: [], flights: [Object.assign({}, f, { date: '1988-03-05' })] }).csv.trim().split('\r\n')[1].split(',');
-  assert.deepStrictEqual(row.slice(11, 14), ['2', '1', '1'], 'Approaches, precision, non-precision');
+  assert.deepStrictEqual(row.slice(12, 15), ['2', '1', '1'], 'Approaches, precision, non-precision');
 });
 
 test('notices a page lying on its side', () => {
@@ -438,6 +438,19 @@ test('Harriers have no cat shots; approach codes A and B become P and NP', () =>
   assert.deepStrictEqual([C.approachCounts(rows[0]).precision, C.approachCounts(rows[1]).non], [1, 1]);
   // typing a cat shot onto a Harrier line, or changing a line to a Harrier, clears it too
   const f = X.sanity({ type: 'TA-4J', total: 1, cats: 3, flags: [] }); assert.strictEqual(f.cats, 3); f.type = 'AV-8B'; X.recheck(f, 'type'); assert.strictEqual(f.cats, null);
+});
+
+test('squadron periods and instructor time', () => {
+  const periods = [{ from: '1987-08', to: '1989-09', name: 'VMAT-203', instructor: true }, { from: '1989-10', to: '1991-06', name: 'VMA-231', instructor: false }, { from: '', to: '', name: 'half-filled' }];
+  assert.deepStrictEqual(['1987-07-31', '1987-08-01', '1988-06-15', '1989-09-30', '1989-10-01', '1992-01-01', null].map(d => C.squadronFor(d, periods)), ['', 'VMAT-203', 'VMAT-203', 'VMAT-203', 'VMA-231', '', '']);
+  const I = f => C.instructorTime(f, periods);
+  assert.strictEqual(I({ date: '1988-03-01', type: 'TAV-8B', total: 1.4, pic: 0.8, sic: 0.6 }), 1.4, 'TAV-8B with co-pilot time in the instructor period: the whole flight');
+  assert.strictEqual(I({ date: '1988-03-01', type: 'TAV-8B', total: 1.4, pic: 1.4 }), 0, 'no co-pilot time: not instructor time');
+  assert.strictEqual(I({ date: '1988-03-01', type: 'AV-8B', total: 1.4, sic: 0.6 }), 0, 'single-seat type');
+  assert.strictEqual(I({ date: '1990-03-01', type: 'TAV-8B', total: 1.4, sic: 0.6 }), 0, 'outside the instructor period');
+  const m = E.myFlightbook({ pages: [], settings: { squadrons: periods }, flights: [{ date: '1988-03-01', type: 'TAV-8B', buno: '162747', total: 1.4, pic: 0.8, sic: 0.6, squadron: 'VMAT-203' }, { date: '1990-03-01', type: 'TAV-8B', buno: '162747', total: 1.0, pic: 0.5, sic: 0.5 }] });
+  const rows = m.csv.trim().split('\r\n'), head = rows[0].split(','), col = head.indexOf('Military Instructor Pilot Time');
+  assert.ok(col > 0); assert.strictEqual(rows[1].split(',')[col], '1.4'); assert.strictEqual(rows[2].split(',')[col], '');
 });
 
 Promise.all(pending).then(() => console.log(`${passed} tests passed`));
