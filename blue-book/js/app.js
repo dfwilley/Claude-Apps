@@ -212,7 +212,7 @@
   async function newPage(photoId, canvas, turns, auto) {
     const prev = db.pages.slice().sort((a, b) => (b.year || 0) - (a.year || 0) || (b.month || 0) - (a.month || 0))[0];
     let month = prev && prev.month ? prev.month % 12 + 1 : null, year = prev && prev.year ? (prev.month === 12 ? prev.year + 1 : prev.year) : null;
-    const page = { id: uid('p'), photoId, added: new Date().toISOString(), status: 'review', year, month, squadron: prev ? prev.squadron : '', ship: prev ? prev.ship : '', w: canvas.width, h: canvas.height, turns: turns || 0, autoDate: !!auto };
+    const page = { id: uid('p'), photoId, added: new Date().toISOString(), status: 'review', year, month, squadron: C.squadronForMonth(year, month, db.settings.squadrons) || (prev ? prev.squadron : ''), ship: prev ? prev.ship : '', w: canvas.width, h: canvas.height, turns: turns || 0, autoDate: !!auto };
     db.pages.push(page); save();
     if (!auto) await pageInfo(page, true);
     await readPage(page, canvas);
@@ -228,12 +228,15 @@
         <div class="form">
           <label>Month<select id="pi-m"><option value="">—</option>${MONTHS.map((m, i) => `<option value="${i + 1}" ${page.month === i + 1 ? 'selected' : ''}>${m}</option>`).join('')}</select></label>
           <label>Year<input id="pi-y" inputmode="numeric" pattern="[0-9]*" maxlength="4" value="${esc(y)}" placeholder="e.g. 1988"></label>
-          <label>Squadron<input id="pi-s" list="dl-sq" value="${esc(page.squadron || '')}" placeholder="e.g. VMA-231"></label>
+          <label>Squadron<input id="pi-s" list="dl-sq" value="${esc(C.squadronForMonth(page.year, page.month, db.settings.squadrons) || page.squadron || '')}" placeholder="e.g. VMA-231"><span class="small" id="pi-s-note"></span></label>
           <label>Ship (if aboard)<input id="pi-ship" list="dl-ship" value="${esc(page.ship || '')}" placeholder="e.g. USS Nassau (LHA-4)"></label>
         </div>
         <datalist id="dl-sq">${listOf('squadron').map(v => `<option value="${esc(v)}">`).join('')}</datalist>
         <datalist id="dl-ship">${listOf('ship').map(v => `<option value="${esc(v)}">`).join('')}</datalist>
         <div class="btns"><button class="primary" id="pi-ok">${isNew ? 'Read this page' : 'Done'}</button></div>`, body => {
+        // The squadron follows the month and year, from "Squadrons by date" on the Export tab.
+        const fromDates = () => { const s = C.squadronForMonth(+$('#pi-y', body).value, +$('#pi-m', body).value, db.settings.squadrons); if (s) $('#pi-s', body).value = s; $('#pi-s-note', body).textContent = s ? 'Filled in from your squadron dates (Export tab).' : ''; };
+        $('#pi-m', body).onchange = fromDates; $('#pi-y', body).oninput = fromDates; fromDates();
         $('#pi-ok', body).onclick = () => {
           page.month = +$('#pi-m', body).value || null; const yy = +$('#pi-y', body).value; page.year = yy >= 1940 && yy <= 2100 ? yy : null;
           page.squadron = $('#pi-s', body).value.trim(); page.ship = $('#pi-ship', body).value.trim(); page.label = pageLabel(page); page.autoDate = false;
@@ -321,7 +324,13 @@
     const ps = (db && db.settings && db.settings.squadrons) || []; if (!ps.length) return;
     const fix = f => { const s = C.squadronFor(f.date, ps); if (s) f.squadron = s; };
     db.flights.forEach(fix);
-    for (const p of db.pages) { (p.rows || []).forEach(r => { if (r.rowType !== 'totals') fix(r); }); if (p.year && p.month) { const s = C.squadronFor(X.isoDate(p.year, p.month, 1), ps); if (s && s === C.squadronFor(X.isoDate(p.year, p.month, new Date(p.year, p.month, 0).getDate()), ps)) { p.squadron = s; p.label = pageLabel(p); } } }
+    for (const p of db.pages) { (p.rows || []).forEach(r => { if (r.rowType !== 'totals') fix(r); }); if (p.year && p.month) { const s = C.squadronForMonth(p.year, p.month, ps); if (s) { p.squadron = s; p.label = pageLabel(p); } } }
+  }
+  // The squadron a line takes from its page. Where the page's squadron has dates and the line falls outside them
+  // (a month in which you changed squadrons), the line is left without one rather than given the wrong one.
+  function pageSquadron(page, r) {
+    const ps = (db.settings.squadrons || []).filter(p => p && p.name === page.squadron && p.from && p.to);
+    return ps.length && r.date && !C.periodFor(r.date, ps) ? '' : page.squadron;
   }
   function extractInto(page) {
     const res = X.extractPage(page.words || [], page.tpl || db.settings.template, page, { ruledLines: page.ruledLines, rowPitch: page.rowPitch, knownTypes: knownTypes(), carryType: carryType(page) });
@@ -466,7 +475,7 @@
     $('#rv-back').onclick = () => { ui.reviewPageId = null; render(); };
     $('#rv-info').onclick = async () => {
       await pageInfo(page, false);
-      for (const r of rowsOf(page)) { if (r.rowType === 'totals') continue; if (r.day && page.year && page.month) r.date = X.isoDate(page.year, page.month, r.day); r.squadron = r.squadron || page.squadron; if (!r.ship && X.hasShipWork(r)) r.ship = page.ship; X.recheck(r, 'day'); }
+      for (const r of rowsOf(page)) { if (r.rowType === 'totals') continue; if (r.day && page.year && page.month) r.date = X.isoDate(page.year, page.month, r.day); r.squadron = r.squadron || pageSquadron(page, r); if (!r.ship && X.hasShipWork(r)) r.ship = page.ship; X.recheck(r, 'day'); }
       save(); render();
     };
     $('#rv-cols').onclick = async () => {

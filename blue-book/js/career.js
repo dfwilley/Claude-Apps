@@ -44,6 +44,12 @@
     return null;
   }
   function squadronFor(date, periods) { const p = periodFor(date, periods); return p ? p.name : ''; }
+  // The squadron for a logbook page, from its month and year: the period covering the most days of that month.
+  function squadronForMonth(year, month, periods) {
+    if (!year || !month) return ''; const days = new Date(year, month, 0).getDate(), tally = {}; let best = '';
+    for (let d = 1; d <= days; d++) { const s = squadronFor(year + '-' + String(month).padStart(2, '0') + '-' + String(d).padStart(2, '0'), periods); if (s) { tally[s] = (tally[s] || 0) + 1; if (!best || tally[s] > tally[best]) best = s; } }
+    return best;
+  }
   // Instructor time: during an instructor period, time in the two-seat TAV-8B written in the Acft Cmdr column was
   // flown as the instructor.
   function instructorTime(f, periods) {
@@ -182,7 +188,7 @@
     return false;
   }
 
-  const api = { periodFor, squadronFor, instructorTime, landingCounts, approachCounts, totals, suggestDeployments, segments, milestones, search, atSea, monthYear, longDate, blank };
+  const api = { periodFor, squadronFor, squadronForMonth, instructorTime, landingCounts, approachCounts, totals, suggestDeployments, segments, milestones, search, atSea, monthYear, longDate, blank };
   root.BBCareer = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

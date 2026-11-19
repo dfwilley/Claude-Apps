@@ -446,6 +446,8 @@ test('squadron periods and instructor time', () => {
   const exact = [{ from: '1987-08-25', to: '1989-09-29', name: 'VMAT-203', instructor: true }];
   assert.deepStrictEqual(['1987-08-24', '1987-08-25', '1989-09-29', '1989-09-30'].map(d => C.squadronFor(d, exact)), ['', 'VMAT-203', 'VMAT-203', ''], 'exact first and last days, both included');
   assert.strictEqual(C.instructorTime({ date: '1987-08-10', type: 'TAV-8B', total: 1, acCmdr: 1 }, exact), 0);
+  assert.deepStrictEqual([[1987, 7], [1987, 8], [1988, 2], [1989, 9], [1989, 10], [null, 3]].map(([y, m]) => C.squadronForMonth(y, m, exact)), ['', 'VMAT-203', 'VMAT-203', 'VMAT-203', '', ''], 'a page takes the squadron of its month');
+  assert.strictEqual(C.squadronForMonth(1989, 9, [{ from: '1989-09-10', to: '1989-12-31', name: 'VMA-231' }].concat(exact)), 'VMA-231', 'a changeover month goes to the squadron with more of its days');
   const I = f => C.instructorTime(f, periods);
   assert.strictEqual(I({ date: '1988-03-01', type: 'TAV-8B', total: 1.4, pic: 1.4, acCmdr: 1.2 }), 1.2, 'TAV-8B in the instructor period: the Acft Cmdr time');
   assert.strictEqual(I({ date: '1988-03-01', type: 'TAV-8B', total: 1.4, pic: 0.8, sic: 0.6 }), 0, 'co-pilot time alone is not instructor time');
