@@ -315,11 +315,13 @@
   }
   // Squadron periods (Export tab): every flight dated inside a period is given that period's squadron, and so is a page
   // whose month falls inside it. Runs after a page is read, when a date changes, and when the periods are edited.
+  // A period saved by the earlier, month-only version shows as that month's first or last day.
+  function sqDay(v, first) { v = String(v || ''); if (v.length !== 7) return v; const [y, m] = v.split('-').map(Number); return X.isoDate(y, m, first ? 1 : new Date(y, m, 0).getDate()); }
   function applySquadrons() {
     const ps = (db && db.settings && db.settings.squadrons) || []; if (!ps.length) return;
     const fix = f => { const s = C.squadronFor(f.date, ps); if (s) f.squadron = s; };
     db.flights.forEach(fix);
-    for (const p of db.pages) { (p.rows || []).forEach(r => { if (r.rowType !== 'totals') fix(r); }); if (p.year && p.month) { const s = C.squadronFor(X.isoDate(p.year, p.month, 1), ps); if (s) { p.squadron = s; p.label = pageLabel(p); } } }
+    for (const p of db.pages) { (p.rows || []).forEach(r => { if (r.rowType !== 'totals') fix(r); }); if (p.year && p.month) { const s = C.squadronFor(X.isoDate(p.year, p.month, 1), ps); if (s && s === C.squadronFor(X.isoDate(p.year, p.month, new Date(p.year, p.month, 0).getDate()), ps)) { p.squadron = s; p.label = pageLabel(p); } } }
   }
   function extractInto(page) {
     const res = X.extractPage(page.words || [], page.tpl || db.settings.template, page, { ruledLines: page.ruledLines, rowPitch: page.rowPitch, knownTypes: knownTypes(), carryType: carryType(page) });
@@ -754,9 +756,9 @@
       </section>
       <section class="card">
         <h2>Squadrons by date</h2>
-        <p class="small">Every flight dated inside a period is given that squadron. Tick “Instructor” for a period you spent as an instructor pilot: TAV-8B flights with co-pilot (SIC) time then go to MyFlightbook with their whole flight time as instructor time.</p>
+        <p class="small">Every flight dated from the first day through the last day of a period is given that squadron. Tick “Instructor” for a period you spent as an instructor pilot: TAV-8B flights with co-pilot (SIC) time then go to MyFlightbook with their whole flight time as instructor time.</p>
         <div id="sq-list">${(db.settings.squadrons || []).map((p, i) => `<div class="sqrow" data-i="${i}">
-          <label>From<input type="month" data-sq="from" value="${esc(p.from || '')}"></label><label>Through<input type="month" data-sq="to" value="${esc(p.to || '')}"></label>
+          <label>From<input type="date" data-sq="from" value="${esc(sqDay(p.from, 1))}"></label><label>Through<input type="date" data-sq="to" value="${esc(sqDay(p.to, 0))}"></label>
           <label>Squadron<input data-sq="name" value="${esc(p.name || '')}" placeholder="e.g. VMAT-203"></label>
           <label class="check"><input type="checkbox" data-sq="instructor" ${p.instructor ? 'checked' : ''}> Instructor</label><button data-sq="del" aria-label="Remove this period">Remove</button></div>`).join('') || '<p class="empty">No periods yet.</p>'}</div>
         <div class="stack"><button id="sq-add">Add a period</button></div>

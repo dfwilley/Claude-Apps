@@ -36,11 +36,11 @@
       carrier: traps + ctg + dS + nS + dT + nT, traps: traps + dT + nT };
   }
 
-  // Squadron periods, set by the owner on the Export tab: [{from: 'YYYY-MM', to: 'YYYY-MM', name, instructor}].
+  // Squadron periods, set by the owner on the Export tab: [{from: 'YYYY-MM-DD', to: 'YYYY-MM-DD', name, instructor}] (both days included; an older 'YYYY-MM' means the whole month).
   // A flight dated inside a period belongs to that squadron. `instructor` marks a period spent as an instructor pilot.
   function periodFor(date, periods) {
-    if (!date) return null; const ym = String(date).slice(0, 7);
-    for (const p of periods || []) if (p && p.name && p.from && p.to && ym >= p.from && ym <= p.to) return p;
+    if (!date) return null; const d = String(date).slice(0, 10); const day = (v, end) => (String(v).length === 7 ? v + end : String(v));
+    for (const p of periods || []) if (p && p.name && p.from && p.to && d >= day(p.from, '-01') && d <= day(p.to, '-31')) return p;
     return null;
   }
   function squadronFor(date, periods) { const p = periodFor(date, periods); return p ? p.name : ''; }
