@@ -150,6 +150,9 @@
       const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = name; document.body.appendChild(a); a.click();
       setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 4000);
     },
+    // The key for the optional AI reader. Kept in this browser only: never in the logbook file, a backup or a shared folder.
+    async aiKey() { try { return (await tx('kv', 'readonly', s => s.get('aiKey'))) || ''; } catch (e) { return ''; } },
+    async setAiKey(k) { await tx('kv', 'readwrite', s => (k ? s.put(k, 'aiKey') : s.delete('aiKey'))); },
     async persist() { try { return navigator.storage && navigator.storage.persist ? await navigator.storage.persist() : false; } catch (e) { return false; } },
     async usage() { if (dir) return null; try { return navigator.storage && navigator.storage.estimate ? await navigator.storage.estimate() : null; } catch (e) { return null; } },
   };

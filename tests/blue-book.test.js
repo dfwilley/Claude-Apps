@@ -6,8 +6,11 @@ const X = require('../blue-book/js/extract.js');
 const C = require('../blue-book/js/career.js');
 const F = require('../blue-book/js/files.js');
 const E = require('../blue-book/js/export.js');
+const A = require('../blue-book/js/ai.js');
 let passed = 0;
-const test = (name, fn) => { try { fn(); passed++; console.log('ok -', name); } catch (e) { console.error('FAIL -', name, '\n', e); process.exitCode = 1; } };
+const pending = [];
+const test = (name, fn) => { const ok = () => { passed++; console.log('ok -', name); }, bad = e => { console.error('FAIL -', name, '\n', e); process.exitCode = 1; };
+  try { const r = fn(); if (r && typeof r.then === 'function') pending.push(r.then(ok, bad)); else ok(); } catch (e) { bad(e); } };
 
 // A tidy template: day | type | buno | total | night | dayShip | nightShip | remarks
 const tpl = { top: 0.1, bottom: 0.9, columns: [
@@ -381,4 +384,46 @@ test('landing rules: one full stop per flight, the rest touch and goes; night ti
   const t = C.totals([{ date: '1984-01-02', total: 1.5, night: 0.4, landings: 7 }, { date: '1984-01-03', total: 2, night: 2, traps: 3 }]).all; assert.deepStrictEqual([t.nightLandings, t.nightTraps, t.traps], [1, 3, 3]);
 });
 
-console.log(`${passed} tests passed`);
+test('AI reader: what is asked, and how the answer becomes flights', () => {
+  const t = Object.assign(X.defaultTemplate(), { gutter: 0.525 });
+  const body = A.requestBody(t, [0, 1, 2], ['LEFT', 'RIGHT']);
+  assert.strictEqual(body.model, 'claude-opus-5-5'); assert.deepStrictEqual(body.messages[0].content.map(c => c.type), ['image', 'image', 'text']);
+  assert.strictEqual(body.output_config.format.type, 'json_schema'); assert.ok(!('thinking' in body) && !('temperature' in body));
+  const row = body.output_config.format.schema.properties.rows.items;
+  assert.deepStrictEqual(row.required, Object.keys(row.properties)); assert.strictEqual(row.additionalProperties, false);
+  assert.ok(row.properties.pic && row.properties.landings && row.properties.remarks && !row.properties.skip, 'every logbook box, and not the skipped columns');
+  const prompt = body.messages[0].content[2].text; assert.ok(/FIRST PILOT/.test(prompt) && /SEA\/LAND/.test(prompt) && /0 to 2/.test(prompt) && /BOL/.test(prompt));
+  // the answer for two lines; the second has a line in the Model box and a box the reader was unsure of
+  const bands = [1, 2, 3].map(n => ({ n, y0: 0.148 + (n - 1) * 0.0366, y1: 0.148 + n * 0.0366, ry0: 0.152 + (n - 1) * 0.0366, ry1: 0.152 + n * 0.0366, g: 0.525 }));
+  const blank = Object.fromEntries(Object.keys(row.properties).map(k => [k, k === 'unsure' ? [] : k === 'row' ? 0 : '']));
+  const answer = { month: 'January', year: '1990', rows: [
+    Object.assign({}, blank, { row: 1, day: '2', type: 'AV-8B', buno: '163205', kind: '1A7', total: '3.1', pic: '3.1', night: '1.2', landings: '1S 3VN 1SN', approaches: '1', apprType: 'A', remarks: '251 231' }),
+    Object.assign({}, blank, { row: 2, day: '3', type: '-', buno: '163421', kind: '1A3', total: '2.0', pic: '2.0', traps: '2', unsure: ['buno'] }),
+    Object.assign({}, blank, { row: 9, day: '9', total: '1.0' })] }; // a row number that was never on the picture is ignored
+  const words = A.wordsFrom(answer, t, bands);
+  assert.ok(words.every(w => w.ai) && !words.some(w => w.text === '9'));
+  const rem = words.find(w => w.text === '251 231'); assert.ok(rem.y0 > 0.152 && rem.y1 < 0.152 + 0.0366, 'right-page boxes sit at the right page\'s row height');
+  const r = X.extractPage(words, t, { year: 1990, month: 1 }, { ruledLines: { left: bands.map(b => b.y0).concat([bands[2].y1]), right: bands.map(b => b.ry0).concat([bands[2].ry1]), gutter: 0.525 } });
+  assert.strictEqual(r.rows.length, 2);
+  const [a, b] = r.rows; assert.deepStrictEqual([a.date, a.type, a.buno, a.total, a.pic, a.night, a.landings, a.approaches, a.apprType], ['1990-01-02', 'AV-8B', '163205', 3.1, 3.1, 1.2, 5, 1, 'A']);
+  assert.deepStrictEqual([b.date, b.type, b.typeSame, b.traps], ['1990-01-03', 'AV-8B', true, 2]); assert.ok(b.flags.some(f => f.field === 'buno' && /hard to read/.test(f.reason)), 'a box the reader was unsure of is marked');
+  assert.deepStrictEqual(A.dateFrom(answer), { month: 1, year: 1990 }); assert.deepStrictEqual(A.dateFrom({ month: 'MARCH', year: '90' }), { month: 3, year: 1990 }); assert.deepStrictEqual(A.dateFrom({ month: '?', year: '' }), { month: null, year: null });
+});
+
+test('AI reader: landing counts written by kind, and plain messages when the service says no', async () => {
+  assert.deepStrictEqual([X.parseCount('2SL 1VL 1RVL').value, X.parseCount('1S 3VN 1SN').value, X.parseCount('3V').value, X.parseCount('7').value], [4, 5, 3, 7]);
+  assert.ok(X.parseCount('FAM').bad);
+  const t = Object.assign(X.defaultTemplate(), { gutter: 0.525 });
+  const reply = (status, body) => async () => ({ ok: status === 200, status, json: async () => body });
+  const good = await A.read('k', t, [1], ['L', 'R'], reply(200, { stop_reason: 'end_turn', model: 'claude-opus-5-5', content: [{ type: 'thinking', thinking: '' }, { type: 'text', text: '{"month":"May","year":"1988","rows":[]}' }], usage: { input_tokens: 10, output_tokens: 5 } }));
+  assert.deepStrictEqual(good.result, { month: 'May', year: '1988', rows: [] }); assert.strictEqual(good.usage.input_tokens, 10);
+  const fails = async (fn, re) => { let msg = ''; try { await fn(); } catch (e) { msg = e.message; } assert.ok(re.test(msg), msg || 'no error'); };
+  await fails(() => A.read('k', t, [1], ['L', 'R'], reply(401, { error: { message: 'invalid x-api-key' } })), /key was not accepted/);
+  await fails(() => A.read('k', t, [1], ['L', 'R'], reply(429, { error: { message: 'rate limit' } })), /busy or the account is at its limit/);
+  await fails(() => A.read('k', t, [1], ['L', 'R'], reply(200, { stop_reason: 'refusal', content: [] })), /declined/);
+  await fails(() => A.read('k', t, [1], ['L', 'R'], async () => { throw new TypeError('Failed to fetch'); }), /Could not reach/);
+  let sent; await A.read('sk-ant-x', t, [1], ['L', 'R'], async (url, o) => { sent = { url, o }; return { ok: true, status: 200, json: async () => ({ stop_reason: 'end_turn', content: [{ type: 'text', text: '{"month":"","year":"","rows":[]}' }] }) }; });
+  assert.strictEqual(sent.url, 'https://api.anthropic.com/v1/messages'); assert.strictEqual(sent.o.headers['x-api-key'], 'sk-ant-x'); assert.strictEqual(sent.o.headers['anthropic-version'], '2026-10-21');
+});
+
+Promise.all(pending).then(() => console.log(`${passed} tests passed`));

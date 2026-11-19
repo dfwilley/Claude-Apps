@@ -302,6 +302,28 @@
     return { canvas: out, done: true, gutter: g / w, pairs: pairs.length, worst, left };
   }
 
+  // The two pictures sent to the AI reader: the left page and the right page of the opening, each with a red row
+  // number added in a new margin beside every line so the answer can be matched to the right line.
+  // bands: [{n, y0, y1, ry0?, ry1?}] (fractions); gutter, top, bottom: fractions. The left picture runs from the top of
+  // the page (it shows the month and year); the right one starts just above the printed headings.
+  function pagePictures(canvas, bands, gutter, top, bottom, pitch) {
+    const W = canvas.width, H = canvas.height, gx = Math.round(gutter * W), M = 70;
+    const yEnd = Math.min(H, Math.round((bottom + pitch * 0.35) * H)), headTop = Math.max(0, Math.round((top - pitch * 3.2) * H));
+    const make = (sx, sw, sy, side) => {
+      const c = document.createElement('canvas'); c.width = sw + M; c.height = yEnd - sy; const g = c.getContext('2d');
+      g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(canvas, sx, sy, sw, c.height, M, 0, sw, c.height);
+      g.fillStyle = '#d00000'; g.textAlign = 'right'; g.textBaseline = 'middle';
+      for (const b of bands) {
+        const y0 = (side === 'right' && b.ry0 != null ? b.ry0 : b.y0) * H - sy, y1 = (side === 'right' && b.ry1 != null ? b.ry1 : b.y1) * H - sy;
+        if (y1 < 0 || y0 > c.height) continue;
+        g.font = `bold ${Math.max(18, Math.min(34, Math.round((y1 - y0) * 0.55)))}px sans-serif`; g.fillText(String(b.n), M - 10, (y0 + y1) / 2);
+        g.fillRect(M - 6, Math.round(y0), 4, Math.max(1, Math.round(y1 - y0) - 2)); // a tick showing which line the number belongs to
+      }
+      return c.toDataURL('image/jpeg', 0.9).split(',')[1];
+    };
+    return [make(0, gx, 0, 'left'), make(gx, W - gx, headTop, 'right')];
+  }
+
   function toBlob(canvas, type, q) { return new Promise(r => canvas.toBlob(r, type || 'image/jpeg', q || 0.86)); }
 
   // A strip of the page (one logbook line), for showing next to the line's fields.
@@ -320,7 +342,7 @@
     return c;
   }
 
-  const api = { flattenSpread, eraseLines, loadImage, loadURL, toCanvas, grayOf, otsu, findPageCorners, cornersFromGray, homography, warp, rotate, forReading, toBlob, strip };
+  const api = { pagePictures, flattenSpread, eraseLines, loadImage, loadURL, toCanvas, grayOf, otsu, findPageCorners, cornersFromGray, homography, warp, rotate, forReading, toBlob, strip };
   root.BBImage = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

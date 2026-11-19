@@ -265,6 +265,29 @@
       const pitch = page.tpl.pitch || X.rowPitch(lines.left, page.tpl);
       if (pitch) db.settings.rowPitch = pitch; // remembered for pages where the lines can't be found
       page.rowPitch = db.settings.rowPitch || 0;
+      const key = S.isNative || !S.aiKey ? '' : await S.aiKey();
+      if (key) { // the AI reader: two pictures of the page go to Claude, which sends back what is written on each line
+        set(0.15); const sub = $('#pg-sub'); if (sub) sub.textContent = 'Claude is reading the handwriting. This usually takes under a minute.';
+        const p = page.tpl.pitch || pitch || (page.tpl.bottom - page.tpl.top) / (page.tpl.rows || 19);
+        const rows = X.rowBands([], page.tpl, page.ruledLines, page.rowPitch).map((b, i) => Object.assign({ n: i + 1 }, b));
+        // one extra numbered line above the first, in case the first flight sits a row higher than the layout put it
+        if (rows.length) { const f = rows[0], up = { n: 0, y0: f.y0 - p, y1: f.y0 }; if (f.ry0 != null) { up.ry0 = f.ry0 - p; up.ry1 = f.ry0; up.g = f.g; } if (up.y0 > 0.02) rows.unshift(up); }
+        if (!rows.length) throw new Error("the ruled lines on this page couldn't be found");
+        const pics = I.pagePictures(canvas, rows, page.ruledLines.gutter || page.tpl.gutter || 0.525, page.tpl.top, page.tpl.bottom, p);
+        set(0.3); const got = await window.BBAi.read(key, page.tpl, rows.map(r => r.n), pics); set(0.9);
+        const words = window.BBAi.wordsFrom(got.result, page.tpl, rows);
+        if (words.some(w => w.y1 <= page.tpl.top)) page.tpl.top = rows[0].y0; // writing on the extra line: it is a flight
+        const hd = window.BBAi.dateFrom(got.result);
+        if (page.autoDate || !page.month || !page.year) { page.dateRead = !!(hd.month && hd.year); if (hd.month && (page.autoDate || !page.month)) page.month = hd.month; if (hd.year && (page.autoDate || !page.year)) page.year = hd.year; }
+        page.words = words; page.readBy = 'ai'; page.sideways = false;
+        if (got.usage) { const u = db.settings.aiUse = db.settings.aiUse || { pages: 0, input: 0, output: 0 }; u.pages++; u.input += got.usage.input_tokens || 0; u.output += got.usage.output_tokens || 0; }
+        extractInto(page);
+        closeSheet(); ui.reviewPageId = page.id; tab = 'pages'; render();
+        const fl = page.rows.filter(r => r.rowType === 'flight'), fg = fl.filter(r => r.flags.length).length;
+        toast(`Claude read ${fl.length} line${fl.length === 1 ? '' : 's'}${fg ? `, ${fg} to check` : ''}.`);
+        return;
+      }
+      page.readBy = 'device';
       page.words = await window.BBOcr.read(page.photoId, prepared.canvas, v => set(0.05 + v * 0.75));
       page.sideways = X.looksSideways(page.words, canvas.width, canvas.height);
       page.tpl = X.skipHeaderRows(page.words, page.tpl, page.ruledLines.left); // don't take the printed headings for the first flight
@@ -439,7 +462,7 @@
       await openColumns(page);
       if (page.status === 'saved') { db.flights = db.flights.filter(f => f.pageId !== page.id); page.status = 'review'; }
       // the iPhone's close-up reading depends on where the columns are, so it reads again; the web reader is slow, so it reuses its words
-      if (!S.isNative && page.words && page.words.length) { extractInto(page); render(); } else await readPage(page);
+      if (!S.isNative && page.words && page.words.length && !(S.aiKey && await S.aiKey())) { extractInto(page); render(); } else await readPage(page);
     };
     $('#rv-add').onclick = () => {
       const r = { id: uid('f'), rowType: 'flight', flags: [], raw: {}, conf: {}, row: rows.length, squadron: page.squadron, date: page.year && page.month ? X.isoDate(page.year, page.month, 1) : null, pageId: page.id };
@@ -696,7 +719,7 @@
 
   // ================= EXPORT / SETTINGS =================
   async function renderMore() {
-    const usage = await S.usage();
+    const usage = await S.usage(); const aiKey = !S.isNative && S.aiKey ? await S.aiKey() : '', use = db.settings.aiUse;
     main.innerHTML = `
       <section class="card">
         <h2>Export and share</h2>
@@ -718,6 +741,16 @@
         <div class="stack"><button id="m-cols">Column setup</button><button id="m-restore">Restore from a backup</button><button class="danger" id="m-wipe">Erase everything</button></div>
       </section>
       ${S.isNative ? '' : `<section class="card">
+        <h2>Reading handwriting</h2>
+        ${aiKey ? `<p><strong>On.</strong> Each page you add or re-read is read by Claude, Anthropic's AI.${use && use.pages ? ` So far: ${use.pages} page${use.pages === 1 ? '' : 's'}, about $${((use.input * 4 + use.output * 20) / 1e6).toFixed(2)} at list prices.` : ''}</p>
+          <p class="small">What is sent: two pictures of each page (its left and right halves, with the month and year at the top of the left one) and nothing else. They go from this computer straight to Anthropic, are used to read the page, and the answer comes back here. Your key is kept in this browser only; it is not put in your logbook file, a backup or your shared folder.</p>
+          <div class="stack"><button id="ai-off">Turn off and forget the key</button></div>`
+        : `<p><strong>Off.</strong> Pages are read by the reader built into the browser, which copes with print but not with handwriting.</p>
+          <p class="small">To have handwriting read properly, Blue Book can send a picture of each page to Claude, Anthropic's AI. This is the one thing in Blue Book that leaves your computer, and it costs money: roughly 5 to 10 cents a page, charged by Anthropic to your own account. To switch it on, make an account at console.anthropic.com, add some credit, create an API key, and paste it here.</p>
+          <label class="field">Anthropic API key<input id="ai-key" type="password" autocomplete="off" spellcheck="false" placeholder="sk-ant-…"></label>
+          <div class="stack"><button id="ai-on">Turn on</button></div>`}
+      </section>
+      <section class="card">
         <h2>Where your logbook is kept</h2>
         ${S.folder.active ? `<p>In the folder <strong>${esc(S.folder.name)}</strong> on this computer.</p>
           <p class="small">Any computer that opens Blue Book on this same folder works from the one logbook. Put the folder inside Dropbox, OneDrive or on a shared drive to reach it from both. Use one computer at a time, and give the folder a minute to finish copying before you start on the other. Blue Book itself sends nothing anywhere; it only reads and writes the files in this folder.</p>
@@ -730,7 +763,7 @@
       </section>`}
       <section class="card small">
         <h2>Privacy</h2>
-        <p>Blue Book never uploads your photos or flight data. The text reader runs on this phone${S.isNative ? " (Apple's built-in reader)" : ' (Tesseract, included with the app)'}, and the app is blocked from contacting any other site. Logbook pages often show a Social Security number; it stays in the photo on this phone and is never read into the data.</p>
+        <p>${aiKey ? 'You have switched on the AI reader, so a picture of each page you read is sent to Anthropic to be read (see Reading handwriting above). Nothing else is sent anywhere: your flight data, exports and backups stay on this computer, and the app is blocked from contacting any other site.' : `Blue Book never uploads your photos or flight data. The text reader runs on this device${S.isNative ? " (Apple's built-in reader)" : ' (Tesseract, included with the app)'}, and the app is blocked from contacting any other site${S.isNative ? '' : ' unless you switch on the optional AI reader above'}.`} Logbook pages often show a Social Security number; it stays in the photo on this phone and is never read into the data.</p>
       </section>`;
     $('#m-name').onchange = e => { db.settings.name = e.target.value.trim(); save(); };
     const stamp = E.today();
@@ -751,6 +784,11 @@
     $('#x-zip').onclick = () => run('Packing the backup…', async set => S.share(`Blue Book Backup ${stamp}.zip`, await E.backup(db, S, set), 'application/zip'));
     $('#m-cols').onclick = () => { const p = db.pages[db.pages.length - 1]; if (!p) toast('Add a logbook page first.'); else openColumns(p); };
     $('#m-restore').onclick = () => $('#pick-backup').click();
+    if ($('#ai-on')) $('#ai-on').onclick = async () => {
+      const k = $('#ai-key').value.trim(); if (!/^sk-ant-[\w-]{20,}$/.test(k)) { toast('That does not look like an Anthropic API key. It starts with sk-ant-', true); return; }
+      await S.setAiKey(k); toast('Handwriting will now be read by Claude. Re-read a page to try it.'); render();
+    };
+    if ($('#ai-off')) $('#ai-off').onclick = async () => { await S.setAiKey(''); toast('Turned off. The key has been forgotten.'); render(); };
     if ($('#f-pick')) $('#f-pick').onclick = chooseFolder;
     if ($('#f-stop')) $('#f-stop').onclick = async () => {
       if (!confirm(`Stop using the folder “${S.folder.name}”?\n\nThe folder and everything in it stay as they are. Blue Book will show whatever was last kept in this browser, which may be older or empty.`)) return;

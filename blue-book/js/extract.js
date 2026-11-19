@@ -332,6 +332,10 @@
   function parseCount(raw) {
     let s = raw.trim(); if (!s) return { value: null };
     if (DITTO.test(s)) return { value: null, ditto: true };
+    // Harrier landings are written by kind, each with its own count: "2SL 1VL 1RVL" (slow, vertical, rolling vertical).
+    // The box's count is the numbers added together.
+    const kinds = [...s.toUpperCase().matchAll(/(\d{1,2})\s*([A-Z]{1,4})(?![A-Z])/g)];
+    if (kinds.length && !s.toUpperCase().replace(/(\d{1,2})\s*([A-Z]{1,4})(?![A-Z])/g, '').replace(/[\s,;\/.]/g, '')) return { value: kinds.reduce((t, m) => t + +m[1], 0), detail: kinds.map(m => m[1] + m[2]).join(' ') };
     s = digitsFix(s).replace(/\s+/g, '');
     if (/^\d{1,2}$/.test(s)) return { value: +s };
     if (/^[\/\\]+$/.test(s)) return { value: s.length }; // tally marks

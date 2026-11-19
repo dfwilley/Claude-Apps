@@ -1,8 +1,8 @@
 // Keeps Blue Book working offline (including the text reader). Bump VERSION when files change.
 // Only the app's own files are cached here; your logbook data lives in the browser's private storage, never in this cache.
-const VERSION = 'bluebook-v21';
+const VERSION = 'bluebook-v22';
 const FILES = ['./', 'index.html', 'style.css', 'manifest.webmanifest', 'icon-180.png', 'icon-512.png',
-  'js/extract.js', 'js/career.js', 'js/files.js', 'js/image.js', 'js/store.js', 'js/ocr.js', 'js/export.js', 'js/app.js',
+  'js/extract.js', 'js/career.js', 'js/files.js', 'js/image.js', 'js/store.js', 'js/ocr.js', 'js/ai.js', 'js/export.js', 'js/app.js',
   'vendor/tesseract.min.js', 'vendor/worker.min.js', 'vendor/tesseract-core-simd-lstm.wasm.js', 'vendor/tesseract-core-lstm.wasm.js',
   'vendor/eng.traineddata.gz', 'vendor/jspdf.umd.min.js'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(VERSION).then(c => c.addAll(FILES))); self.skipWaiting(); });
