@@ -17,9 +17,43 @@
   function emptyDB() { return { version: 1, settings: { name: '', template: X.defaultTemplate(), calibrated: false }, pages: [], flights: [], deployments: [] }; }
   function save(now) {
     clearTimeout(saveTimer);
-    const go = () => S.saveDB(db).catch(e => toast('Could not save: ' + e.message, true));
+    const go = () => { saveTimer = null; return S.saveDB(db).catch(e => e && e.code === 'changed' ? changedElsewhere() : toast('Could not save: ' + e.message, true)); };
     if (now) return go(); saveTimer = setTimeout(go, 350);
   }
+  // ---------- A shared folder: staying in step with the other computer ----------
+  // Tidy a logbook just read from storage: keep only well-formed records, fill in anything missing.
+  function tidy(d) {
+    if (!d || typeof d !== 'object' || Array.isArray(d)) d = emptyDB();
+    const obj = v => v && typeof v === 'object' && !Array.isArray(v);
+    d.pages = Array.isArray(d.pages) ? d.pages.filter(obj) : [];
+    d.flights = Array.isArray(d.flights) ? d.flights.filter(obj) : [];
+    d.deployments = Array.isArray(d.deployments) ? d.deployments.filter(obj) : [];
+    d.settings = Object.assign(emptyDB().settings, obj(d.settings) ? d.settings : {});
+    if (!obj(d.settings.template) || !Array.isArray(d.settings.template.columns) || !d.settings.template.columns.length) d.settings.template = X.defaultTemplate();
+    if (!d.settings.calibrated) d.settings.template = X.defaultTemplate(); // until you set up columns, start from the current layout
+    return d;
+  }
+  async function reloadFromFolder(msg) {
+    try { db = tidy(await S.loadDB()); } catch (e) { toast('Could not read the folder: ' + e.message, true); return; }
+    if (ui.reviewPageId && !db.pages.some(p => p.id === ui.reviewPageId)) ui.reviewPageId = null;
+    render(); if (msg) toast(msg);
+  }
+  // A save found that the other computer has changed the logbook since this one loaded it.
+  let asking = false;
+  async function changedElsewhere() {
+    if (asking) return; asking = true;
+    try {
+      if (confirm('The logbook in your folder was changed on another computer after this one loaded it.\n\nOK: load the newer logbook. The change you just made here is not kept.\n\nCancel: keep what is on this screen and replace what is in the folder.')) await reloadFromFolder('Loaded the newer logbook from the folder.');
+      else await S.saveDB(db, { force: true }).catch(e => toast('Could not save: ' + e.message, true));
+    } finally { asking = false; }
+  }
+  // Coming back to the window: if the other computer has saved in the meantime, show its work.
+  async function checkFolder() {
+    if (!db || !S.folder || !S.folder.active || saveTimer || asking || !sheet.hidden) return;
+    try { if (await S.folder.changedElsewhere()) await reloadFromFolder('Loaded changes made on your other computer.'); } catch (e) { /* folder not reachable just now */ }
+  }
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) checkFolder(); });
+  window.addEventListener('focus', checkFolder);
   function toast(msg, bad) { const t = $('#toast'); t.textContent = msg; t.className = 'toast' + (bad ? ' bad' : ''); t.hidden = false; clearTimeout(t._t); t._t = setTimeout(() => { t.hidden = true; }, bad ? 6000 : 2600); }
   function pageLabel(p) { return [p.month ? MONTHS[p.month - 1].slice(0, 3) : '', p.year || '', p.squadron ? '· ' + p.squadron : ''].filter(Boolean).join(' ') || 'Page (month not set)'; }
   const knownTypes = () => [...new Set(db.flights.map(f => f.type).filter(Boolean))];
@@ -680,9 +714,20 @@
       <section class="card">
         <h2>Your logbook data</h2>
         <p>${db.pages.length} page${db.pages.length === 1 ? '' : 's'} · ${db.flights.length.toLocaleString('en-US')} flights${usage && usage.usage ? ` · about ${(usage.usage / 1048576).toFixed(0)} MB used` : ''}.</p>
-        <p class="small">${S.isNative ? "Everything is kept in this app's own folder on your iPhone. It's included in your normal iPhone backup." : "Everything is kept in this browser's private storage on this phone. Make a full backup now and then — clearing Safari's website data would erase it."}</p>
+        <p class="small">${S.isNative ? "Everything is kept in this app's own folder on your iPhone. It's included in your normal iPhone backup." : S.folder.active ? "Everything is kept in the folder you chose on this computer (see below). A full backup now and then is still a good idea." : "Everything is kept in this browser's private storage on this device. Make a full backup now and then — clearing the browser's website data would erase it."}</p>
         <div class="stack"><button id="m-cols">Column setup</button><button id="m-restore">Restore from a backup</button><button class="danger" id="m-wipe">Erase everything</button></div>
       </section>
+      ${S.isNative ? '' : `<section class="card">
+        <h2>Where your logbook is kept</h2>
+        ${S.folder.active ? `<p>In the folder <strong>${esc(S.folder.name)}</strong> on this computer.</p>
+          <p class="small">Any computer that opens Blue Book on this same folder works from the one logbook. Put the folder inside Dropbox, OneDrive or on a shared drive to reach it from both. Use one computer at a time, and give the folder a minute to finish copying before you start on the other. Blue Book itself sends nothing anywhere; it only reads and writes the files in this folder.</p>
+          <div class="stack"><button id="f-pick">Use a different folder</button><button id="f-stop">Go back to keeping it in this browser</button></div>`
+        : S.folder.supported ? `<p>In this browser's own storage, on this computer only.</p>
+          <p class="small">To work on the same logbook from two computers, keep it in a folder you choose, for example one inside Dropbox or OneDrive, and choose that same folder on the other computer.</p>
+          <div class="stack"><button id="f-pick">Keep the logbook in a folder I choose</button></div>`
+        : `<p>In this browser's own storage, on this device only.</p>
+          <p class="small">Keeping the logbook in a folder you choose, so two computers can share it, needs the Chrome or Edge browser on a computer. This browser can't do it.</p>`}
+      </section>`}
       <section class="card small">
         <h2>Privacy</h2>
         <p>Blue Book never uploads your photos or flight data. The text reader runs on this phone${S.isNative ? " (Apple's built-in reader)" : ' (Tesseract, included with the app)'}, and the app is blocked from contacting any other site. Logbook pages often show a Social Security number; it stays in the photo on this phone and is never read into the data.</p>
@@ -706,12 +751,34 @@
     $('#x-zip').onclick = () => run('Packing the backup…', async set => S.share(`Blue Book Backup ${stamp}.zip`, await E.backup(db, S, set), 'application/zip'));
     $('#m-cols').onclick = () => { const p = db.pages[db.pages.length - 1]; if (!p) toast('Add a logbook page first.'); else openColumns(p); };
     $('#m-restore').onclick = () => $('#pick-backup').click();
+    if ($('#f-pick')) $('#f-pick').onclick = chooseFolder;
+    if ($('#f-stop')) $('#f-stop').onclick = async () => {
+      if (!confirm(`Stop using the folder “${S.folder.name}”?\n\nThe folder and everything in it stay as they are. Blue Book will show whatever was last kept in this browser, which may be older or empty.`)) return;
+      await S.folder.stop(); db = tidy(await S.loadDB().catch(() => null)); ui.reviewPageId = null; toast('Now keeping the logbook in this browser.'); render();
+    };
     $('#m-wipe').onclick = async () => {
       if (!confirm('Erase every page, photo and flight from Blue Book on this phone? Make a backup first if you want to keep them.')) return;
       if (prompt('Type ERASE to confirm') !== 'ERASE') return;
       for (const p of db.pages) { try { await S.deletePhoto(p.photoId); } catch (e) { /* ok */ } }
       db = emptyDB(); save(true); toast('Erased.'); render();
     };
+  }
+  // Choose the folder the logbook lives in. An empty folder gets a copy of what is on screen; a folder that already
+  // holds a logbook (set up from the other computer) is opened as it is.
+  async function chooseFolder() {
+    let h; try { h = await S.folder.pick(); } catch (e) { if (e && e.name !== 'AbortError') toast('Could not open a folder: ' + e.message, true); return; }
+    let there; try { there = await S.folder.peek(h); } catch (e) { toast(e.message, true); return; }
+    if (there) {
+      const mine = db.pages.length ? `\n\nThe ${db.pages.length} page${db.pages.length === 1 ? '' : 's'} now on this screen stay where they are kept now and are not added to the folder. Make a full backup first if you may want them.` : '';
+      if (!confirm(`The folder “${h.name}” already holds a logbook: ${there.pages} page${there.pages === 1 ? '' : 's'} and ${there.flights} flight${there.flights === 1 ? '' : 's'}.\n\nOpen that logbook here?${mine}`)) return;
+    } else if (!confirm(`Keep the logbook in the folder “${h.name}”?\n\n${db.pages.length ? `Its ${db.pages.length} page${db.pages.length === 1 ? '' : 's'} and their photos will be copied there now.` : 'The folder is empty, so a new logbook will be started there.'}`)) return;
+    clearTimeout(saveTimer); saveTimer = null;
+    await run(there ? 'Opening the folder…' : 'Copying to the folder…', async set => {
+      const how = await S.folder.use(h, there ? null : db, set);
+      if (how === 'loaded') { db = tidy(await S.loadDB()); ui.reviewPageId = null; }
+      toast(how === 'loaded' ? `Opened the logbook in “${h.name}”.` : `The logbook is now kept in “${h.name}”.`);
+    });
+    render();
   }
   async function run(title, fn) { const set = progress(title, ''); try { await fn(set); closeSheet(); } catch (e) { closeSheet(); toast('Something went wrong: ' + e.message, true); } }
 
@@ -729,17 +796,24 @@
 
   // ---------- Start ----------
   (async function start() {
+    // The logbook may be kept in a folder you chose. A browser asks for one click before it will open that folder again.
+    if (!S.isNative && S.folder) {
+      let st = { state: 'none' }; try { st = await S.folder.open(); } catch (e) { st = { state: 'none' }; }
+      if (st.state === 'ask') await new Promise(done => {
+        const ask = note => {
+          main.innerHTML = `<section class="card hero"><h2>Open your logbook folder</h2>
+            <p>Your logbook is kept in the folder <strong>${esc(st.name)}</strong>. The browser needs your OK to open it again.</p>
+            ${note ? `<p class="note">${esc(note)}</p>` : ''}
+            <div class="btns"><button class="primary" id="g-open">Open ${esc(st.name)}</button><button id="g-skip">Use this browser's own storage instead</button></div>
+            <p class="small">Tip: when the browser asks, choose “Allow on every visit” and it won't ask again.</p></section>`;
+          $('#g-open').onclick = async () => { try { await S.folder.grant(st.handle); done(); } catch (e) { ask(e.message); } };
+          $('#g-skip').onclick = async () => { await S.folder.stop(); done(); };
+        };
+        ask('');
+      });
+    }
     try { db = await S.loadDB(); } catch (e) { toast('Could not open your data: ' + e.message, true); }
-    if (!db) db = emptyDB();
-    // Guard against a damaged or partial file: keep only well-formed records.
-    if (typeof db !== 'object' || Array.isArray(db)) db = emptyDB();
-    const obj = v => v && typeof v === 'object' && !Array.isArray(v);
-    db.pages = Array.isArray(db.pages) ? db.pages.filter(obj) : [];
-    db.flights = Array.isArray(db.flights) ? db.flights.filter(obj) : [];
-    db.deployments = Array.isArray(db.deployments) ? db.deployments.filter(obj) : [];
-    db.settings = Object.assign(emptyDB().settings, obj(db.settings) ? db.settings : {});
-    if (!obj(db.settings.template) || !Array.isArray(db.settings.template.columns) || !db.settings.template.columns.length) db.settings.template = X.defaultTemplate();
-    if (!db.settings.calibrated) db.settings.template = X.defaultTemplate(); // until you set up columns, start from the current layout
+    db = tidy(db);
     S.persist();
     render();
     if (!S.isNative && 'serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
