@@ -415,7 +415,7 @@
   }
 
   // ---------- Review ----------
-  const EDIT_FIELDS = ['date', 'type', 'buno', 'kind', 'squadron', 'total', 'pic', 'sic', 'acCmdr', 'specialCrew', 'night', 'instActual', 'instSim', 'traps', 'carrierTG', 'fclp', 'landings', 'cats', 'approaches', 'apprType', 'simApproaches', 'dayLand', 'nightLand', 'dayShip', 'nightShip', 'dayTraps', 'nightTraps', 'ship', 'remarks'];
+  const EDIT_FIELDS = ['date', 'type', 'buno', 'kind', 'squadron', 'total', 'pic', 'sic', 'acCmdr', 'specialCrew', 'night', 'instActual', 'instSim', 'traps', 'carrierTG', 'fclp', 'landings', 'cats', 'dayLand', 'nightLand', 'dayShip', 'nightShip', 'dayTraps', 'nightTraps', 'ship', 'remarks'];
   const LABEL = Object.assign({}, Object.fromEntries(X.FIELDS.map(f => [f.key, f.label])), { date: 'Date' });
 
   function rowsOf(page) { return page.status === 'saved' ? db.flights.filter(f => f.pageId === page.id).sort((a, b) => (a.row || 0) - (b.row || 0)) : (page.rows || []); }
@@ -635,7 +635,7 @@
       <tr><th scope="row">Day</th><td>${f1(a.day)}</td><td>${f0(a.landings - a.nightLandings)}</td><td>${f0(a.shipLandings - a.nightShipLandings)}</td><td>${f0(a.traps - a.nightTraps)}</td></tr>
       <tr><th scope="row">Night</th><td>${f1(a.night)}</td><td>${f0(a.nightLandings)}</td><td>${f0(a.nightShipLandings)}</td><td>${f0(a.nightTraps)}</td></tr>
       <tr class="sum"><th scope="row">Total</th><td>${f1(a.hours)}</td><td>${f0(a.landings)}</td><td>${f0(a.shipLandings)}</td><td>${f0(a.traps)}</td></tr></tbody></table>
-      <p class="small">Day hours are flight time minus night time. Instrument: ${f1(a.instActual)} actual, ${f1(a.instSim)} simulated. Approaches: ${f0(a.approaches)}${a.simApproaches ? ` plus ${f0(a.simApproaches)} simulated` : ''}.${a.fclp || a.carrierTG ? ` FCLP: ${f0(a.fclp)}. Carrier touch and go: ${f0(a.carrierTG)}.` : ''}${a.pic || a.sic || a.acCmdr || a.specialCrew ? ` PIC ${f1(a.pic)}, SIC ${f1(a.sic)}, aircraft commander ${f1(a.acCmdr)}, special crew ${f1(a.specialCrew)}.` : ''}</p>`;
+      <p class="small">Day hours are flight time minus night time. Instrument: ${f1(a.instActual)} actual, ${f1(a.instSim)} simulated.${a.fclp || a.carrierTG ? ` FCLP: ${f0(a.fclp)}. Carrier touch and go: ${f0(a.carrierTG)}.` : ''}${a.pic || a.sic || a.acCmdr || a.specialCrew ? ` PIC ${f1(a.pic)}, SIC ${f1(a.sic)}, aircraft commander ${f1(a.acCmdr)}, special crew ${f1(a.specialCrew)}.` : ''}</p>`;
   }
 
   // ================= TIMELINE =================

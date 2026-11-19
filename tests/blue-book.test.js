@@ -162,12 +162,12 @@ test('MyFlightbook import file', () => {
     { date: '1988-03-04', type: 'AV-8B', buno: '163853', total: 1.0, dayShip: 2, nightShip: 1, dayTraps: 1, nightTraps: 1, nightLand: 1, approaches: 1, apprType: 'GCA' },
     { date: null, type: 'AV-8B', buno: '163853', total: 1.0 }, { date: '1988-03-07', type: 'AV-8B', buno: '163853', total: null } ] };
   const m = E.myFlightbook(db); const rows = m.csv.trim().split('\r\n');
-  assert.strictEqual(rows[0], 'Date,Tail Number,Model,Total Flight Time,PIC,SIC,Aircraft Commander Time,Military Special Crew Time,Military Instructor Pilot Time,Night,IMC,Simulated Instrument,Approaches,Approaches - Precision (unspecified type),Approaches - Non-precision (unspecified type),' +
+  assert.strictEqual(rows[0], 'Date,Tail Number,Model,Total Flight Time,PIC,SIC,Aircraft Commander Time,Military Special Crew Time,Military Instructor Pilot Time,Night,IMC,Simulated Instrument,' +
     'Landings,FS Day Landings,FS Night Landings,Landings - Touch and Go,Landings - Touch and Go (Night),Landings - Field Carrier Practice (FCLP),Landings - Field Carrier Practice (FCLP) at Night,Landings - Touch and go (Carrier),Landings - Carrier,Landings - Arrestments (Carrier),"Landings - Arrestments (Carrier), Night",Takeoffs - Catapult,Comments');
   assert.strictEqual(rows.length, 4, 'three flights have a date and a time');
-  assert.strictEqual(rows[1], '3/4/1988,163853,AV-8B,1,,,,,,,,,1,,,6,3,3,,,,,,5,2,1,,Approach type GCA', 'older day/night columns still work');
-  assert.strictEqual(rows[2], '3/5/1988,,AV-8B,1,,,,,,,,,1,,1,1,1,,,,,,,,,,,');
-  assert.strictEqual(rows[3], '3/6/1988,158512,TA-4J,1.5,1.5,,1.5,0.2,,0.7,0.3,,3,2,,11,2,1,8,,6,,2,4,2,,2,"CQ, ""OK 3"" | VT-7 | USS Lexington (AVT-16)"', 'some night time: the landing that ended the flight was at night');
+  assert.strictEqual(rows[1], '3/4/1988,163853,AV-8B,1,,,,,,,,,6,3,3,,,,,,5,2,1,,', 'older day/night columns still work');
+  assert.strictEqual(rows[2], '3/5/1988,,AV-8B,1,,,,,,,,,1,1,,,,,,,,,,,');
+  assert.strictEqual(rows[3], '3/6/1988,158512,TA-4J,1.5,1.5,,1.5,0.2,,0.7,0.3,,11,2,1,8,,6,,2,4,2,,2,"CQ, ""OK 3"" | VT-7 | USS Lexington (AVT-16)"', 'some night time: the landing that ended the flight was at night');
   assert.deepStrictEqual([m.included, m.leftOut, m.noTail, m.flagged, m.pagesInReview], [3, 2, 1, 1, 1]);
   const t = C.totals(db.flights).all; assert.deepStrictEqual([t.traps, t.fclp, t.carrierTG, t.landings, t.simApproaches], [4, 6, 2, 3, 1]);
 });
@@ -184,7 +184,7 @@ test('starting columns follow the Navy logbook order; crew times are read and ch
   const f = r.rows[0]; assert.deepStrictEqual([f.total, f.pic, f.acCmdr, f.instSim, f.kind], [1.5, 1.5, 2, 0.3, '1A1']);
   assert.ok(f.flags.some(x => x.field === 'acCmdr' && /more than the flight time/.test(x.reason)));
   assert.strictEqual(C.totals([f]).all.pic, 1.5);
-  assert.deepStrictEqual([f.traps, f.fclp, f.cats, f.apprType], [2, 4, null, 'P'], 'an AV-8B line: the cat shot box is ignored');
+  assert.deepStrictEqual([f.traps, f.fclp, f.cats, f.apprType || null, f.approaches == null], [2, 4, null, null, true], 'an AV-8B line: the cat shot box is ignored, and so are the approach boxes');
 });
 
 test('approach types: P, NP, and both in one box', () => {
@@ -197,9 +197,10 @@ test('approach types: P, NP, and both in one box', () => {
   const w = (text, k, dx, y) => ({ text, conf: 95, x0: mid(k) + dx - 0.004, x1: mid(k) + dx + 0.004, y0: y, y1: y + 0.012 });
   const r = X.extractPage([w('5', 'day', 0, 0.3), w('AV-8B', 'type', 0, 0.3), w('1.5', 'total', 0, 0.3), w('1', 'approaches', 0, 0.295), w('1', 'approaches', 0, 0.312),
     w('NP', 'apprType', 0.008, 0.312), w('1', 'apprType', -0.008, 0.312), w('P', 'apprType', 0.008, 0.295), w('l', 'apprType', -0.008, 0.295)], t, { year: 1988, month: 3 }, { ruledLines: [0.22, 0.28, 0.34, 0.40, 0.46] });
-  const f = r.rows[0]; assert.strictEqual(f.apprType, '1 P 1 NP'); assert.strictEqual(f.approaches, 2);
+  const f = r.rows[0]; assert.ok(!f.apprType && f.approaches == null && f.simApproaches == null, 'the approach boxes on the page are not read');
+  assert.ok(!f.flags.some(x => X.IGNORED.has(x.field)), 'and raise no warnings');
   const row = E.myFlightbook({ pages: [], flights: [Object.assign({}, f, { date: '1988-03-05' })] }).csv.trim().split('\r\n')[1].split(',');
-  assert.deepStrictEqual(row.slice(12, 15), ['2', '1', '1'], 'Approaches, precision, non-precision');
+  assert.ok(!E.myFlightbook({ pages: [], flights: [{ date: '1988-03-05', type: 'AV-8B', total: 1, approaches: 2, apprType: '1 P 1 NP', simApproaches: 1 }] }).csv.includes('Approach'), 'approaches entered before are left out of the import file'); void row;
 });
 
 test('notices a page lying on its side', () => {
@@ -405,7 +406,7 @@ test('AI reader: what is asked, and how the answer becomes flights', () => {
   const rem = words.find(w => w.text === '251 231'); assert.ok(rem.y0 > 0.152 && rem.y1 < 0.152 + 0.0366, 'right-page boxes sit at the right page\'s row height');
   const r = X.extractPage(words, t, { year: 1990, month: 1 }, { ruledLines: { left: bands.map(b => b.y0).concat([bands[2].y1]), right: bands.map(b => b.ry0).concat([bands[2].ry1]), gutter: 0.525 } });
   assert.strictEqual(r.rows.length, 2);
-  const [a, b] = r.rows; assert.deepStrictEqual([a.date, a.type, a.buno, a.total, a.pic, a.night, a.landings, a.approaches, a.apprType], ['1990-01-02', 'AV-8B', '163205', 3.1, 3.1, 1.2, 5, 1, 'P']);
+  const [a, b] = r.rows; assert.deepStrictEqual([a.date, a.type, a.buno, a.total, a.pic, a.night, a.landings, a.approaches == null, !a.apprType], ['1990-01-02', 'AV-8B', '163205', 3.1, 3.1, 1.2, 5, true, true]);
   assert.deepStrictEqual([b.date, b.type, b.typeSame, b.traps], ['1990-01-03', 'AV-8B', true, 2]); assert.ok(b.flags.some(f => f.field === 'buno' && /hard to read/.test(f.reason)), 'a box the reader was unsure of is marked');
   assert.deepStrictEqual(A.dateFrom(answer), { month: 1, year: 1990 }); assert.deepStrictEqual(A.dateFrom({ month: 'MARCH', year: '90' }), { month: 3, year: 1990 }); assert.deepStrictEqual(A.dateFrom({ month: '?', year: '' }), { month: null, year: null });
 });
@@ -433,9 +434,9 @@ test('Harriers have no cat shots; approach codes A and B become P and NP', () =>
   const words = []; ['AV-8B', '—', 'TAV-8B', 'TAV-8A', 'TA-4J', 'AV-8A'].forEach((type, i) => words.push(w(String(i + 1), 0.05, i), w(type, 0.2, i), w('1.0', 0.35, i), w('2', 0.45, i), w('1', 0.55, i), w(i % 2 ? 'B' : 'A', 0.65, i)));
   const ys = []; for (let k = 0; k <= 12; k++) ys.push(0.11 + k * 0.05);
   const rows = X.extractPage(words, t, { year: 1990, month: 1, ship: 'USS Nassau (LHA-4)' }, { ruledLines: ys }).rows;
-  assert.deepStrictEqual(rows.map(f => [f.type, f.cats, f.apprType]), [['AV-8B', null, 'P'], ['AV-8B', null, 'NP'], ['TAV-8B', null, 'P'], ['TAV-8A', null, 'NP'], ['TA-4J', 2, 'P'], ['AV-8A', 2, 'NP']], 'cat shots dropped only on the three types named; the line in the Model box counts as AV-8B');
+  assert.deepStrictEqual(rows.map(f => [f.type, f.cats, f.apprType || null]), [['AV-8B', null, null], ['AV-8B', null, null], ['TAV-8B', null, null], ['TAV-8A', null, null], ['TA-4J', 2, null], ['AV-8A', 2, null]], 'cat shots dropped only on the three types named; the line in the Model box counts as AV-8B');
   assert.ok(!rows[0].flags.some(x => x.field === 'cats' || x.field === 'ship'), 'no leftover warnings about cat shots or a missing ship');
-  assert.deepStrictEqual([C.approachCounts(rows[0]).precision, C.approachCounts(rows[1]).non], [1, 1]);
+  assert.deepStrictEqual([X.normApprType('1 A'), X.normApprType('B')], [X.normApprType('1 P'), X.normApprType('NP')]);
   // typing a cat shot onto a Harrier line, or changing a line to a Harrier, clears it too
   const f = X.sanity({ type: 'TA-4J', total: 1, cats: 3, flags: [] }); assert.strictEqual(f.cats, 3); f.type = 'AV-8B'; X.recheck(f, 'type'); assert.strictEqual(f.cats, null);
 });

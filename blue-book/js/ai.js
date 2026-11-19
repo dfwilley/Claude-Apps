@@ -17,7 +17,7 @@
   // The boxes on a line that are read, in logbook order, split at the gutter into the two pages.
   function columnsOf(template) {
     const cols = template.columns.slice().sort((a, b) => a.x0 - b.x0), g = template.gutter || 0.525;
-    const use = cols.filter(c => c.field !== 'skip');
+    const use = cols.filter(c => c.field !== 'skip' && !X.IGNORED.has(c.field));
     return { left: use.filter(c => (c.x0 + c.x1) / 2 < g), right: use.filter(c => (c.x0 + c.x1) / 2 >= g), all: use };
   }
 

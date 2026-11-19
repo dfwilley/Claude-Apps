@@ -12,7 +12,7 @@
     ['Flight time', 'total', 8, 'hours'], ['PIC', 'pic', 7, 'hours'], ['SIC', 'sic', 7, 'hours'], ['Acft Cmdr', 'acCmdr', 8, 'hours'], ['Special crew', 'specialCrew', 8, 'hours'], ['Instructor', '_instr', 8, 'hours'],
     ['Night', 'night', 7, 'hours'], ['Day', '_day', 7, 'hours'], ['Instr. actual', 'instActual', 8, 'hours'], ['Instr. sim', 'instSim', 8, 'hours'],
     ['Carrier arrest', 'traps', 8, 'num'], ['Carrier touch and go', 'carrierTG', 8, 'num'], ['FCLP', 'fclp', 7, 'num'], ['Landing', 'landings', 8, 'num'],
-    ['Approaches', 'approaches', 8, 'num'], ['Approach type', 'apprType', 10], ['Simulated approaches', 'simApproaches', 9, 'num'], ['Landings day', 'dayLand', 8, 'num'], ['Landings night', 'nightLand', 8, 'num'],
+    ['Landings day', 'dayLand', 8, 'num'], ['Landings night', 'nightLand', 8, 'num'],
     ['Ship landings day', 'dayShip', 9, 'num'], ['Ship landings night', 'nightShip', 9, 'num'], ['Traps day', 'dayTraps', 7, 'num'], ['Traps night', 'nightTraps', 7, 'num'],
     ['Cat shots', 'cats', 7, 'num'], ['Ship', 'ship', 18], ['Remarks', 'remarks', 34], ['Logbook page', '_page', 16], ['Page photo', '_photo', 26, 'link'], ['Needs a look', '_flags', 30],
   ];
@@ -72,9 +72,6 @@
     ['Night', f => f.night],
     ['IMC', f => f.instActual],
     ['Simulated Instrument', f => f.instSim],
-    ['Approaches', f => C.approachCounts(f).total + cnt(f.simApproaches)],
-    ['Approaches - Precision (unspecified type)', f => C.approachCounts(f).precision],
-    ['Approaches - Non-precision (unspecified type)', f => C.approachCounts(f).non],
     ['Landings', f => C.landingCounts(f).total],
     ['FS Day Landings', f => { const c = C.landingCounts(f); return c.fullStops - c.nightFS; }],
     ['FS Night Landings', f => C.landingCounts(f).nightFS],
@@ -87,7 +84,7 @@
     ['Landings - Arrestments (Carrier)', f => C.landingCounts(f).traps],
     ['Landings - Arrestments (Carrier), Night', f => C.landingCounts(f).nightTraps],
     ['Takeoffs - Catapult', f => f.cats],
-    ['Comments', f => [f.remarks, !C.approachCounts(f).known ? 'Approach type ' + f.apprType : '', f.squadron, f.ship].map(s => String(s || '').trim()).filter(Boolean).join(' | ')],
+    ['Comments', f => [f.remarks, f.squadron, f.ship].map(s => String(s || '').trim()).filter(Boolean).join(' | ')],
   ];
   // Returns the file text plus what you should know before importing it.
   // MyFlightbook needs a date and a flight time on every line, so lines without them are left out and counted.

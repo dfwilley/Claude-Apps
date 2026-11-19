@@ -428,6 +428,7 @@
     let lastDay = 0;
     bands.forEach((band, r) => {
       const cell = cells[r];
+      for (const k of IGNORED) delete cell[k]; // boxes that are not read
       const keys = Object.keys(cell); if (!keys.length) return;
       const textOf = k => readingOrder(cell[k] || []).map(w => w.text).join(' ');
       const confOf = k => cell[k] ? Math.min(...cell[k].map(w => w.conf == null ? 100 : w.conf)) : 100;
@@ -589,6 +590,8 @@
   }
   // Harriers are never catapulted, so on these types anything read in the Catapult column is a stray mark or a
   // value that belongs to the next box. It is dropped.
+  // Columns on the page that are not read: the three approach boxes (number, type, simulated). The owner does not want them.
+  const IGNORED = new Set(['approaches', 'apprType', 'simApproaches']);
   const NO_CATAPULT = new Set(['TAV-8B', 'TAV-8A', 'AV-8B']);
   function sanity(f) {
     if (NO_CATAPULT.has(f.type) && f.cats != null && f.cats !== '') { f.cats = null; f.flags = (f.flags || []).filter(x => x.field !== 'cats'); }
@@ -679,7 +682,7 @@
     return ws.filter(x => (x.y1 - x.y0) * h > 1.5 * (x.x1 - x.x0) * w).length > ws.length * 0.5;
   }
 
-  const api = { normApprType, NO_CATAPULT, pageLines, sideBand, commonGap, skipHeaderRows, trackLines, findColLines, fitTemplate, headerDate, rowLineFits, findRowLines, rowPitch, readingOrder, fixKind, parseField, chooseReading, cellAt, looksSideways, FIELDS, FIELD, NUM_FIELDS, KNOWN_TYPES, defaultTemplate, extractPage, rowBands, parseHours, parseCount, parseBuno, parseDay, parseDate,
+  const api = { normApprType, NO_CATAPULT, IGNORED, pageLines, sideBand, commonGap, skipHeaderRows, trackLines, findColLines, fitTemplate, headerDate, rowLineFits, findRowLines, rowPitch, readingOrder, fixKind, parseField, chooseReading, cellAt, looksSideways, FIELDS, FIELD, NUM_FIELDS, KNOWN_TYPES, defaultTemplate, extractPage, rowBands, parseHours, parseCount, parseBuno, parseDay, parseDate,
     normalizeType, sanity, recheck, findRuledLines, isoDate, hasShipWork };
   root.BBExtract = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
