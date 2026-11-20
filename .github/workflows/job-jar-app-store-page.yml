@@ -1,0 +1,43 @@
+name: The Job Jar! - fill in the App Store page
+
+# Writes the App Store page for The Job Jar! into App Store Connect: the text in
+# .github/app-store/job-jar.json, the screenshots from the latest cloud build
+# (ci-screenshots-jobjar branch), and the newest uploaded build.
+#
+# Runs only when started by hand. It never submits the app for review and never
+# sets a price, the age rating answers, the privacy answers or "Made for Kids".
+# Needs these repository secrets: ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8.
+
+on:
+  workflow_dispatch:
+    inputs:
+      replace_screenshots:
+        description: Replace screenshots that are already on the App Store page
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  page:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get the screenshots from the latest cloud build
+        uses: actions/checkout@v4
+        with:
+          ref: ci-screenshots-jobjar
+          path: shots
+
+      - name: Fill in the App Store page
+        run: |
+          python3 -m pip install --quiet --break-system-packages "pyjwt[crypto]"
+          python3 .github/scripts/asc_listing.py .github/app-store/job-jar.json shots \
+            ${{ inputs.replace_screenshots && '--replace-screenshots' || '' }}

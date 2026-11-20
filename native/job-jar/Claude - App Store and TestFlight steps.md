@@ -13,6 +13,16 @@ https://appstoreconnect.apple.com (sign in with your Apple Developer account). N
 - The cloud build signs and uploads the app by itself once the app record exists (step 1).
 - Cloud screenshots are now taken on the largest iPhone and the 13-inch iPad, the two sizes the App Store asks for.
 
+## What Claude fills in for you
+
+The "The Job Jar! - fill in the App Store page" cloud job writes these into App Store Connect: subtitle,
+description, keywords, promotional text, support link, privacy policy link, categories, notes for Apple's
+reviewer, the screenshots for both sizes, and the newest build. Its text lives in
+`.github/app-store/job-jar.json`. Ask Claude to change that file and run the job again.
+
+It never does these, so they are yours: price, age rating answers (step 5), privacy answers (step 4),
+Made for Kids, copyright, your contact details for Apple's reviewer, and pressing Submit (step 7).
+
 ## Step 1. Create the app record (about 5 minutes, only you can do this)
 
 1. Go to **Apps**, press the blue **+**, choose **New App**.
@@ -103,14 +113,8 @@ Things to know:
 
 - **App Privacy** section: choose **"No, we do not collect data from this app."** That is true: the
   app has no accounts, no analytics, and makes no internet connections.
-- **Privacy Policy URL:** Apple requires one for every app. There is no page yet. Claude can add a
-  short one at `https://dfwilley.github.io/Claude-Apps/job-jar/privacy.html` when you say so. It
-  would say, in plain words:
-  - The app collects nothing and sends nothing over the internet.
-  - Names, pictures, chores and totals stay on the device, and are removed by deleting the app.
-  - Linking a kid's device works only over the home Wi-Fi, directly between the two devices.
-  - How to contact you. You need to choose a contact (an email address you are happy to make public,
-    or the GitHub page).
+- **Privacy Policy URL:** `https://dfwilley.github.io/Claude-Apps/job-jar/privacy.html` (published November 20, 2026;
+  contact is the project's GitHub page, so no email address of yours is public).
 
 ## Step 5. Age rating and the Kids choice
 

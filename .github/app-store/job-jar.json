@@ -1,0 +1,51 @@
+{
+  "bundleId": "com.dfwilley.jobjar",
+  "locale": "en-US",
+  "subtitle": "Picture chore chart for kids",
+  "privacyPolicyUrl": "https://dfwilley.github.io/Claude-Apps/job-jar/privacy.html",
+  "supportUrl": "https://dfwilley.github.io/Claude-Apps/job-jar/",
+  "marketingUrl": "https://dfwilley.github.io/Claude-Apps/job-jar/",
+  "primaryCategory": "LIFESTYLE",
+  "secondaryCategory": "EDUCATION",
+  "promotionalText": "Kids tap a picture when a chore is done. Stars or coins fill their jar and buy rewards your family picks.",
+  "keywords": "chore,chart,kids,allowance,reward,stars,jobs,family,routine,responsibility,money,coins,preschool",
+  "description": [
+    "The Job Jar! is a picture chore chart for kids about 4 to 8, including kids who can't read yet.",
+    "",
+    "Each child taps their own picture, then taps a chore when it's done. Every chore has a big picture and can be read out loud. Finished chores earn stars, and stars buy rewards your family chooses, like extra story time or an ice cream trip.",
+    "",
+    "FOR KIDS",
+    "• Big pictures, big buttons, cheerful sounds",
+    "• Their own picture or photo, and their own jar",
+    "• A week chart that shows what they did each day",
+    "",
+    "FOR GROWN-UPS",
+    "• A 4-number PIN keeps settings and rewards for grown-ups",
+    "• Check each chore before the stars go in the jar",
+    "• Choose which days and which kids each chore is for",
+    "• Pay in stars, or in real coins your child can count: pennies, nickels, dimes, quarters",
+    "• Special days such as birthdays, when chores pay double or triple",
+    "• Special chores that show up only for a few days",
+    "• Matching: when Grandma or Granddad offers to match what a child earns, the app adds their share and keeps count",
+    "• History of everything earned and spent",
+    "• Backup to a file",
+    "",
+    "A KID'S OWN DEVICE",
+    "A child's iPad or iPhone can be linked to a grown-up's device with a 6-number code. It shows only that child's chart and stays in step over your home Wi-Fi.",
+    "",
+    "PRIVATE BY DESIGN",
+    "No accounts, no ads, no tracking. Everything stays on your devices. Nothing is sent over the internet."
+  ],
+  "reviewNotes": [
+    "There is no sign-in. The grown-up PIN is chosen on first launch (or can be skipped).",
+    "To see the device-linking feature you need two devices on the same Wi-Fi: on one, open Grown-ups > Devices > Link a kid's device; on the other, tap \"This is a kid's device\" on the welcome screen and type the 6-number code. The local network permission is used only for this.",
+    "The app makes no internet connections and collects no data."
+  ],
+  "screenshots": {
+    "order": ["2-ava-today", "3-great-job", "4-prizes", "7-week", "19-ben-money", "20-earned-25c", "22-specials", "1-home"],
+    "sets": [
+      { "displayType": "APP_IPHONE_67", "folder": "iphone", "size": [1320, 2868] },
+      { "displayType": "APP_IPAD_PRO_3GEN_129", "folder": "ipad", "size": [2064, 2752] }
+    ]
+  }
+}
