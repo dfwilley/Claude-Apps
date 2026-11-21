@@ -37,15 +37,43 @@
     "No accounts, no ads, no tracking. Everything stays on your devices. Nothing is sent over the internet."
   ],
   "reviewNotes": [
-    "There is no sign-in. The grown-up PIN is chosen on first launch (or can be skipped).",
-    "To see the device-linking feature you need two devices on the same Wi-Fi: on one, open Grown-ups > Devices > Link a kid's device; on the other, tap \"This is a kid's device\" on the welcome screen and type the 6-number code. The local network permission is used only for this.",
-    "The app makes no internet connections and collects no data."
+    "SCREEN RECORDING (physical device, current iOS, starting from launching the app): PASTE-LINK-HERE",
+    "PURPOSE AND AUDIENCE: The Job Jar! is a picture chore chart for families with young children (about ages 4 to 8), including children who cannot read yet. Problem it solves: paper chore charts get lost and need a grown-up to keep score. Here a child taps a picture when a chore is done, a grown-up confirms it, and the stars (or coins) earned buy rewards the family has chosen. Parents set it up; children use the simple picture screens.",
+    "HOW TO SET UP AND USE THE MAIN FEATURES (no account, no login, no sample files needed):\n1. Launch the app. Tap \"Let's start\" and choose any 4-number grown-up PIN (enter it twice), or tap \"Skip the PIN for now\".\n2. Add a kid: type a name, pick a picture, tap Save. Tap Done.\n3. On the home screen tap the kid. Tap any chore picture: it turns yellow with an hourglass, waiting for a grown-up.\n4. Tap the house button, then Grown-ups, and enter the PIN. On the Check tab tap the green button to OK the chore. The stars go into the kid's jar.\n5. Tap Done, tap the kid, then Prizes to see rewards and the \"Get it!\" button once there are enough stars. \"My week\" shows the week chart.\n6. Grown-ups > Chores and Rewards: add or edit chores and rewards. Grown-ups > Specials: special days (chores pay double), short-time chores, and matching (a grandparent adds a share of what a child earns; this is only a tally inside the app, no payment happens). Grown-ups > Settings: \"Pay in money instead of stars\" shows the same totals as coins. This is pretend bookkeeping for a family allowance; the app handles no real money and has no purchases.",
+    "OPTIONAL SECOND DEVICE: a child's own iPhone or iPad can show just that child's chart. Both devices must be on the same Wi-Fi. On the grown-up's device: Grown-ups > Devices > Link a kid's device, pick the kid, and a 6-number code appears. On the other device, at first launch tap \"This is a kid's device\" and type the code. The local network permission is used only for this. The app is fully usable on one device without it.",
+    "EXTERNAL SERVICES: none. No server, no accounts or authentication, no analytics, no advertising, no payment processor, no AI service, no third-party SDKs. The app makes no internet connections; all data is stored on the device. Linking uses Apple's MultipeerConnectivity between the family's own devices.",
+    "REGIONS: the app works the same in every region. It is in English. Money mode shows US coins (pennies to dollar coins).",
+    "REGULATED INDUSTRY / THIRD-PARTY MATERIAL: not applicable. The app is not in a regulated industry and contains no third-party content. All text and artwork were made for the app; pictures of chores are standard system emoji.",
+    "ACCOUNTS, USER-GENERATED CONTENT, PAID CONTENT: none. There is no account creation, nothing is shared with other users, and there are no paid features or in-app purchases."
   ],
   "screenshots": {
-    "order": ["2-ava-today", "3-great-job", "4-prizes", "7-week", "19-ben-money", "20-earned-25c", "22-specials", "1-home"],
+    "order": [
+      "2-ava-today",
+      "3-great-job",
+      "4-prizes",
+      "7-week",
+      "19-ben-money",
+      "20-earned-25c",
+      "22-specials",
+      "1-home"
+    ],
     "sets": [
-      { "displayType": "APP_IPHONE_67", "folder": "iphone", "size": [1320, 2868] },
-      { "displayType": "APP_IPAD_PRO_3GEN_129", "folder": "ipad", "size": [2064, 2752] }
+      {
+        "displayType": "APP_IPHONE_67",
+        "folder": "iphone",
+        "size": [
+          1320,
+          2868
+        ]
+      },
+      {
+        "displayType": "APP_IPAD_PRO_3GEN_129",
+        "folder": "ipad",
+        "size": [
+          2064,
+          2752
+        ]
+      }
     ]
   }
 }
