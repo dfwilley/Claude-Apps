@@ -1,0 +1,50 @@
+[
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "3F9F13FC-F333-41EC-9C54-104D87CB2BF5",
+        "deviceName" : "iPhone 16 Pro",
+        "exportedFileName" : "E553D990-E8BB-48DD-A203-D83361DD03E8.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "2-settings_0_CBDCF206-D21B-4CE6-9D2A-C22DE94C93B2.png",
+        "timestamp" : 1795301969.375
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "3F9F13FC-F333-41EC-9C54-104D87CB2BF5",
+        "deviceName" : "iPhone 16 Pro",
+        "exportedFileName" : "B5EB6F4D-9C30-4130-BB85-F57FCAB064AA.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "1-first-run_0_4FED426A-CB70-47DA-8698-49EEFD589BCF.png",
+        "timestamp" : 1795301956.394
+      }
+    ],
+    "testIdentifier" : "ScreenshotTests/testFirstRunAndSettings()",
+    "testIdentifierURL" : "test://com.apple.xcode/BrickPile/BrickPileUITests/ScreenshotTests/testFirstRunAndSettings"
+  },
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "3F9F13FC-F333-41EC-9C54-104D87CB2BF5",
+        "deviceName" : "iPhone 16 Pro",
+        "exportedFileName" : "354DA2B7-2956-427C-AC86-016C52A15051.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "4-ideas_0_F0F2F72B-1A0E-4352-BD08-55A37979A15A.png",
+        "timestamp" : 1795302005.215
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "3F9F13FC-F333-41EC-9C54-104D87CB2BF5",
+        "deviceName" : "iPhone 16 Pro",
+        "exportedFileName" : "41EB4F14-9927-4A6C-A073-CA3E6782266F.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "3-pile_0_F81FA4A2-0002-4687-B2EB-626432BAADB8.png",
+        "timestamp" : 1795301999.19
+      }
+    ],
+    "testIdentifier" : "ScreenshotTests/testPileAndIdeas()",
+    "testIdentifierURL" : "test://com.apple.xcode/BrickPile/BrickPileUITests/ScreenshotTests/testPileAndIdeas"
+  }
+]
