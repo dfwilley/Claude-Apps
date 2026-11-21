@@ -1,9 +1,8 @@
 name: Brick Pile iPhone app
 
+# Shelved November 21, 2026 (the owner found an existing app that does the same job).
+# It no longer builds on every push; start it by hand if the app is ever picked up again.
 on:
-  push:
-    branches: [main]
-    paths: ["brick-pile/**", "native/brick-pile/**", "tests/brick-pile.test.js", ".github/workflows/brick-pile-ios.yml"]
   workflow_dispatch:
 
 permissions:

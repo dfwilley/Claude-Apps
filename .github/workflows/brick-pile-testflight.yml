@@ -5,14 +5,8 @@ name: Brick Pile - upload to TestFlight
 # Signs with a temporary certificate made through the API key (revoked after upload).
 # Needs these repository secrets: ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8, APPLE_TEAM_ID.
 
+# Shelved November 21, 2026: no longer uploads on every push; start it by hand if the app is picked up again.
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'brick-pile/**'
-      - 'native/brick-pile/**'
-      - 'tests/brick-pile.test.js'
-      - '.github/workflows/brick-pile-testflight.yml'
   workflow_dispatch:
 
 defaults:

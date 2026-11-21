@@ -28,7 +28,7 @@ Each app is a plain web app in its own top-level folder: HTML, CSS and JavaScrip
 | `wing-rib-riddles/` | Wing Rib Riddles | none |
 | `bend-it-right/` | Bend It Right | none |
 | `fit-the-part/` | Fit the Part | none |
-| `brick-pile/` | Brick Pile Builder (called Brick Pile in the code and workflows) | `native/brick-pile/`, web app inside a native shell (TestFlight) |
+| `brick-pile/` | Brick Pile Builder (called Brick Pile in the code and workflows). **Shelved** November 21, 2026 | `native/brick-pile/`, web app inside a native shell; builds only when started by hand |
 | `blue-book/` | Blue Book | `native/blue-book/`, web app inside a native shell (TestFlight) |
 | `hgvc-binder/` | HGVC Binder | `native/hgvc-binder/`, web app inside a native shell (TestFlight) |
 | `bin-finder/` | Bin Finder | `native/bin-finder/`, separately written in SwiftUI |
@@ -67,8 +67,9 @@ All eleven passed on November 21, 2026. Knot of the Day, Wire Bender and Ask Me 
 
 - The web apps go live on GitHub Pages as soon as they are pushed.
 - **Blue Book is the exception:** its two iPhone workflows (`blue-book-ios.yml`, `blue-book-testflight.yml`) run only when started by hand, at the owner's request (November 16, 2026). A push to `main` updates the Blue Book web app only. Start both workflows when he asks for an iPhone build, and tell him the web and iPhone versions may differ until then.
+- **Brick Pile Builder is shelved** (the owner's decision, November 21, 2026: an existing app already does the same job). Its files, web page and last Sideloadly build are kept, but its two workflows (`brick-pile-ios.yml`, `brick-pile-testflight.yml`) run only when started by hand. Don't work on it or start its builds unless he asks.
 - Each other `...-ios.yml` workflow runs when its app's files change: it runs the tests, builds an unsigned `.ipa`, and replaces the `<app>-latest` release (for Sideloadly).
-- Blue Book, HGVC Binder, The Job Jar! and Brick Pile also have `...-testflight.yml` workflows that sign and upload to TestFlight on every push that touches them. Blue Book's and Brick Pile's run their Node tests first; the other two **do not run the tests**, so a change with failing tests can still be uploaded. Check the test run before calling work finished.
+- Blue Book, HGVC Binder and The Job Jar! also have `...-testflight.yml` workflows that sign and upload to TestFlight on every push that touches them. Blue Book's runs its Node tests first; the other two **do not run the tests**, so a change with failing tests can still be uploaded. Check the test run before calling work finished.
 - Signing uses four repository secrets: `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_P8`, `APPLE_TEAM_ID`. Never print or log them. The shared helper scripts are in `.github/scripts/`.
 - Some workflows push screenshots to branches named `ci-screenshots-...`. Those branches are overwritten on every run; don't build on them.
 
