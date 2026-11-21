@@ -516,12 +516,17 @@ struct PicGrid: View {
         }
         .padding(.vertical, 4)
         if typeAny {
-            TextField("Or type any emoji from your keyboard 😀", text: $typed)
-                .autocorrectionDisabled()
-                .accessibilityIdentifier("typeEmoji")
-                .onChange(of: typed) { v in
-                    if let e = pickEmoji(v) { selected = e; typed = "" }
-                }
+            VStack(alignment: .leading, spacing: 6) {
+                TextField("Tap here for more pictures", text: $typed)
+                    .autocorrectionDisabled()
+                    .accessibilityLabel("More pictures: pick any emoji")
+                    .accessibilityIdentifier("typeEmoji")
+                    .onChange(of: typed) { v in
+                        if let e = pickEmoji(v) { selected = e; typed = "" }
+                    }
+                Text("Want a different picture? Tap the line above, then tap 🙂 on the keyboard and pick any emoji.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
         }
     }
 }

@@ -258,3 +258,4 @@ h1, h2, h3 { margin: 0; }
 .times button:disabled { opacity: .35; }
 .times output { min-width: 34px; text-align: center; font-weight: 900; }
 @media (max-width: 640px) { .check-btns { flex: 1 0 100%; justify-content: flex-end; margin-top: 6px; } }
+.emoji-help { margin-top: 4px; font-size: 14px; }

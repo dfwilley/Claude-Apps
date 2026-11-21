@@ -89,7 +89,8 @@
       img.src = url;
     });
   }
-  const emojiBox = (field) => `<input class="text emoji-in" data-emoji="${field}" autocomplete="off" autocapitalize="off" placeholder="Or type any emoji from your keyboard 😀" aria-label="Type any emoji">`;
+  const emojiBox = (field) => `<input class="text emoji-in" data-emoji="${field}" autocomplete="off" autocapitalize="off" placeholder="Tap here for more pictures" aria-label="More pictures: pick any emoji">
+    <p class="note emoji-help">Want a different picture? Tap the box above, then tap 🙂 on the keyboard and pick any emoji. On a Windows computer, click the box and press the Windows key and the period key together.</p>`;
   const photoButton = (target) => `<label class="btn photo-btn">📷 Use a photo or picture file<input type="file" accept="image/*" data-photo="${target}" hidden></label>`;
   function fmtWhen(iso) {
     const d = new Date(iso);
