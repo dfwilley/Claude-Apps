@@ -19,6 +19,7 @@
     ["🧼", "Wash hands"], ["🛁", "Take a bath"], ["🗑️", "Take out trash"], ["🧹", "Sweep"], ["🧽", "Wipe the table"],
     ["🎒", "Pack backpack"], ["✏️", "Homework"], ["🎹", "Practice music"], ["🧦", "Match socks"],
     ["🥣", "Help with breakfast"], ["🛒", "Help put away groceries"], ["🚗", "Clean up the car"], ["🌙", "Ready for bed"],
+    ["🚿", "Take a shower"], ["🦷", "Floss"], ["💇", "Brush hair"], ["💊", "Take vitamins"], ["🧥", "Hang up coat"], ["👚", "Fold laundry"], ["🥗", "Eat your veggies"], ["🥪", "Pack lunch"], ["🍳", "Help cook"], ["🥄", "Unload the dishwasher"], ["🫧", "Wash dishes"], ["🪣", "Mop"], ["🚽", "Clean the bathroom"], ["🪟", "Wash windows"], ["🛋️", "Tidy the living room"], ["📦", "Put things away"], ["🚮", "Pick up trash"], ["♻️", "Recycling"], ["📬", "Get the mail"], ["🐕", "Walk the dog"], ["🐹", "Feed the hamster"], ["🐔", "Feed the chickens"], ["🌱", "Weed the garden"], ["🍂", "Rake leaves"], ["❄️", "Shovel snow"], ["🚲", "Put bike away"], ["💡", "Turn off lights"], ["📵", "Screens off"], ["🏃", "Exercise"], ["⚽", "Practice sports"], ["🙏", "Say prayers"], ["😴", "Quiet time"], ["🤝", "Help someone"], ["💬", "Use kind words"], ["👂", "Listen the first time"],
   ];
   const REWARD_PICS = [
     ["📖", "Extra story time"], ["🍦", "Ice cream trip"], ["🎬", "Pick the movie"], ["🛝", "Trip to the park"],
@@ -26,7 +27,8 @@
     ["🎨", "Craft time"], ["🏊", "Swimming"], ["🎁", "Small toy"], ["🍿", "Movie night"], ["🚲", "Bike ride"],
     ["🧩", "Puzzle with a grown-up"], ["⛺", "Living room campout"], ["🦕", "Museum trip"], ["🍩", "Donut breakfast"], ["✈️", "Visit Granddad's airplane"],
   ];
-  const AVATARS = ["🦊", "🐻", "🐼", "🐯", "🦁", "🐸", "🐵", "🐰", "🦄", "🐲", "🐙", "🦖", "🐧", "🦋", "🐝", "🐬", "🦉", "🐢"];
+  const AVATARS = ["🦊", "🐻", "🐼", "🐯", "🦁", "🐸", "🐵", "🐰", "🦄", "🐲", "🐙", "🦖", "🐧", "🦋", "🐝", "🐬", "🦉", "🐢",
+    "🐶", "🐱", "🐭", "🐹", "🐨", "🐮", "🐷", "🐔", "🦆", "🦅", "🐺", "🐴", "🦓", "🦒", "🐘", "🦛", "🦘", "🐿️", "🦔", "🦦", "🦥", "🐳", "🦈", "🐊", "🦎", "🐍", "🦜", "🦩", "🐞", "🦀", "🐠", "🦕", "🚀", "🚂", "🚗", "✈️", "⚽", "🏀", "⚾", "🎸", "🎨", "🌈", "⭐", "🌻", "🌙", "🍎", "🍕", "🤖", "👑", "🦸"];
   // Money mode: every star becomes one coin of the family's chosen kind.
   // d = coin size in millimeters (to draw them to scale), face/edge = drawing colors.
   const COINS = {
@@ -109,6 +111,7 @@
       days: Array.isArray(c.days) && c.days.length ? c.days.filter((x) => x >= 0 && x <= 6) : ALL_DAYS.slice(),
       kids: Array.isArray(c.kids) ? c.kids : [],
       from: validDay(c.from) ? c.from : "", until: validDay(c.until) ? c.until : "", // a special chore only shows between these days
+      once: !!c.once, // only needs doing once a day: the first kid to do it gets it, then it leaves the other kids' lists
     }));
     out.specials = (Array.isArray(s.specials) ? s.specials : []).filter((x) => x && validDay(x.date)).map((x) => ({
       id: x.id || newId("s"), pic: x.pic || "🎉", name: String(x.name || "Special day"), date: x.date, yearly: !!x.yearly,
@@ -210,9 +213,18 @@
     return (day && day[kidId] && day[kidId][choreId]) || "";
   }
 
+  /** For a once-a-day chore: the kid who has done it (or is waiting for a grown-up's OK) that day, or "". */
+  function takenBy(s, chore, date) {
+    if (!chore.once) return "";
+    const day = s.done[dayKey(date)] || {};
+    const k = s.kids.find((kid) => day[kid.id] && day[kid.id][chore.id]);
+    return k ? k.id : "";
+  }
+  function takenByOther(s, chore, date, kidId) { const t = takenBy(s, chore, date); return !!t && t !== kidId; }
+
   /** Today's list for a kid: [{ chore, status }] where status is "", "waiting" or "done". */
   function choresFor(s, kidId, date) {
-    return s.chores.filter((c) => isDue(c, date, kidId)).map((c) => ({ chore: c, status: statusOf(s, kidId, c.id, date) }));
+    return s.chores.filter((c) => isDue(c, date, kidId) && !takenByOther(s, c, date, kidId)).map((c) => ({ chore: c, status: statusOf(s, kidId, c.id, date) }));
   }
 
   function progress(s, kidId, date) {
@@ -241,6 +253,7 @@
   function markDone(s, kidId, choreId, date, now) {
     const kid = kidById(s, kidId), chore = choreById(s, choreId);
     if (!kid || !chore || statusOf(s, kidId, choreId, date)) return 0;
+    if (takenByOther(s, chore, date, kidId)) return 0; // a once-a-day chore another kid already did
     if (s.settings.needsApproval) {
       setStatus(s, kidId, choreId, date, "waiting");
       return 0;
@@ -326,7 +339,7 @@
     const rows = chores.map((c) => ({
       chore: c,
       cells: days.map((d) => {
-        if (!isDue(c, d, kidId)) return "off";
+        if (!isDue(c, d, kidId) || takenByOther(s, c, d, kidId)) return "off";
         const st = statusOf(s, kidId, c.id, d);
         if (st) return st;
         return dayKey(d) > todayKey ? "future" : "";
@@ -358,6 +371,16 @@
   /** "1 star" / "3 stars" */
   function starWord(n) { return n + (Math.abs(n) === 1 ? " star" : " stars"); }
 
+  /** The last emoji in what someone typed ("" if there is none), so any emoji on the keyboard can be a picture. */
+  function pickEmoji(text) {
+    const t = String(text || "");
+    let parts;
+    if (typeof Intl !== "undefined" && Intl.Segmenter) parts = Array.from(new Intl.Segmenter("en", { granularity: "grapheme" }).segment(t), (x) => x.segment);
+    else parts = Array.from(t);
+    for (let i = parts.length - 1; i >= 0; i--) if (/\p{Extended_Pictographic}|\p{Regional_Indicator}/u.test(parts[i])) return parts[i];
+    return "";
+  }
+
   function validPin(p) { return /^\d{4}$/.test(String(p || "")); }
 
   /** A kid's own picture, saved as a small JPEG/PNG "data:" address. */
@@ -388,7 +411,7 @@
 
   return {
     ALL_DAYS, DAY_LETTERS, DAY_NAMES, CHORE_PICS, REWARD_PICS, AVATARS, COLORS, KEEP_DAYS, COINS, COIN_KEYS, MAX_PAY, MAX_TIMES, MATCH_PERCENTS,
-    validDay, specialFor, timesFor, payFor, matchesFor, matchActive, settleMatches,
+    takenBy, takenByOther, pickEmoji, validDay, specialFor, timesFor, payFor, matchesFor, matchActive, settleMatches,
     validPhoto, coinOf, money, moneyWords, amountText, amountShort, amountSpeech, coinCount,
     newId, dayKey, parseDay, addDays, weekStart, defaultState, normalize, kidById, choreById, rewardById,
     isDue, statusOf, choresFor, progress, markDone, undo, waitingList, approve, reject,

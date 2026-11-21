@@ -191,7 +191,7 @@ struct TodayGrid: View {
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 158), spacing: 16)], spacing: 16) {
                 ForEach(list) { item in
                     ChoreCard(chore: item.chore, status: item.status, pay: store.data.pay(kid.id, item.chore, store.today),
-                              ribbon: item.chore.until.isEmpty ? "" : item.chore.until == dayKey(store.today) ? "🌟 Special · last day" : "🌟 Special") { tap(item.chore, item.status) }
+                              ribbon: ribbon(item)) { tap(item.chore, item.status) }
                 }
             }
         }
@@ -202,6 +202,13 @@ struct TodayGrid: View {
             } keep: { asking = nil }
             .presentationDetents([.medium])
         }
+    }
+
+    private func ribbon(_ item: ChoreItem) -> String {
+        let c = item.chore
+        if !c.until.isEmpty { return c.until == dayKey(store.today) ? "🌟 Special · last day" : "🌟 Special" }
+        if c.once && item.status == .todo && store.data.kids.count > 1 { return "🏁 First one gets it" }
+        return ""
     }
 
     private func tap(_ c: Chore, _ st: ChoreStatus) {

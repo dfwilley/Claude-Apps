@@ -122,6 +122,15 @@ extension AppData {
             let mine = byKid.filter { ids.contains($0.key) && !$0.value.isEmpty }
             if !mine.isEmpty { d.done[day] = mine }
         }
+        // Once-a-day chores that a kid who isn't on that device already did: the device hides them.
+        let onceChores = d.chores.filter { $0.once }
+        if !onceChores.isEmpty {
+            for day in done.keys {
+                let date = parseDay(day)
+                let gone = onceChores.filter { c in takenBy(c, date).map { !ids.contains($0) } ?? false }.map(\.id)
+                if !gone.isEmpty { d.taken[day] = gone.sorted() }
+            }
+        }
         d.log = log.filter { ids.contains($0.kid) }
         d.requests = requests.filter { ids.contains($0.kid) }
         d.settings = settings

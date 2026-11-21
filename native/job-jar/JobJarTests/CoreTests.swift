@@ -272,6 +272,57 @@ final class CoreTests: XCTestCase {
         XCTAssertEqual(f.matches.map(\.id), ["m3"], "a match made only for a removed kid goes away")
     }
 
+    func testOnceADayChore() throws {
+        let thu = day(2026, 11, 5), fri = addDays(thu, 1)
+        var f = plainFamily()
+        let trash = Chore(id: "tr", pic: "🗑️", name: "Take out trash", stars: 2, once: true)
+        f.chores.append(trash)
+        XCTAssertEqual(f.choresFor("a", thu).count, 7); XCTAssertEqual(f.choresFor("b", thu).count, 7)
+        XCTAssertNil(f.takenBy(trash, thu))
+        XCTAssertEqual(f.markDone("b", "tr", thu, now: thu), 2)
+        XCTAssertEqual(f.takenBy(trash, thu), "b")
+        XCTAssertEqual(f.choresFor("a", thu).count, 6, "gone from Ava's list")
+        XCTAssertEqual(f.choresFor("b", thu).first { $0.chore.id == "tr" }?.status, .done, "Ben still sees it, checked off")
+        XCTAssertEqual(f.markDone("a", "tr", thu, now: thu), 0, "Ava can't also do it")
+        XCTAssertEqual(f.kid("a")?.stars, 0)
+        XCTAssertEqual(f.choresFor("a", fri).count, 7, "back the next day")
+        XCTAssertEqual(f.weekChart("a", thu).rows.first { $0.chore.id == "tr" }?.cells[4], .off)
+        XCTAssertEqual(f.weekChart("b", thu).rows.first { $0.chore.id == "tr" }?.cells[4], .done)
+        // A kid's own device is told the chore is taken, without being told who by
+        let avaDevice = f.slice(for: ["a"])
+        XCTAssertEqual(avaDevice.taken["2026-11-05"], ["tr"])
+        XCTAssertEqual(avaDevice.choresFor("a", thu).count, 6)
+        var offline = avaDevice
+        XCTAssertEqual(offline.apply(SyncOp("done", kid: "a", chore: "tr", day: "2026-11-05", t: thu)), 0)
+        XCTAssertTrue(f.slice(for: ["b"]).taken.isEmpty, "Ben's own device just shows it done")
+        // "Not done yet" gives it back to everyone
+        f.undo("b", "tr", thu)
+        XCTAssertEqual(f.choresFor("a", thu).count, 7)
+        XCTAssertTrue(f.slice(for: ["a"]).taken.isEmpty)
+        // with the grown-up check on, waiting for an OK already takes it; a "no" gives it back
+        f.settings.needsApproval = true
+        f.markDone("a", "tr", thu, now: thu)
+        XCTAssertEqual(f.choresFor("b", thu).count, 6)
+        f.reject("a", "tr", "2026-11-05")
+        XCTAssertEqual(f.choresFor("b", thu).count, 7)
+        // an ordinary chore is not affected, and the setting is kept in a backup
+        f.markDone("a", f.chores[0].id, thu, now: thu)
+        XCTAssertEqual(f.choresFor("b", thu).count, 7)
+        let back = try JSONDecoder().decode(AppData.self, from: JSONEncoder().encode(f))
+        XCTAssertEqual(back.chore("tr")?.once, true); XCTAssertEqual(back.chores[0].once, false)
+    }
+
+    func testAnyEmoji() {
+        XCTAssertEqual(pickEmoji("🦄"), "🦄"); XCTAssertEqual(pickEmoji("  🚀 "), "🚀")
+        XCTAssertEqual(pickEmoji("🐶🐱"), "🐱", "the last one typed wins")
+        XCTAssertEqual(pickEmoji("dog 🐕"), "🐕")
+        XCTAssertNil(pickEmoji("abc")); XCTAssertNil(pickEmoji("12")); XCTAssertNil(pickEmoji(""))
+        XCTAssertEqual(pickEmoji("👨‍👩‍👧"), "👨‍👩‍👧", "a family emoji stays in one piece")
+        XCTAssertEqual(pickEmoji("👍🏽"), "👍🏽", "skin tone stays with its emoji")
+        for list in [chorePics.map(\.0), rewardPics.map(\.0), avatars] { XCTAssertEqual(Set(list).count, list.count, "no picture twice in a list") }
+        XCTAssertGreaterThanOrEqual(chorePics.count, 60); XCTAssertGreaterThanOrEqual(avatars.count, 60)
+    }
+
     // MARK: linking a grown-up's device and a kid's device
 
     func family() -> (AppData, Date) {

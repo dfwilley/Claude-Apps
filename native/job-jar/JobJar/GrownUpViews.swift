@@ -209,7 +209,7 @@ struct GrownUpView: View {
                         Text(c.pic).font(.system(size: 34))
                         VStack(alignment: .leading) {
                             Text(c.name).font(.headline)
-                            Text("\(daysText(c.days)) · \(whoText(c.kids))" + (rangeText(c).isEmpty ? "" : " · " + rangeText(c))).font(.subheadline).foregroundStyle(.secondary)
+                            Text("\(daysText(c.days)) · \(whoText(c.kids))" + (c.once ? " · once a day" : "") + (rangeText(c).isEmpty ? "" : " · " + rangeText(c))).font(.subheadline).foregroundStyle(.secondary)
                         }
                         Spacer()
                         Text(store.data.settings.money ? store.data.settings.amountText(c.stars) : c.stars <= 5 ? String(repeating: "⭐", count: c.stars) : "⭐ \(c.stars)").font(store.data.settings.money ? .subheadline.bold() : .caption)
@@ -453,10 +453,18 @@ struct PicGrid: View {
     let pics: [(String, String)]
     @Binding var selected: String
     var onPick: (String, String) -> Void = { _, _ in }
+    /// Lets a grown-up type any emoji from the keyboard as the picture.
+    var typeAny = true
+    @State private var typed = ""
+
+    /// A picture typed from the emoji keyboard isn't in the list: show it first so it can be seen as chosen.
+    private var shown: [(String, String)] {
+        selected.isEmpty || pics.contains { $0.0 == selected } ? pics : [(selected, "")] + pics
+    }
 
     var body: some View {
         LazyVGrid(columns: [GridItem(.adaptive(minimum: 54), spacing: 6)], spacing: 6) {
-            ForEach(pics, id: \.0) { p in
+            ForEach(shown, id: \.0) { p in
                 Button { selected = p.0; onPick(p.0, p.1) } label: {
                     Text(p.0).font(.system(size: 32)).frame(maxWidth: .infinity, minHeight: 54)
                         .background(selected == p.0 ? Theme.purple.opacity(0.15) : Theme.card, in: RoundedRectangle(cornerRadius: 12))
@@ -468,6 +476,14 @@ struct PicGrid: View {
             }
         }
         .padding(.vertical, 4)
+        if typeAny {
+            TextField("Or type any emoji from your keyboard 😀", text: $typed)
+                .autocorrectionDisabled()
+                .accessibilityIdentifier("typeEmoji")
+                .onChange(of: typed) { v in
+                    if let e = pickEmoji(v) { selected = e; typed = "" }
+                }
+        }
     }
 }
 
@@ -643,6 +659,10 @@ struct ChoreEditor: View {
                         } label: { check("\(k.avatar) \(k.name)", draft.chore.kids.contains(k.id)) }
                     }
                 }
+                Section {
+                    Toggle("Only needs doing once a day", isOn: $draft.chore.once)
+                        .tint(Theme.green).accessibilityIdentifier("onceChore")
+                } footer: { Text("The first kid to do it gets it. Then it leaves the other kids' lists until tomorrow.") }
                 Section {
                     Toggle("Special chore for a short time", isOn: Binding(
                         get: { !draft.chore.from.isEmpty || !draft.chore.until.isEmpty },

@@ -89,6 +89,7 @@
       img.src = url;
     });
   }
+  const emojiBox = (field) => `<input class="text emoji-in" data-emoji="${field}" autocomplete="off" autocapitalize="off" placeholder="Or type any emoji from your keyboard 😀" aria-label="Type any emoji">`;
   const photoButton = (target) => `<label class="btn photo-btn">📷 Use a photo or picture file<input type="file" accept="image/*" data-photo="${target}" hidden></label>`;
   function fmtWhen(iso) {
     const d = new Date(iso);
@@ -269,7 +270,7 @@
         <div class="chore ${status}" role="button" tabindex="0" data-act="chore" data-id="${chore.id}" aria-label="${esc(chore.name)}${status === "done" ? ", done" : status === "waiting" ? ", waiting for a grown-up" : ""}">
           <button class="say" data-act="say" data-text="${esc(chore.name)}" aria-label="Say it">🔊</button>
           <div class="pic">${chore.pic}</div><div class="label">${esc(chore.name)}</div><div class="pips">${payHTML(J.payFor(S, k.id, chore, today))}</div>
-          ${chore.until ? `<div class="ribbon">🌟 Special${chore.until === J.dayKey(today) ? " · last day" : ""}</div>` : ""}
+          ${chore.until ? `<div class="ribbon">🌟 Special${chore.until === J.dayKey(today) ? " · last day" : ""}</div>` : chore.once && S.kids.length > 1 && !status ? `<div class="ribbon first">🏁 First one gets it</div>` : ""}
           ${status ? `<div class="mark" aria-hidden="true">${status === "done" ? "✓" : "⏳"}</div>` : ""}
         </div>`).join("")}</div>` : `<div class="empty"><span class="big">🌈</span>No chores today. Enjoy!</div>`);
     } else if (view.kidTab === "prizes") {
@@ -330,7 +331,7 @@
         `<button class="add" data-act="edit-kid">+ Add a kid</button>`;
     } else if (t === "chores") {
       body = `<div class="list">${S.chores.map((c) => `<button class="row" data-act="edit-chore" data-id="${c.id}"><span class="pic">${c.pic}</span>
-          <div class="main"><b>${esc(c.name)}</b><small>${daysText(c.days)} · ${whoText(c.kids)}${rangeText(c) ? " · " + esc(rangeText(c)) : ""}</small></div><span class="end">${isMoney() ? esc(amt(c.stars)) : stars(c.stars)} ›</span></button>`).join("")}</div>
+          <div class="main"><b>${esc(c.name)}</b><small>${daysText(c.days)} · ${whoText(c.kids)}${c.once ? " · once a day" : ""}${rangeText(c) ? " · " + esc(rangeText(c)) : ""}</small></div><span class="end">${isMoney() ? esc(amt(c.stars)) : stars(c.stars)} ›</span></button>`).join("")}</div>
         <button class="add" data-act="edit-chore">+ Add a chore</button>
         <p class="note">Pick a picture for each chore so kids who can't read yet know what it is. They can also tap 🔊 to hear it.</p>`;
     } else if (t === "rewards") {
@@ -385,7 +386,7 @@
         <div class="section">Start over</div><div class="list">
           <button class="row" data-act="erase"><span class="pic">🗑️</span><div class="main"><b style="color:var(--red)">Erase everything</b><small>Removes all kids, chores, rewards and stars on this device</small></div></button>
         </div>
-        <p class="note">Everything stays on this device. Nothing is sent anywhere. Version 1.0.</p>`;
+        <p class="note">Everything stays on this device. Nothing is sent anywhere. Version 1.1.</p>`;
     }
     $app.innerHTML = `<header class="top"><h1>Grown-ups</h1><button class="btn primary" data-act="home">Done</button></header>
       <div class="wrap gu"><div class="gu-tabs">${tabs.map(([id, label]) => `<button class="${view.guTab === id ? "on" : ""}" data-act="gu-tab" data-tab="${id}">${label}</button>`).join("")}</div>${body}</div>`;
@@ -417,6 +418,8 @@
 
   // ---------- editors ----------
   function picGrid(list, current, act) {
+    // A picture typed from the emoji keyboard isn't in the list: show it first so it can be seen as chosen.
+    if (current && !list.some((p) => (Array.isArray(p) ? p[0] : p) === current)) list = [[current, ""]].concat(list);
     return `<div class="picks">${list.map((p) => { const pic = Array.isArray(p) ? p[0] : p, name = Array.isArray(p) ? p[1] : ""; return `<button class="${pic === current ? "on" : ""}" data-act="${act}" data-pic="${pic}" data-name="${esc(name)}" title="${esc(name)}" aria-label="${esc(name || pic)}">${pic}</button>`; }).join("")}</div>`;
   }
 
@@ -433,6 +436,7 @@
         ${draft.photo ? `<div class="photo-row"><img class="ava" src="${draft.photo}" alt="" style="width:72px;height:72px"><button class="btn" data-act="d-nophoto">Remove photo</button></div>` : ""}
         ${photoButton("draft")}
         ${picGrid(J.AVATARS, draft.photo ? "" : draft.avatar, "d-avatar")}
+        ${emojiBox("avatar")}
         <span class="field">Color</span><div class="colors">${J.COLORS.map((c) => `<button class="${c === draft.color ? "on" : ""}" style="background:${c}" data-act="d-color" data-c="${c}" aria-label="Color ${c}"></button>`).join("")}</div>
         ${k ? `<span class="field">${isMoney() ? "Money in the jar: " + J.money(k.stars * J.coinOf(S).cents) + " (" + esc(J.coinCount(S, k.stars)) + ")" : "Stars in the jar: ⭐ " + k.stars}</span>
           <div class="stepper"><button data-act="d-give" data-n="-1" aria-label="Less">−</button><output>${isMoney() ? esc(J.coinCount(S, draft.give)) : draft.give}</output><button data-act="d-give" data-n="1" aria-label="More">+</button></div>
@@ -446,12 +450,13 @@
 
   function editChore(id, special) {
     const c = id ? J.choreById(S, id) : null;
-    draft = c ? JSON.parse(JSON.stringify(c)) : { id: null, pic: "🛏️", name: "", stars: 1, days: J.ALL_DAYS.slice(), kids: [], from: "", until: "" };
+    draft = c ? JSON.parse(JSON.stringify(c)) : { id: null, pic: "🛏️", name: "", stars: 1, days: J.ALL_DAYS.slice(), kids: [], from: "", until: "", once: false };
     if (!c && special) { draft.pic = "🧹"; draft.from = J.dayKey(today); draft.until = J.dayKey(J.addDays(today, 6)); }
     draft.limited = !!(draft.from || draft.until);
     drawSheet = () => {
       openSheet(`<div class="sheet-head"><h2>${c ? "Edit chore" : "Add a chore"}</h2><button class="btn" data-act="close">Cancel</button></div>
         <span class="field">Picture</span>${picGrid(J.CHORE_PICS, draft.pic, "d-pic")}
+        ${emojiBox("pic")}
         <label class="field" for="nm">Name (read out loud when a kid taps 🔊)</label><input class="text" id="nm" value="${esc(draft.name)}" maxlength="30" autocomplete="off" placeholder="Make bed">
         ${isMoney() ? `<span class="field">How much it pays (${esc(J.coinOf(S).plural)})</span>
           <div class="stepper"><button data-act="d-pay" data-n="-1" aria-label="One coin less">−</button><output>${esc(J.coinCount(S, draft.stars))}</output><button data-act="d-pay" data-n="1" aria-label="One coin more">+</button></div>
@@ -460,7 +465,8 @@
         <span class="field">Which days</span><div class="seg">${J.ALL_DAYS.map((d) => `<button class="${draft.days.includes(d) ? "on" : ""}" data-act="d-day" data-d="${d}" aria-label="${J.DAY_NAMES[d]}">${J.DAY_NAMES[d].slice(0, 3)}</button>`).join("")}
           <button data-act="d-everyday">Every day</button></div>
         <span class="field">Who does it</span><div class="seg"><button class="${!draft.kids.length ? "on" : ""}" data-act="d-kid" data-id="">Everyone</button>${S.kids.map((k) => `<button class="${draft.kids.includes(k.id) ? "on" : ""}" data-act="d-kid" data-id="${k.id}">${avatarHTML(k, 22)} ${esc(k.name)}</button>`).join("")}</div>
-        <label class="toggle-row" style="margin-top:14px"><span>Special chore for a short time<small>Shows on the charts only between two days</small></span><input type="checkbox" class="switch" data-draft="limited" ${draft.limited ? "checked" : ""}></label>
+        <label class="toggle-row" style="margin-top:14px"><span>Only needs doing once a day<small>The first kid to do it gets it. Then it leaves the other kids' lists until tomorrow</small></span><input type="checkbox" class="switch" data-draft="once" ${draft.once ? "checked" : ""}></label>
+        <label class="toggle-row"><span>Special chore for a short time<small>Shows on the charts only between two days</small></span><input type="checkbox" class="switch" data-draft="limited" ${draft.limited ? "checked" : ""}></label>
         ${draft.limited ? `<div class="dates"><label>First day<input class="text" type="date" data-draft="from" value="${esc(draft.from || "")}"></label><label>Last day<input class="text" type="date" data-draft="until" value="${esc(draft.until || "")}"></label></div>` : ""}
         <div class="actions">${c ? `<button class="btn danger" data-act="del-chore">Delete</button>` : ""}<button class="btn primary grow" data-act="save-chore">Save</button></div>`);
     };
@@ -711,7 +717,7 @@
       const from = draft.limited && J.validDay(draft.from) ? draft.from : "", until = draft.limited && J.validDay(draft.until) ? draft.until : "";
       if (draft.limited && !from && !until) { alert("Pick the first and last day for this special chore, or turn that switch off."); return; }
       if (from && until && until < from) { alert("The last day is before the first day."); return; }
-      const c = { pic: draft.pic, name, stars: draft.stars, days: draft.days.slice().sort(), kids: draft.kids.slice(), from, until };
+      const c = { pic: draft.pic, name, stars: draft.stars, days: draft.days.slice().sort(), kids: draft.kids.slice(), from, until, once: !!draft.once };
       if (draft.id) Object.assign(J.choreById(S, draft.id), c); else S.chores.push(Object.assign({ id: J.newId("c") }, c));
       save(); closeSheet(); render();
     },
@@ -764,6 +770,17 @@
     if (e.key === "Escape" && !$modal.hidden) { if (pinHandler) pinHandler("cancel"); else closeSheet(); }
     if (pinHandler && /^[0-9]$/.test(e.key)) pinHandler(e.key);
     if (pinHandler && e.key === "Backspace") pinHandler("back");
+  });
+  // Typing any emoji into a picture box picks it
+  document.addEventListener("input", (e) => {
+    const field = e.target.dataset && e.target.dataset.emoji;
+    if (!field || !draft) return;
+    const em = J.pickEmoji(e.target.value);
+    if (!em) return;
+    keepName();
+    draft[field] = em;
+    if (field === "avatar") draft.photo = "";
+    drawSheet();
   });
   document.addEventListener("change", (e) => {
     const target = e.target.dataset && e.target.dataset.photo;

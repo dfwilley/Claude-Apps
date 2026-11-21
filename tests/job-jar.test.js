@@ -265,4 +265,49 @@ assert.equal(J.normalize({ kids: [{ name: "Pat", photo: "http://example.com/x.pn
   assert.equal(f.matches.length, 0, "a match made only for a removed kid goes away");
 }
 
+// ---- A chore that only needs doing once a day: the first kid gets it, then it leaves the others' lists
+{
+  const f = J.defaultState();
+  f.settings.needsApproval = false;
+  f.kids.push({ id: "a", name: "Ava", avatar: "🦊", color: "#f00", stars: 0 }, { id: "b", name: "Ben", avatar: "🐻", color: "#00f", stars: 0 });
+  const trash = { id: "tr", pic: "🗑️", name: "Take out trash", stars: 2, days: J.ALL_DAYS.slice(), kids: [], from: "", until: "", once: true };
+  f.chores.push(trash);
+  assert.equal(J.choresFor(f, "a", thu).length, 7); assert.equal(J.choresFor(f, "b", thu).length, 7);
+  assert.equal(J.takenBy(f, trash, thu), "");
+  assert.equal(J.markDone(f, "b", "tr", thu, thu), 2);
+  assert.equal(J.takenBy(f, trash, thu), "b");
+  assert.equal(J.choresFor(f, "a", thu).length, 6, "gone from Ava's list");
+  assert.equal(J.choresFor(f, "b", thu).find((x) => x.chore.id === "tr").status, "done", "Ben still sees it, checked off");
+  assert.equal(J.markDone(f, "a", "tr", thu, thu), 0, "Ava can't also do it");
+  assert.equal(J.kidById(f, "a").stars, 0);
+  assert.equal(J.choresFor(f, "a", fri).length, 7, "back the next day");
+  assert.equal(J.weekChart(f, "a", thu).rows.find((r) => r.chore.id === "tr").cells[4], "off");
+  assert.equal(J.weekChart(f, "b", thu).rows.find((r) => r.chore.id === "tr").cells[4], "done");
+  assert.deepEqual(J.progress(f, "a", thu), { finished: 0, total: 6, allDone: false });
+  // "Not done yet" gives it back to everyone
+  J.undo(f, "b", "tr", thu);
+  assert.equal(J.choresFor(f, "a", thu).length, 7);
+  // with the grown-up check on, waiting for an OK already takes it; a "no" from the grown-up gives it back
+  f.settings.needsApproval = true;
+  J.markDone(f, "a", "tr", thu, thu);
+  assert.equal(J.choresFor(f, "b", thu).length, 6);
+  J.reject(f, "a", "tr", "2026-11-05");
+  assert.equal(J.choresFor(f, "b", thu).length, 7);
+  // an ordinary chore is not affected, and the setting is kept when saved
+  J.markDone(f, "a", f.chores[0].id, thu, thu);
+  assert.equal(J.choresFor(f, "b", thu).length, 7);
+  const back = J.normalize(JSON.parse(JSON.stringify(f)));
+  assert.equal(back.chores.find((c) => c.id === "tr").once, true); assert.equal(back.chores[0].once, false);
+}
+
+// ---- Any emoji from the keyboard can be a picture
+assert.equal(J.pickEmoji("🦄"), "🦄"); assert.equal(J.pickEmoji("  🚀 "), "🚀");
+assert.equal(J.pickEmoji("🐶🐱"), "🐱", "the last one typed wins");
+assert.equal(J.pickEmoji("dog 🐕"), "🐕");
+assert.equal(J.pickEmoji("abc"), ""); assert.equal(J.pickEmoji("12"), ""); assert.equal(J.pickEmoji(""), "");
+assert.equal(J.pickEmoji("👨‍👩‍👧"), "👨‍👩‍👧", "a family emoji stays in one piece");
+assert.equal(J.pickEmoji("👍🏽"), "👍🏽", "skin tone stays with its emoji");
+[J.CHORE_PICS.map((p) => p[0]), J.REWARD_PICS.map((p) => p[0]), J.AVATARS].forEach((list) => assert.equal(new Set(list).size, list.length, "no picture twice in a list"));
+assert(J.CHORE_PICS.length >= 60 && J.AVATARS.length >= 60);
+
 console.log("Job Jar tests passed");

@@ -14,6 +14,7 @@ let chorePics: [(String, String)] = [
     ("🧼", "Wash hands"), ("🛁", "Take a bath"), ("🗑️", "Take out trash"), ("🧹", "Sweep"), ("🧽", "Wipe the table"),
     ("🎒", "Pack backpack"), ("✏️", "Homework"), ("🎹", "Practice music"), ("🧦", "Match socks"),
     ("🥣", "Help with breakfast"), ("🛒", "Help put away groceries"), ("🚗", "Clean up the car"), ("🌙", "Ready for bed"),
+    ("🚿", "Take a shower"), ("🦷", "Floss"), ("💇", "Brush hair"), ("💊", "Take vitamins"), ("🧥", "Hang up coat"), ("👚", "Fold laundry"), ("🥗", "Eat your veggies"), ("🥪", "Pack lunch"), ("🍳", "Help cook"), ("🥄", "Unload the dishwasher"), ("🫧", "Wash dishes"), ("🪣", "Mop"), ("🚽", "Clean the bathroom"), ("🪟", "Wash windows"), ("🛋️", "Tidy the living room"), ("📦", "Put things away"), ("🚮", "Pick up trash"), ("♻️", "Recycling"), ("📬", "Get the mail"), ("🐕", "Walk the dog"), ("🐹", "Feed the hamster"), ("🐔", "Feed the chickens"), ("🌱", "Weed the garden"), ("🍂", "Rake leaves"), ("❄️", "Shovel snow"), ("🚲", "Put bike away"), ("💡", "Turn off lights"), ("📵", "Screens off"), ("🏃", "Exercise"), ("⚽", "Practice sports"), ("🙏", "Say prayers"), ("😴", "Quiet time"), ("🤝", "Help someone"), ("💬", "Use kind words"), ("👂", "Listen the first time"),
 ]
 let rewardPics: [(String, String)] = [
     ("📖", "Extra story time"), ("🍦", "Ice cream trip"), ("🎬", "Pick the movie"), ("🛝", "Trip to the park"),
@@ -21,7 +22,8 @@ let rewardPics: [(String, String)] = [
     ("🎨", "Craft time"), ("🏊", "Swimming"), ("🎁", "Small toy"), ("🍿", "Movie night"), ("🚲", "Bike ride"),
     ("🧩", "Puzzle with a grown-up"), ("⛺", "Living room campout"), ("🦕", "Museum trip"), ("🍩", "Donut breakfast"), ("✈️", "Visit Granddad's airplane"),
 ]
-let avatars = ["🦊", "🐻", "🐼", "🐯", "🦁", "🐸", "🐵", "🐰", "🦄", "🐲", "🐙", "🦖", "🐧", "🦋", "🐝", "🐬", "🦉", "🐢"]
+let avatars = ["🦊", "🐻", "🐼", "🐯", "🦁", "🐸", "🐵", "🐰", "🦄", "🐲", "🐙", "🦖", "🐧", "🦋", "🐝", "🐬", "🦉", "🐢",
+    "🐶", "🐱", "🐭", "🐹", "🐨", "🐮", "🐷", "🐔", "🦆", "🦅", "🐺", "🐴", "🦓", "🦒", "🐘", "🦛", "🦘", "🐿️", "🦔", "🦦", "🦥", "🐳", "🦈", "🐊", "🦎", "🐍", "🦜", "🦩", "🐞", "🦀", "🐠", "🦕", "🚀", "🚂", "🚗", "✈️", "⚽", "🏀", "⚾", "🎸", "🎨", "🌈", "⭐", "🌻", "🌙", "🍎", "🍕", "🤖", "👑", "🦸"]
 let kidColors = ["#FF8A3D", "#3DA5FF", "#34C47C", "#B36BFF", "#FF5C8A", "#F2B800", "#20B8B0", "#8A6CFF"]
 
 /// Money mode: every star becomes one coin of the family's chosen kind. d = size in millimeters, to draw coins to scale.
@@ -77,6 +79,14 @@ let keepLog = 500
 func newId(_ prefix: String) -> String { prefix + UUID().uuidString.replacingOccurrences(of: "-", with: "").prefix(12).lowercased() }
 
 func starWord(_ n: Int) -> String { "\(n) " + (abs(n) == 1 ? "star" : "stars") }
+/// The last emoji in what someone typed (nil if there is none), so any emoji on the keyboard can be a picture.
+func pickEmoji(_ text: String) -> String? {
+    for ch in text.reversed() {
+        if ch.unicodeScalars.contains(where: { $0.properties.isEmojiPresentation || ($0.properties.isEmoji && $0.value > 0xFF) }) { return String(ch) }
+    }
+    return nil
+}
+
 func validPin(_ p: String) -> Bool { p.count == 4 && p.allSatisfy { $0.isASCII && $0.isNumber } }
 
 // MARK: - Days
@@ -146,9 +156,11 @@ struct Chore: Codable, Identifiable, Equatable {
     /// A special chore only shows between these days ("YYYY-MM-DD", or "" for no limit).
     var from: String = ""
     var until: String = ""
+    /// Only needs doing once a day: the first kid to do it gets it, then it leaves the other kids' lists.
+    var once: Bool = false
 
-    init(id: String = newId("c"), pic: String, name: String, stars: Int = 1, days: [Int] = allDays, kids: [String] = [], from: String = "", until: String = "") {
-        self.id = id; self.pic = pic; self.name = name; self.stars = stars; self.days = days; self.kids = kids; self.from = from; self.until = until
+    init(id: String = newId("c"), pic: String, name: String, stars: Int = 1, days: [Int] = allDays, kids: [String] = [], from: String = "", until: String = "", once: Bool = false) {
+        self.id = id; self.pic = pic; self.name = name; self.stars = stars; self.days = days; self.kids = kids; self.from = from; self.until = until; self.once = once
     }
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -162,6 +174,7 @@ struct Chore: Codable, Identifiable, Equatable {
         let f = (try? c.decode(String.self, forKey: .from)) ?? "", u = (try? c.decode(String.self, forKey: .until)) ?? ""
         from = validDay(f) ? f : ""
         until = validDay(u) ? u : ""
+        once = (try? c.decode(Bool.self, forKey: .once)) ?? false
     }
 }
 
@@ -349,6 +362,8 @@ struct AppData: Codable, Equatable {
     var setupDone = false
     /// Rewards a kid asked for from their own device, waiting for a grown-up's yes or no.
     var requests: [RewardRequest] = []
+    /// Only on a kid's own device: once-a-day chores a kid who isn't on this device already did, by day.
+    var taken: [String: [String]] = [:]
 
     init() {}
 
@@ -379,6 +394,7 @@ struct AppData: Codable, Equatable {
         settings = (try? c.decode(Settings.self, forKey: .settings)) ?? Settings()
         setupDone = (try? c.decode(Bool.self, forKey: .setupDone)) ?? false
         requests = (try? c.decode([RewardRequest].self, forKey: .requests)) ?? []
+        taken = (try? c.decode([String: [String]].self, forKey: .taken)) ?? [:]
         // Saves from before version 2 had the grown-up check off unless someone turned it on.
         // Switch it on once; a grown-up can still turn it off in Settings.
         if version < 2 { settings.needsApproval = true; version = 2 }
@@ -456,8 +472,20 @@ struct AppData: Codable, Equatable {
         ChoreStatus(rawValue: done[dayKey(date)]?[kidId]?[choreId] ?? "") ?? .todo
     }
 
+    /// For a once-a-day chore: the kid who has done it (or is waiting for a grown-up's OK) that day.
+    func takenBy(_ chore: Chore, _ date: Date) -> String? {
+        guard chore.once, let day = done[dayKey(date)] else { return nil }
+        return kids.first { day[$0.id]?[chore.id] != nil }?.id
+    }
+    func takenByOther(_ chore: Chore, _ date: Date, _ kidId: String) -> Bool {
+        guard chore.once else { return false }
+        if taken[dayKey(date)]?.contains(chore.id) == true { return true }
+        if let t = takenBy(chore, date) { return t != kidId }
+        return false
+    }
+
     func choresFor(_ kidId: String, _ date: Date) -> [ChoreItem] {
-        chores.filter { AppData.isDue($0, date, kidId) }.map { ChoreItem(chore: $0, status: status(kidId, $0.id, date)) }
+        chores.filter { AppData.isDue($0, date, kidId) && !takenByOther($0, date, kidId) }.map { ChoreItem(chore: $0, status: status(kidId, $0.id, date)) }
     }
 
     func progress(_ kidId: String, _ date: Date) -> (finished: Int, total: Int, allDone: Bool) {
@@ -484,6 +512,7 @@ struct AppData: Codable, Equatable {
     @discardableResult
     mutating func markDone(_ kidId: String, _ choreId: String, _ date: Date, now: Date = Date()) -> Int {
         guard let ki = kidIndex(kidId), let c = chore(choreId), status(kidId, choreId, date) == .todo else { return 0 }
+        if takenByOther(c, date, kidId) { return 0 } // a once-a-day chore another kid already did
         if settings.needsApproval { setStatus(kidId, choreId, date, .waiting); return 0 }
         setStatus(kidId, choreId, date, .done)
         return payChore(ki, c, date, now: now)
@@ -559,7 +588,7 @@ struct AppData: Codable, Equatable {
         let todayKey = dayKey(today)
         let rows: [WeekRow] = chores.filter { $0.kids.isEmpty || $0.kids.contains(kidId) }.map { c in
             WeekRow(chore: c, cells: dates.enumerated().map { i, d -> WeekCell in
-                if !AppData.isDue(c, d, kidId) { return .off }
+                if !AppData.isDue(c, d, kidId) || takenByOther(c, d, kidId) { return .off }
                 switch status(kidId, c.id, d) {
                 case .done: return .done
                 case .waiting: return .waiting
@@ -577,6 +606,7 @@ struct AppData: Codable, Equatable {
     mutating func prune(_ today: Date) {
         let cutoff = dayKey(addDays(today, -keepDays))
         let ids = Set(kids.map(\.id))
+        for k in taken.keys where k < cutoff { taken[k] = nil }
         for k in done.keys {
             if k < cutoff { done[k] = nil; continue }
             done[k] = done[k]?.filter { ids.contains($0.key) }
