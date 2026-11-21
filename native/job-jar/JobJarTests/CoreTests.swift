@@ -312,6 +312,53 @@ final class CoreTests: XCTestCase {
         XCTAssertEqual(back.chore("tr")?.once, true); XCTAssertEqual(back.chores[0].once, false)
     }
 
+    func testPayingAChoreMoreThanOnce() throws {
+        let thu = day(2026, 11, 5), fri = addDays(thu, 1)
+        var f = AppData.starter()
+        f.kids = [Kid(id: "a", name: "Ava", avatar: "🦊", color: "#f00")]
+        let goal = Chore(id: "g", pic: "⚽", name: "Score a goal", stars: 5)
+        f.chores.append(goal)
+        XCTAssertTrue(f.settings.needsApproval)
+        f.markDone("a", "g", thu, now: thu)
+        XCTAssertEqual(f.approve("a", "g", "2026-11-05", now: thu, count: 3), 15, "3 goals pay 3 times")
+        XCTAssertEqual(f.kid("a")?.stars, 15)
+        XCTAssertEqual(f.count("a", "g", thu), 3)
+        XCTAssertEqual(f.log[0].text, "Score a goal ×3"); XCTAssertEqual(f.log[0].delta, 15)
+        XCTAssertEqual(f.doneList(thu).map { "\($0.kidId) \($0.chore.id) \($0.count)" }, ["a g 3"])
+        // one more goal later the same day
+        XCTAssertEqual(f.addMore("a", "g", "2026-11-05", 1, now: thu), 5)
+        XCTAssertEqual(f.kid("a")?.stars, 20); XCTAssertEqual(f.count("a", "g", thu), 4)
+        XCTAssertEqual(f.log[0].text, "Score a goal (1 more)")
+        XCTAssertEqual(f.weekChart("a", thu).earned[4], 20)
+        // there is a limit, and a chore that isn't done can't be paid extra
+        XCTAssertEqual(f.addMore("a", "g", "2026-11-05", 99, now: thu), 5 * (maxCount - 4))
+        XCTAssertEqual(f.addMore("a", "g", "2026-11-05", 1, now: thu), 0)
+        XCTAssertEqual(f.addMore("a", f.chores[0].id, "2026-11-05", 1, now: thu), 0)
+        // the count is kept in a backup and on the kid's own device; "Not done yet" takes all of it back
+        let back = try JSONDecoder().decode(AppData.self, from: JSONEncoder().encode(f))
+        XCTAssertEqual(back.count("a", "g", thu), maxCount)
+        XCTAssertEqual(f.slice(for: ["a"]).count("a", "g", thu), maxCount)
+        XCTAssertEqual(f.undo("a", "g", thu), 5 * maxCount)
+        XCTAssertEqual(f.kid("a")?.stars, 0); XCTAssertEqual(f.count("a", "g", thu), 1)
+        // an ordinary OK still pays once; a silly count is tidied
+        f.markDone("a", "g", thu, now: thu)
+        XCTAssertEqual(f.approve("a", "g", "2026-11-05", now: thu), 5)
+        f.markDone("a", "g", fri, now: fri)
+        XCTAssertEqual(f.approve("a", "g", "2026-11-06", now: fri, count: 500), 5 * maxCount)
+        // on a special day and with a match, the multiple applies to the doubled pay and the match follows
+        var h = AppData.starter()
+        h.kids = [Kid(id: "a", name: "Ava", avatar: "🦊", color: "#f00")]
+        h.chores.append(goal)
+        h.specials.append(SpecialDay(id: "s", name: "Birthday", date: "2026-11-05", yearly: false, times: 2))
+        h.matches.append(MatchOffer(id: "m", who: "Grandma", percent: 50))
+        h.markDone("a", "g", thu, now: thu)
+        XCTAssertEqual(h.approve("a", "g", "2026-11-05", now: thu, count: 2), 20, "5 doubled, twice")
+        XCTAssertEqual(h.kid("a")?.stars, 30, "and Grandma adds half of 20")
+        let odd = try JSONDecoder().decode(AppData.self, from: Data(#"{"counts":{"2026-11-05":{"a":{"g":99,"x":1}},"junk":{"a":{"g":3}}}}"#.utf8))
+        XCTAssertEqual(odd.counts["2026-11-05"]?["a"]?["g"], maxCount)
+        XCTAssertNil(odd.counts["2026-11-05"]?["a"]?["x"]); XCTAssertNil(odd.counts["junk"])
+    }
+
     func testAnyEmoji() {
         XCTAssertEqual(pickEmoji("🦄"), "🦄"); XCTAssertEqual(pickEmoji("  🚀 "), "🚀")
         XCTAssertEqual(pickEmoji("🐶🐱"), "🐱", "the last one typed wins")

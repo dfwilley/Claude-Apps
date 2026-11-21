@@ -300,6 +300,50 @@ assert.equal(J.normalize({ kids: [{ name: "Pat", photo: "http://example.com/x.pn
   assert.equal(back.chores.find((c) => c.id === "tr").once, true); assert.equal(back.chores[0].once, false);
 }
 
+// ---- A grown-up pays a chore more than once (three goals scored, or a job done extra well)
+{
+  const f = J.defaultState();
+  f.kids.push({ id: "a", name: "Ava", avatar: "🦊", color: "#f00", stars: 0 });
+  const goal = { id: "g", pic: "⚽", name: "Score a goal", stars: 5, days: J.ALL_DAYS.slice(), kids: [], from: "", until: "", once: false };
+  f.chores.push(goal);
+  assert.equal(f.settings.needsApproval, true);
+  J.markDone(f, "a", "g", thu, thu);
+  assert.equal(J.approve(f, "a", "g", "2026-11-05", thu, 3), 15, "3 goals pay 3 times");
+  assert.equal(J.kidById(f, "a").stars, 15);
+  assert.equal(J.countOf(f, "a", "g", thu), 3);
+  assert.equal(f.log[0].text, "Score a goal ×3"); assert.equal(f.log[0].delta, 15);
+  assert.deepEqual(J.doneList(f, thu).map((d) => [d.kidId, d.chore.id, d.count]), [["a", "g", 3]]);
+  // one more goal later the same day
+  assert.equal(J.addMore(f, "a", "g", "2026-11-05", 1, thu), 5);
+  assert.equal(J.kidById(f, "a").stars, 20); assert.equal(J.countOf(f, "a", "g", thu), 4);
+  assert.equal(f.log[0].text, "Score a goal (1 more)");
+  assert.equal(J.weekChart(f, "a", thu).earned[4], 20);
+  // there is a limit, and a chore that isn't done can't be paid extra
+  assert.equal(J.addMore(f, "a", "g", "2026-11-05", 99, thu), 5 * (J.MAX_COUNT - 4));
+  assert.equal(J.addMore(f, "a", "g", "2026-11-05", 1, thu), 0);
+  assert.equal(J.addMore(f, "a", f.chores[0].id, "2026-11-05", 1, thu), 0);
+  // the count is kept when saved, and "Not done yet" takes all of it back
+  const back = J.normalize(JSON.parse(JSON.stringify(f)));
+  assert.equal(J.countOf(back, "a", "g", thu), J.MAX_COUNT);
+  assert.equal(J.undo(f, "a", "g", thu), 5 * J.MAX_COUNT);
+  assert.equal(J.kidById(f, "a").stars, 0); assert.equal(J.countOf(f, "a", "g", thu), 1);
+  // an ordinary OK still pays once; a silly count is tidied
+  J.markDone(f, "a", "g", thu, thu);
+  assert.equal(J.approve(f, "a", "g", "2026-11-05", thu), 5);
+  J.markDone(f, "a", "g", fri, fri);
+  assert.equal(J.approve(f, "a", "g", "2026-11-06", fri, 500), 5 * J.MAX_COUNT);
+  // on a special day and with a match, the multiple applies to the doubled pay and the match follows
+  const h = J.defaultState();
+  h.kids.push({ id: "a", name: "Ava", avatar: "🦊", color: "#f00", stars: 0 });
+  h.chores.push(goal);
+  h.specials.push({ id: "s", pic: "🎂", name: "Birthday", date: "2026-11-05", yearly: false, times: 2, kids: [] });
+  h.matches.push({ id: "m", pic: "👵", who: "Grandma", percent: 50, kids: [], until: "", cap: 0, earned: {}, given: {} });
+  J.markDone(h, "a", "g", thu, thu);
+  assert.equal(J.approve(h, "a", "g", "2026-11-05", thu, 2), 20, "5 doubled, twice");
+  assert.equal(J.kidById(h, "a").stars, 30, "and Grandma adds half of 20");
+  assert.equal(J.normalize({ counts: { "2026-11-05": { a: { g: 99, x: 1 } }, junk: { a: { g: 3 } } } }).counts["2026-11-05"].a.g, J.MAX_COUNT);
+}
+
 // ---- Any emoji from the keyboard can be a picture
 assert.equal(J.pickEmoji("🦄"), "🦄"); assert.equal(J.pickEmoji("  🚀 "), "🚀");
 assert.equal(J.pickEmoji("🐶🐱"), "🐱", "the last one typed wins");

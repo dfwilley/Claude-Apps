@@ -41,6 +41,7 @@
   };
   const COIN_KEYS = Object.keys(COINS);
   const MAX_PAY = 20; // most stars or coins one chore can earn
+  const MAX_COUNT = 10; // a grown-up can pay a chore up to this many times over (3 goals = 3 times the pay)
   const MAX_TIMES = 3; // a special day can double or triple what chores pay
   const MATCH_PERCENTS = [25, 50, 100, 200];
   const COLORS = ["#FF8A3D", "#3DA5FF", "#34C47C", "#B36BFF", "#FF5C8A", "#F2B800", "#20B8B0", "#8A6CFF"];
@@ -80,6 +81,7 @@
       ],
       specials: [], // special days: { id, pic, name, date: "YYYY-MM-DD", yearly, times: 2 | 3, kids: [] }
       matches: [], // someone matching what kids earn: { id, pic, who, percent, kids: [], until, cap, earned: { kidId: n }, given: { kidId: n } }
+      counts: {}, // chores a grown-up paid more than once: { "YYYY-MM-DD": { kidId: { choreId: 3 } } }
       done: {}, // { "YYYY-MM-DD": { kidId: { choreId: "done" | "waiting" } } }
       log: [], // newest first: { t, kid, kind, text, pic, delta }
       settings: { pin: "", needsApproval: true, sound: true, speak: true, money: false, coin: "nickel" },
@@ -127,6 +129,15 @@
       id: r.id || newId("r"), pic: r.pic || "🎁", name: String(r.name || "Reward"), cost: Math.max(1, Math.round(Number(r.cost) || 1)),
     }));
     out.done = s.done && typeof s.done === "object" ? s.done : {};
+    out.counts = {};
+    if (s.counts && typeof s.counts === "object") Object.keys(s.counts).forEach((day) => {
+      const kids = s.counts[day];
+      if (!validDay(day) || !kids || typeof kids !== "object") return;
+      Object.keys(kids).forEach((kid) => {
+        const c = counts(kids[kid]);
+        Object.keys(c).forEach((id) => { if (c[id] > 1) ((out.counts[day] = out.counts[day] || {})[kid] = out.counts[day][kid] || {})[id] = Math.min(MAX_COUNT, c[id]); });
+      });
+    });
     out.log = Array.isArray(s.log) ? s.log : [];
     out.setupDone = !!s.setupDone;
     return out;
@@ -199,13 +210,57 @@
     return total;
   }
 
-  /** Puts a finished chore's pay in the jar, then any matching. Returns the chore's own pay. */
-  function payChore(s, kid, chore, date, now) {
-    const x = specialFor(s, kid.id, date), pay = payFor(s, kid.id, chore, date), day = dayKey(date);
+  /** How many times over a grown-up paid this chore that day (1 unless they chose more). */
+  function countOf(s, kidId, choreId, date) {
+    const d = (s.counts || {})[dayKey(date)];
+    return (d && d[kidId] && d[kidId][choreId]) || 1;
+  }
+  function setCount(s, kidId, choreId, date, n) {
+    const k = dayKey(date);
+    s.counts = s.counts || {};
+    if (n > 1) ((s.counts[k] = s.counts[k] || {})[kidId] = s.counts[k][kidId] || {})[choreId] = n;
+    else if (s.counts[k] && s.counts[k][kidId]) delete s.counts[k][kidId][choreId];
+  }
+
+  /**
+   * Puts a finished chore's pay in the jar, then any matching. `count` pays it that many
+   * times over (3 goals scored = 3 times the pay). Returns what the chore paid.
+   */
+  function payChore(s, kid, chore, date, now, count) {
+    const n = clamp(Math.round(Number(count) || 1), 1, MAX_COUNT);
+    const x = specialFor(s, kid.id, date), pay = payFor(s, kid.id, chore, date) * n, day = dayKey(date);
     kid.stars += pay;
-    addLog(s, { t: (now || new Date()).toISOString(), kid: kid.id, kind: "chore", text: chore.name + (x ? " (×" + x.times + " " + x.name + ")" : ""), pic: chore.pic, delta: pay, day });
+    setCount(s, kid.id, chore.id, date, n);
+    addLog(s, { t: (now || new Date()).toISOString(), kid: kid.id, kind: "chore", text: chore.name + (n > 1 ? " ×" + n : "") + (x ? " (×" + x.times + " " + x.name + ")" : ""), pic: chore.pic, delta: pay, day });
     settleMatches(s, kid.id, day, pay, now);
     return pay;
+  }
+
+  /**
+   * Grown-up pays a chore that is already done `more` more times (another goal, or extra credit).
+   * Returns what was added (0 if the chore isn't done or the limit is reached).
+   */
+  function addMore(s, kidId, choreId, day, more, now) {
+    const date = parseDay(day), kid = kidById(s, kidId), chore = choreById(s, choreId);
+    if (!kid || !chore || statusOf(s, kidId, choreId, date) !== "done") return 0;
+    const had = countOf(s, kidId, choreId, date);
+    const n = clamp(had + Math.round(Number(more) || 1), 1, MAX_COUNT), added = n - had;
+    if (added <= 0) return 0;
+    const pay = payFor(s, kidId, chore, date) * added;
+    kid.stars += pay;
+    setCount(s, kidId, choreId, date, n);
+    addLog(s, { t: (now || new Date()).toISOString(), kid: kidId, kind: "chore", text: chore.name + " (" + added + " more)", pic: chore.pic, delta: pay, day });
+    settleMatches(s, kidId, day, pay, now);
+    return pay;
+  }
+
+  /** Chores a kid has finished and been paid for on this day: [{ kidId, chore, count }]. */
+  function doneList(s, date) {
+    const day = s.done[dayKey(date)] || {}, out = [];
+    s.kids.forEach((kid) => s.chores.forEach((chore) => {
+      if (day[kid.id] && day[kid.id][chore.id] === "done") out.push({ kidId: kid.id, chore, count: countOf(s, kid.id, chore.id, date) });
+    }));
+    return out;
   }
 
   function statusOf(s, kidId, choreId, date) {
@@ -269,7 +324,8 @@
     if (!kid || !st) return 0;
     setStatus(s, kidId, choreId, date, "");
     if (st !== "done" || !chore) return 0;
-    const back = Math.min(kid.stars, payFor(s, kidId, chore, date));
+    const back = Math.min(kid.stars, payFor(s, kidId, chore, date) * countOf(s, kidId, choreId, date));
+    setCount(s, kidId, choreId, date, 1);
     kid.stars -= back;
     addLog(s, { t: (now || new Date()).toISOString(), kid: kidId, kind: "undo", text: chore.name + " (taken off)", pic: chore.pic, delta: -back, day: dayKey(date) });
     settleMatches(s, kidId, dayKey(date), -back, now);
@@ -290,11 +346,12 @@
     return out;
   }
 
-  function approve(s, kidId, choreId, day, now) {
+  /** Grown-up OKs a waiting chore. `count` pays it that many times over (default once). */
+  function approve(s, kidId, choreId, day, now, count) {
     const date = parseDay(day), kid = kidById(s, kidId), chore = choreById(s, choreId);
     if (!kid || !chore || statusOf(s, kidId, choreId, date) !== "waiting") return 0;
     setStatus(s, kidId, choreId, date, "done");
-    return payChore(s, kid, chore, date, now); // a special day counts by the day the chore was done, not the day it was OK'd
+    return payChore(s, kid, chore, date, now, count); // a special day counts by the day the chore was done, not the day it was OK'd
   }
 
   function reject(s, kidId, choreId, day) {
@@ -355,6 +412,7 @@
   function prune(s, today) {
     const cutoff = dayKey(addDays(today, -KEEP_DAYS));
     Object.keys(s.done).forEach((k) => { if (k < cutoff) delete s.done[k]; });
+    Object.keys(s.counts || {}).forEach((k) => { if (k < cutoff) delete s.counts[k]; });
     const kidIds = new Set(s.kids.map((k) => k.id));
     Object.keys(s.done).forEach((day) => Object.keys(s.done[day]).forEach((kid) => { if (!kidIds.has(kid)) delete s.done[day][kid]; }));
     s.chores.forEach((c) => { c.kids = c.kids.filter((id) => kidIds.has(id)); });
@@ -411,7 +469,7 @@
 
   return {
     ALL_DAYS, DAY_LETTERS, DAY_NAMES, CHORE_PICS, REWARD_PICS, AVATARS, COLORS, KEEP_DAYS, COINS, COIN_KEYS, MAX_PAY, MAX_TIMES, MATCH_PERCENTS,
-    takenBy, takenByOther, pickEmoji, validDay, specialFor, timesFor, payFor, matchesFor, matchActive, settleMatches,
+    MAX_COUNT, countOf, addMore, doneList, takenBy, takenByOther, pickEmoji, validDay, specialFor, timesFor, payFor, matchesFor, matchActive, settleMatches,
     validPhoto, coinOf, money, moneyWords, amountText, amountShort, amountSpeech, coinCount,
     newId, dayKey, parseDay, addDays, weekStart, defaultState, normalize, kidById, choreById, rewardById,
     isDue, statusOf, choresFor, progress, markDone, undo, waitingList, approve, reject,

@@ -310,20 +310,28 @@
   }
 
   function renderGrownup() {
-    const waiting = J.waitingList(S);
+    const waiting = J.waitingList(S), paid = J.doneList(S, today);
     const tabs = [["kids", "👧 Kids"], ["chores", "🧹 Chores"], ["rewards", "🎁 Rewards"], ["specials", "🎉 Specials"], ["history", "📜 History"], ["settings", "⚙️ Settings"]];
-    if (S.settings.needsApproval || waiting.length) tabs.unshift(["check", "✅ Check" + (waiting.length ? ` <span class="badge">${waiting.length}</span>` : "")]);
+    if (S.settings.needsApproval || waiting.length || paid.length) tabs.unshift(["check", "✅ Check" + (waiting.length ? ` <span class="badge">${waiting.length}</span>` : "")]);
     if (!tabs.some((t) => t[0] === view.guTab)) view.guTab = "kids";
     let body = "";
     const t = view.guTab;
     if (t === "check") {
+      const mult = view.mult || (view.mult = {});
       body = waiting.length ? `<div class="list">${waiting.map((w) => {
-        const k = J.kidById(S, w.kidId), pay = J.payFor(S, w.kidId, w.chore, J.parseDay(w.day));
-        return `<div class="row"><span class="pic">${w.chore.pic}</span><div class="main"><b>${esc(w.chore.name)}</b><small>${avatarHTML(k, 20)} ${esc(k.name)} · ${w.day === J.dayKey(today) ? "today" : esc(J.parseDay(w.day).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" }))}</small></div>
-          <button class="btn" data-act="reject" data-kid="${w.kidId}" data-chore="${w.chore.id}" data-day="${w.day}" aria-label="Not done">✗</button>
-          <button class="btn good" data-act="approve" data-kid="${w.kidId}" data-chore="${w.chore.id}" data-day="${w.day}">✓ ${isMoney() || pay > 5 ? esc(amtShort(pay)) : stars(pay)}</button></div>`;
-      }).join("")}</div><button class="add" data-act="approve-all">✓ OK all of them</button>` : `<div class="empty"><span class="big">👍</span>Nothing waiting to be checked.</div>`;
-      body += `<p class="note">“Grown-up checks chores first” is ${S.settings.needsApproval ? "on" : "off"} (Settings). When it's on, a chore turns yellow ⏳ until you OK it here, then the stars go in the jar.</p>`;
+        const k = J.kidById(S, w.kidId), key = w.day + "|" + w.kidId + "|" + w.chore.id, n = mult[key] || 1;
+        const pay = J.payFor(S, w.kidId, w.chore, J.parseDay(w.day)) * n;
+        return `<div class="row check-row"><span class="pic">${w.chore.pic}</span><div class="main"><b>${esc(w.chore.name)}</b><small>${avatarHTML(k, 20)} ${esc(k.name)} · ${w.day === J.dayKey(today) ? "today" : esc(J.parseDay(w.day).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" }))}</small></div>
+          <div class="check-btns"><button class="btn" data-act="reject" data-kid="${w.kidId}" data-chore="${w.chore.id}" data-day="${w.day}" aria-label="Not done">✗</button>
+          <span class="times" role="group" aria-label="How many times to pay it"><button data-act="mult" data-key="${key}" data-n="-1" aria-label="One fewer"${n <= 1 ? " disabled" : ""}>−</button><output>×${n}</output><button data-act="mult" data-key="${key}" data-n="1" aria-label="One more"${n >= J.MAX_COUNT ? " disabled" : ""}>+</button></span>
+          <button class="btn good" data-act="approve" data-kid="${w.kidId}" data-chore="${w.chore.id}" data-day="${w.day}">✓ ${isMoney() || pay > 5 ? esc(amtShort(pay)) : stars(pay)}</button></div></div>`;
+      }).join("")}</div>${waiting.length > 1 ? `<button class="add" data-act="approve-all">✓ OK all of them</button>` : ""}` : `<div class="empty"><span class="big">👍</span>Nothing waiting to be checked.</div>`;
+      body += `<p class="note">“Grown-up checks chores first” is ${S.settings.needsApproval ? "on" : "off"} (Settings). When it's on, a chore turns yellow ⏳ until you OK it here, then the stars go in the jar. Use − and + to pay a chore more than once: ×3 for three goals scored, or ×2 for a job done extra well.</p>`;
+      if (paid.length) body += `<div class="section">Paid today</div><div class="list">${paid.map((d) => {
+        const k = J.kidById(S, d.kidId), one = J.payFor(S, d.kidId, d.chore, today);
+        return `<div class="row"><span class="pic">${d.chore.pic}</span><div class="main"><b>${esc(d.chore.name)}${d.count > 1 ? " ×" + d.count : ""}</b><small>${avatarHTML(k, 20)} ${esc(k.name)} · ${esc(amt(one * d.count))}</small></div>
+          ${d.count < J.MAX_COUNT ? `<button class="btn" data-act="more" data-kid="${d.kidId}" data-chore="${d.chore.id}">+ ${esc(amtShort(one))} more</button>` : ""}</div>`;
+      }).join("")}</div><p class="note">Did it again, or did it extra well? Tap “more” to pay the chore one more time.</p>`;
     } else if (t === "kids") {
       body = (S.kids.length ? `<div class="list">${S.kids.map((k) => `<button class="row" data-act="edit-kid" data-id="${k.id}"><span class="pic">${avatarHTML(k, 40)}</span>
           <div class="main"><b style="color:${esc(k.color)}">${esc(k.name)}</b><small>${J.choresFor(S, k.id, today).length} chores today</small></div><span class="end">${esc(amtShort(k.stars))} ›</span></button>`).join("")}</div>`
@@ -559,7 +567,7 @@
     start() { pinPad("Pick a 4-number grown-up PIN", "set", (pin) => { S.settings.pin = pin; finishSetup(); }); },
     "start-nopin"() { finishSetup(); },
     home() { view.screen = "home"; render(); },
-    grownups() { grownUp("Grown-ups only", () => { view.screen = "grownup"; if (J.waitingList(S).length) view.guTab = "check"; render(); }); },
+    grownups() { grownUp("Grown-ups only", () => { view.screen = "grownup"; view.mult = {}; if (J.waitingList(S).length) view.guTab = "check"; render(); }); },
     "pick-kid"(d) { view.screen = "kid"; view.kidId = d.id; view.kidTab = "today"; render(); const k = kid(); if (k) say("Hi " + k.name + "!"); },
     "kid-tab"(d) { view.kidTab = d.tab; render(); window.scrollTo(0, 0); },
     say(d) { say(d.text); },
@@ -607,9 +615,11 @@
     },
     "gu-tab"(d) { view.guTab = d.tab; render(); },
     "hist-kid"(d) { view.histKid = d.id; render(); },
-    approve(d) { J.approve(S, d.kid, d.chore, d.day); save(); render(); ding(); },
+    mult(d) { const m = view.mult || (view.mult = {}); m[d.key] = Math.max(1, Math.min(J.MAX_COUNT, (m[d.key] || 1) + Number(d.n))); render(); },
+    approve(d) { const key = d.day + "|" + d.kid + "|" + d.chore; J.approve(S, d.kid, d.chore, d.day, null, (view.mult || {})[key] || 1); if (view.mult) delete view.mult[key]; save(); render(); ding(); },
+    more(d) { if (J.addMore(S, d.kid, d.chore, J.dayKey(today), 1)) { save(); render(); ding(); } },
     reject(d) { J.reject(S, d.kid, d.chore, d.day); save(); render(); },
-    "approve-all"() { J.waitingList(S).forEach((w) => J.approve(S, w.kidId, w.chore.id, w.day)); save(); render(); fanfare(); },
+    "approve-all"() { const m = view.mult || {}; J.waitingList(S).forEach((w) => J.approve(S, w.kidId, w.chore.id, w.day, null, m[w.day + "|" + w.kidId + "|" + w.chore.id] || 1)); view.mult = {}; save(); render(); fanfare(); },
     "edit-kid"(d) { editKid(d.id); },
     "edit-chore"(d) { editChore(d.id, d.special); },
     "edit-special"(d) { editSpecial(d.id); },

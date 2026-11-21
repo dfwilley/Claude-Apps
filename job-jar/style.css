@@ -249,3 +249,12 @@ h1, h2, h3 { margin: 0; }
 
 .emoji-in { margin-top: 8px; }
 .chore .ribbon.first { background: #D9F2FF; color: #0A3558; }
+
+/* Paying a chore more than once */
+.check-row { flex-wrap: wrap; }
+.check-btns { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+.times { display: inline-flex; align-items: center; gap: 2px; background: var(--bg); border-radius: 999px; padding: 3px; }
+.times button { width: 36px; height: 36px; border-radius: 50%; background: var(--card); font-size: 22px; font-weight: 900; line-height: 1; }
+.times button:disabled { opacity: .35; }
+.times output { min-width: 34px; text-align: center; font-weight: 900; }
+@media (max-width: 640px) { .check-btns { flex: 1 0 100%; justify-content: flex-end; margin-top: 6px; } }

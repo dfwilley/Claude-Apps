@@ -19,6 +19,7 @@ struct GrownUpView: View {
     @State private var editChore: ChoreDraft?
     @State private var editReward: RewardDraft?
     @State private var editSpecial: SpecialDraft?
+    @State private var mult: [String: Int] = [:]   // Check tab: how many times over to pay each waiting chore
     @State private var editMatch: MatchDraft?
     @State private var historyKid = ""
     @State private var showRestore = false
@@ -27,7 +28,7 @@ struct GrownUpView: View {
     @State private var alertText: String?
 
     private var tabs: [GUTab] {
-        let showCheck = store.data.settings.needsApproval || !store.data.waitingList().isEmpty || !store.data.requests.isEmpty
+        let showCheck = store.data.settings.needsApproval || !store.data.waitingList().isEmpty || !store.data.requests.isEmpty || !store.data.doneList(store.today).isEmpty
         return GUTab.allCases.filter { $0 != .check || showCheck }
     }
 
@@ -153,28 +154,66 @@ struct GrownUpView: View {
             }
             ForEach(waiting) { w in
                 let k = store.data.kid(w.kidId)
-                HStack(spacing: 12) {
-                    Text(w.chore.pic).font(.system(size: 34))
-                    VStack(alignment: .leading) {
-                        Text(w.chore.name).font(.headline)
-                        Text("\(k?.photo.isEmpty == false ? "" : k?.avatar ?? "") \(k?.name ?? "") · \(w.day == dayKey(store.today) ? "today" : longDay(w.day))").font(.subheadline).foregroundStyle(.secondary)
+                let n = mult[w.id] ?? 1
+                let pay = store.data.pay(w.kidId, w.chore, parseDay(w.day)) * n
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(spacing: 12) {
+                        Text(w.chore.pic).font(.system(size: 34))
+                        VStack(alignment: .leading) {
+                            Text(w.chore.name).font(.headline)
+                            Text("\(k?.photo.isEmpty == false ? "" : k?.avatar ?? "") \(k?.name ?? "") · \(w.day == dayKey(store.today) ? "today" : longDay(w.day))").font(.subheadline).foregroundStyle(.secondary)
+                        }
                     }
-                    Spacer()
-                    Button { store.data.reject(w.kidId, w.chore.id, w.day) } label: { Image(systemName: "xmark").font(.headline).padding(10) }
-                        .buttonStyle(.bordered).accessibilityLabel("Not done")
-                    let pay = store.data.pay(w.kidId, w.chore, parseDay(w.day))
-                    Button { store.data.approve(w.kidId, w.chore.id, w.day); store.ding() } label: { Text("✓ " + (store.data.settings.money || pay > 5 ? store.data.settings.amountShort(pay) : String(repeating: "⭐", count: pay))).font(.headline) }
-                        .buttonStyle(.borderedProminent).tint(Theme.green).accessibilityIdentifier("approve")
+                    HStack(spacing: 10) {
+                        Button { store.data.reject(w.kidId, w.chore.id, w.day); mult[w.id] = nil } label: { Image(systemName: "xmark").font(.headline).padding(6) }
+                            .buttonStyle(.bordered).accessibilityLabel("Not done")
+                        Spacer()
+                        // Pay it more than once: 3 goals scored, or a job done extra well
+                        Button { mult[w.id] = max(1, n - 1) } label: { Image(systemName: "minus").font(.headline).padding(6) }
+                            .buttonStyle(.bordered).disabled(n <= 1).accessibilityLabel("One fewer")
+                        Text("×\(n)").font(.headline.monospacedDigit()).frame(minWidth: 34).accessibilityLabel("\(n) times")
+                        Button { mult[w.id] = min(maxCount, n + 1) } label: { Image(systemName: "plus").font(.headline).padding(6) }
+                            .buttonStyle(.bordered).disabled(n >= maxCount).accessibilityLabel("One more").accessibilityIdentifier("timesPlus")
+                        Button { store.data.approve(w.kidId, w.chore.id, w.day, count: n); mult[w.id] = nil; store.ding() } label: { Text("✓ " + (store.data.settings.money || pay > 5 ? store.data.settings.amountShort(pay) : String(repeating: "⭐", count: pay))).font(.headline) }
+                            .buttonStyle(.borderedProminent).tint(Theme.green).accessibilityIdentifier("approve")
+                    }
                 }
+                .buttonStyle(.borderless)
             }
             if waiting.count > 1 {
                 Button("✓ OK all of them") {
-                    for w in store.data.waitingList() { store.data.approve(w.kidId, w.chore.id, w.day) }
+                    for w in store.data.waitingList() { store.data.approve(w.kidId, w.chore.id, w.day, count: mult[w.id] ?? 1) }
+                    mult = [:]
                     store.fanfare()
                 }.bold()
             }
         } footer: {
-            Text("“Grown-up checks chores first” is \(store.data.settings.needsApproval ? "on" : "off") (Settings). When it's on, a chore turns yellow ⏳ until you OK it here, then the stars go in the jar.")
+            Text("“Grown-up checks chores first” is \(store.data.settings.needsApproval ? "on" : "off") (Settings). When it's on, a chore turns yellow ⏳ until you OK it here, then the stars go in the jar. Use − and + to pay a chore more than once: ×3 for three goals scored, or ×2 for a job done extra well.")
+        }
+        let paid = store.data.doneList(store.today)
+        if !paid.isEmpty {
+            Section {
+                ForEach(paid) { d in
+                    let k = store.data.kid(d.kidId)
+                    let one = store.data.pay(d.kidId, d.chore, store.today)
+                    HStack(spacing: 12) {
+                        Text(d.chore.pic).font(.system(size: 34))
+                        VStack(alignment: .leading) {
+                            Text(d.chore.name + (d.count > 1 ? " ×\(d.count)" : "")).font(.headline)
+                            Text("\(k?.photo.isEmpty == false ? "" : k?.avatar ?? "") \(k?.name ?? "") · \(store.data.settings.amountText(one * d.count))").font(.subheadline).foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        if d.count < maxCount {
+                            Button {
+                                if store.data.addMore(d.kidId, d.chore.id, dayKey(store.today)) > 0 { store.ding() }
+                            } label: { Text("+ \(store.data.settings.amountShort(one)) more").font(.subheadline.bold()) }
+                                .buttonStyle(.bordered).accessibilityIdentifier("payMore")
+                        }
+                    }
+                }
+            } header: { Text("Paid today") } footer: {
+                Text("Did it again, or did it extra well? Tap “more” to pay the chore one more time.")
+            }
         }
     }
 

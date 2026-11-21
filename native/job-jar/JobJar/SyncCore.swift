@@ -131,6 +131,10 @@ extension AppData {
                 if !gone.isEmpty { d.taken[day] = gone.sorted() }
             }
         }
+        for (day, byKid) in counts {
+            let mine = byKid.filter { ids.contains($0.key) && !$0.value.isEmpty }
+            if !mine.isEmpty { d.counts[day] = mine }
+        }
         d.log = log.filter { ids.contains($0.kid) }
         d.requests = requests.filter { ids.contains($0.kid) }
         d.settings = settings
