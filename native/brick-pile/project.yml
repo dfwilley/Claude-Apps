@@ -20,14 +20,14 @@ targets:
     info:
       path: BrickPile/Info.plist
       properties:
-        CFBundleDisplayName: Brick Pile
+        CFBundleDisplayName: Brick Pile Builder
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         LSRequiresIPhoneOS: true
         UILaunchScreen:
           UIColorName: AccentColor
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
-        NSCameraUsageDescription: Brick Pile uses the camera to take a picture of your bricks so they can be counted.
+        NSCameraUsageDescription: Brick Pile Builder uses the camera to take a picture of your bricks so they can be counted.
         ITSAppUsesNonExemptEncryption: false
     settings:
       base:

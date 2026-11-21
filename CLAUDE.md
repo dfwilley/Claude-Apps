@@ -28,7 +28,7 @@ Each app is a plain web app in its own top-level folder: HTML, CSS and JavaScrip
 | `wing-rib-riddles/` | Wing Rib Riddles | none |
 | `bend-it-right/` | Bend It Right | none |
 | `fit-the-part/` | Fit the Part | none |
-| `brick-pile/` | Brick Pile | `native/brick-pile/`, web app inside a native shell (TestFlight) |
+| `brick-pile/` | Brick Pile Builder (called Brick Pile in the code and workflows) | `native/brick-pile/`, web app inside a native shell (TestFlight) |
 | `blue-book/` | Blue Book | `native/blue-book/`, web app inside a native shell (TestFlight) |
 | `hgvc-binder/` | HGVC Binder | `native/hgvc-binder/`, web app inside a native shell (TestFlight) |
 | `bin-finder/` | Bin Finder | `native/bin-finder/`, separately written in SwiftUI |
