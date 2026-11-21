@@ -47,7 +47,13 @@ h3 { font-size: 16.5px; margin: 16px 0 6px; }
 .list { padding: 2px 12px; }
 .row { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-top: 1px solid var(--edge); }
 .row:first-child { border-top: none; }
-.row .what { flex: 1; min-width: 0; }
+.row .what { flex: 1; min-width: 0; text-align: left; background: none; border: none; padding: 6px 0; text-decoration: underline dotted; text-underline-offset: 4px; }
+.edit { padding: 6px 0 12px; border-top: 1px solid var(--edge); }
+.edit:first-child { border-top: none; }
+.pair.two { grid-template-columns: 1fr 1fr; }
+.link { background: none; border: none; padding: 0; color: var(--blue); text-decoration: underline; }
+.foot { margin-top: 22px; text-align: center; }
+.pic { display: block; width: 100%; max-height: 190px; margin: 10px 0; padding: 6px; border-radius: 10px; background: #EAF3FA; border: 1px solid var(--edge); }
 .row .n { min-width: 30px; text-align: center; font-weight: 700; font-variant-numeric: tabular-nums; }
 .q { display: inline-block; width: 20px; height: 20px; line-height: 20px; border-radius: 50%; background: var(--yellow); color: #1F2430; text-align: center; font-size: 13px; }
 .step { width: 40px; height: 40px; border-radius: 10px; border: 1px solid var(--edge); background: var(--bg); font-size: 22px; line-height: 1; flex: none; padding: 0; }

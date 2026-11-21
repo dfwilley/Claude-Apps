@@ -58,6 +58,15 @@
     const items = pile.items.map((i) => (i.id === id ? Object.assign({}, i, { count: n, unsure: false }) : i)).filter((i) => i.count > 0);
     return Object.assign({}, pile, { items });
   }
+  // Say what a line really is (a new name, kind or colour). If that makes it the same as another line, the two join up.
+  function editItem(pile, id, change) {
+    const old = pile.items.find((i) => i.id === id), fixed = old && cleanItem(Object.assign({}, old, change, { unsure: false }));
+    if (!fixed) return pile;
+    const twin = pile.items.find((i) => i.id !== id && sameAs(i, fixed));
+    const items = pile.items.filter((i) => i.id !== (twin ? id : -1)).map((i) => (twin && i.id === twin.id ? Object.assign({}, i, { count: Math.min(999, i.count + fixed.count) })
+      : i.id === id ? Object.assign({ id }, fixed) : i));
+    return Object.assign({}, pile, { items });
+  }
   const total = (items) => items.reduce((n, i) => n + i.count, 0);
   function grouped(items) {
     return KINDS.map((kind) => ({ kind, title: KIND_TITLES[kind],
@@ -183,7 +192,7 @@
   }
 
   const api = { MODEL, ENDPOINT, PHOTO_EDGE, THUMB_EDGE, COLORS, COLOR_NAMES, KINDS, KIND_TITLES, WHO, LEVELS, hex, cleanName, cleanItem, emptyPile,
-    addItems, setCount, total, grouped, label, inventorySchema, inventoryPrompt, inventoryBody, ideasSchema, ideasPrompt, ideasBody,
+    addItems, setCount, editItem, total, grouped, label, inventorySchema, inventoryPrompt, inventoryBody, ideasSchema, ideasPrompt, ideasBody,
     checkIdea, checkIdeas, looksLikeKey, explain, ask, cost, fitSize };
   root.BrickPile = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;

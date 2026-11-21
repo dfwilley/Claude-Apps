@@ -11,7 +11,7 @@ struct PileView: UIViewControllerRepresentable {
 final class PileController: UIViewController, WKUIDelegate, WKNavigationDelegate {
     private var web: WKWebView!
 
-    /// A made-up pile and one made-up idea, used only by the screenshot test so there is something to look at.
+    /// A made-up pile, used only by the screenshot test so there is something to look at.
     static let samplePile = """
     localStorage.setItem('brick-pile:v1', JSON.stringify({ nextId: 6, photos: [], who: 'kid', items: [
       { id: 1, name: '2 x 4 brick', kind: 'brick', color: 'red', count: 6, unsure: false },
@@ -19,9 +19,7 @@ final class PileController: UIViewController, WKUIDelegate, WKNavigationDelegate
       { id: 3, name: '1 x 2 plate', kind: 'plate', color: 'white', count: 8, unsure: true },
       { id: 4, name: '2 x 6 plate', kind: 'plate', color: 'dark gray', count: 2, unsure: false },
       { id: 5, name: 'small wheel with tire', kind: 'wheel', color: 'black', count: 4, unsure: false }],
-      ideas: [{ name: 'Little race car', level: 'easy', about: 'A low, fast car.', pieces: 8, short: [],
-        parts: [{ name: '2 x 6 plate', color: 'dark gray', count: 2 }, { name: 'small wheel with tire', color: 'black', count: 4 }, { name: '2 x 4 brick', color: 'red', count: 2 }],
-        steps: ['Lay the two dark gray plates end to end.', 'Push the four wheels under the corners.', 'Put two red bricks on top.'] }] }));
+      ideas: [] }));
     """
 
     override func viewDidLoad() {

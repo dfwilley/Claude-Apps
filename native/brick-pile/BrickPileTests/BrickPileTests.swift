@@ -4,7 +4,7 @@ import XCTest
 final class BrickPileTests: XCTestCase {
     func testScreensAreInsideTheApp() throws {
         let dir = try XCTUnwrap(Bundle.main.url(forResource: "brick-pile", withExtension: nil))
-        for f in ["index.html", "style.css", "core.js", "app.js", "icon.svg", "icons/icon-180.png"] {
+        for f in ["index.html", "style.css", "core.js", "finder.js", "builds.js", "app.js", "icon.svg", "icons/icon-180.png"] {
             XCTAssertTrue(FileManager.default.fileExists(atPath: dir.appendingPathComponent(f).path), f)
         }
     }
