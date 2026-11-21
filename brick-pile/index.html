@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Brick Pile</title>
   <meta name="description" content="Take a picture of your loose building bricks, get a list of what you have, and get ideas for things to build with them.">
-  <!-- The only outside address this page may reach is Anthropic's, where the picture of the bricks is looked at. Everything else is blocked. -->
+  <!-- Nothing leaves the device unless you save your own Anthropic key; then the only outside address the page may reach is Anthropic's. Everything else is blocked. -->
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self' https://api.anthropic.com; img-src 'self' blob: data:; style-src 'self' 'unsafe-inline'; form-action 'none'; base-uri 'self'">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
@@ -22,6 +22,8 @@
   <main id="app"></main>
   <noscript>Brick Pile needs JavaScript turned on.</noscript>
   <script src="core.js"></script>
+  <script src="finder.js"></script>
+  <script src="builds.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
