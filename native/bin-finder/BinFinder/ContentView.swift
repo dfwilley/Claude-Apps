@@ -11,6 +11,7 @@ struct ContentView: View {
     @State private var message: String?
     @State private var listening = false
     @State private var showAbout = false
+    @State private var showAIKey = false
     /// The place chosen in the Location pull-downs ("" = all locations).
     @State private var homePlace = ""
 
@@ -53,6 +54,7 @@ struct ContentView: View {
         }
         .sheet(item: $share) { ActivityView(items: [$0.url]) }
         .sheet(isPresented: $showAbout) { AboutView() }
+        .sheet(isPresented: $showAIKey) { AIKeyView() }
         .fileImporter(isPresented: $importing, allowedContentTypes: [.json]) { result in
             do {
                 let url = try result.get()
@@ -84,6 +86,7 @@ struct ContentView: View {
                 Button { importing = true } label: { Label("Restore from a backup", systemImage: "square.and.arrow.down") }
             }
             Section {
+                Button { showAIKey = true } label: { Label("AI scanning (optional)", systemImage: "sparkles") }
                 Button { showAbout = true } label: { Label("About Bin Finder", systemImage: "info.circle") }
             }
         } label: { Image(systemName: "ellipsis.circle").font(.title3) }

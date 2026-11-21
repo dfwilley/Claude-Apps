@@ -82,6 +82,13 @@ assert.equal(S.nearestPlace("hangar › shelf 2 › Right", nested), "Hangar ›
 assert.equal(S.renamePlace("RV Rear Bay › Left", "RV Rear Bay", "RV › Rear bay"), "RV › Rear bay › Left");
 assert.equal(S.renamePlace("Garage", "RV Rear Bay", "RV › Rear bay"), "Garage");
 assert.deepEqual(S.search("shelf 2", [{ name: "Oil", code: "HS-01", location: "Hangar › Shelf 2", items: [] }])[0].reasons, ["Location: Hangar › Shelf 2"]);
+// Scanning photos for what's inside
+assert.deepEqual(S.parseScanAnswer('Here you go:\n["Brake fluid jar", "Cleco pliers", 7, "Oil"]'), ["Brake fluid jar", "Cleco pliers", "Oil"]);
+assert.deepEqual(S.parseScanAnswer("- Zip ties\n2. hose clamp\n"), ["- Zip ties", "2. hose clamp", ""]);
+assert.deepEqual(S.scanFound(["- Zip ties", "2. hose clamp", "", " zip  ties ", "10 mm socket", "Fuses", "x", "1234", '"Oil filter",', "A".repeat(61)], ["Spare fuses (ATC)", "oil"]),
+  ["Zip ties", "Hose clamp", "10 mm socket", "Oil filter"]);
+assert.equal(S.scanFound(Array.from({ length: 60 }, (_, i) => "Thing " + i), []).length, 40);
+assert(S.SCAN_PROMPT.includes("JSON array"));
 // About screen: the web version and build numbers match the iPhone app's version and the offline cache name
 {
   const fs = require("fs"), path = require("path"), read = (f) => fs.readFileSync(path.join(__dirname, "..", f), "utf8");

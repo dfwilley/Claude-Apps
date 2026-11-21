@@ -324,6 +324,42 @@ enum Route: Hashable {
     case items
 }
 
+/// Scanning photos for what's inside. Same rules as the web version (bin-finder/search.js).
+enum BinScan {
+    /// What the AI service is asked. It answers with a JSON list of short names.
+    static let prompt = "This is a photo of what is stored inside a storage bin, box, drawer or shelf. List each distinct thing you can identify. "
+        + "Use short, specific names of 1 to 5 words, the way the owner would write them on a packing list, such as \"Brake fluid jar\" or \"Cleco pliers\". "
+        + "Use brand names or printed labels when you can read them. Leave out the container itself, the background, and anything you are not reasonably sure of. "
+        + "Give at most 25 things. Answer with only a JSON array of strings and nothing else."
+
+    /// Reads the AI's answer: a JSON list if there is one, otherwise one thing per line.
+    static func parseAnswer(_ text: String) -> [String] {
+        if let a = text.firstIndex(of: "["), let z = text.lastIndex(of: "]"), a < z,
+           let list = try? JSONSerialization.jsonObject(with: Data(text[a...z].utf8)) as? [Any] {
+            return list.compactMap { $0 as? String }
+        }
+        return text.components(separatedBy: .newlines)
+    }
+
+    /// Tidies what a scan found for the checklist: no bullets, blanks or repeats, nothing already listed in the bin, capital first letter.
+    static func found(_ found: [String], items: [String]) -> [String] {
+        let have = items.map(BinSearch.normalize)
+        var seen = Set<String>(), out: [String] = []
+        for raw in found {
+            var t = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            if let r = t.range(of: #"^(?:[-•*]\s+|\d+[.)]\s+)"#, options: .regularExpression) { t.removeSubrange(r) }
+            t = t.trimmingCharacters(in: CharacterSet(charactersIn: "\"',").union(.whitespacesAndNewlines))
+            t = t.split(whereSeparator: \.isWhitespace).joined(separator: " ")
+            guard t.count >= 2, t.count <= 60, t.contains(where: \.isLetter) else { continue }
+            let k = BinSearch.normalize(t)
+            if seen.contains(k) || have.contains(where: { $0.contains(k) }) { continue }
+            seen.insert(k); out.append(t.prefix(1).uppercased() + t.dropFirst())
+            if out.count >= 40 { break }
+        }
+        return out
+    }
+}
+
 enum BinLinks {
     /// What the QR label holds. Scanning it with the iPhone Camera opens the bin in the app.
     static func url(for id: UUID) -> URL { URL(string: "binfinder://bin/\(id.uuidString)")! }

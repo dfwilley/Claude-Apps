@@ -189,9 +189,35 @@
   }
 
   // Dates as the native app writes them (ISO 8601 without fractions of a second), so backups move between both apps.
+  // ----- Scanning photos for what's inside -----
+  // What the AI service is asked. It answers with a JSON list of short names.
+  const SCAN_PROMPT = "This is a photo of what is stored inside a storage bin, box, drawer or shelf. List each distinct thing you can identify. "
+    + "Use short, specific names of 1 to 5 words, the way the owner would write them on a packing list, such as \"Brake fluid jar\" or \"Cleco pliers\". "
+    + "Use brand names or printed labels when you can read them. Leave out the container itself, the background, and anything you are not reasonably sure of. "
+    + "Give at most 25 things. Answer with only a JSON array of strings and nothing else.";
+  // Reads the AI's answer: a JSON list if there is one, otherwise one thing per line.
+  function parseScanAnswer(text) {
+    const t = String(text ?? ""), a = t.indexOf("["), z = t.lastIndexOf("]");
+    if (a >= 0 && z > a) { try { const list = JSON.parse(t.slice(a, z + 1)); if (Array.isArray(list)) return list.filter((x) => typeof x === "string"); } catch {} }
+    return t.split(/\r?\n/);
+  }
+  // Tidies what a scan found for the checklist: no bullets, blanks or repeats, nothing already listed in the bin, capital first letter.
+  function scanFound(found, items) {
+    const have = (items || []).map(normalize), seen = new Set(), out = [];
+    for (const raw of found || []) {
+      let t = String(raw ?? "").replace(/^\s*(?:[-•*]\s+|\d+[.)]\s+)/, "").replace(/^["'\s]+|["',\s]+$/g, "").replace(/\s+/g, " ");
+      if (t.length < 2 || t.length > 60 || !/\p{L}/u.test(t)) continue;
+      const k = normalize(t);
+      if (seen.has(k) || have.some((i) => i.includes(k))) continue;
+      seen.add(k); out.push(t[0].toUpperCase() + t.slice(1));
+      if (out.length >= 40) break;
+    }
+    return out;
+  }
+
   const isoNow = (d = new Date()) => d.toISOString().replace(/\.\d{3}Z$/, "Z");
 
-  const api = { normalize, stem, terms, search, codePrefix, codeStem, isAutoCode, nextCode, renumber, photoWords, displayName, isoNow,
+  const api = { normalize, stem, terms, search, SCAN_PROMPT, parseScanAnswer, scanFound, codePrefix, codeStem, isAutoCode, nextCode, renumber, photoWords, displayName, isoNow,
     kindOf, kindWord, kindNoun, kindLabel, allItems, holderOf, heldBy, canHold, placeParts, tidyPlace, isUnder, allPlaces, childPlaces, nearestPlace, placeLevels, placeBelow, renamePlace, tripKeys, tripProgress };
   if (typeof module !== "undefined" && module.exports) module.exports = api; else root.BinSearch = api;
 })(typeof window !== "undefined" ? window : globalThis);

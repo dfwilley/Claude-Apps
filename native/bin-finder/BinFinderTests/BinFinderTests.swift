@@ -286,4 +286,14 @@ final class BinFinderTests: XCTestCase {
     func testItemParsing() {
         XCTAssertEqual(BinEditView.parseItems("zip ties, tape\n\n fuses ;wire"), ["zip ties", "tape", "fuses", "wire"])
     }
+
+    func testScanningPhotosForWhatsInside() {
+        XCTAssertEqual(BinScan.parseAnswer("Here you go:\n[\"Brake fluid jar\", \"Cleco pliers\", 7, \"Oil\"]"), ["Brake fluid jar", "Cleco pliers", "Oil"])
+        XCTAssertEqual(BinScan.parseAnswer("- Zip ties\n2. hose clamp\n"), ["- Zip ties", "2. hose clamp", ""])
+        XCTAssertEqual(BinScan.found(["- Zip ties", "2. hose clamp", "", " zip  ties ", "10 mm socket", "Fuses", "x", "1234", "\"Oil filter\",", String(repeating: "A", count: 61)],
+                                     items: ["Spare fuses (ATC)", "oil"]),
+                       ["Zip ties", "Hose clamp", "10 mm socket", "Oil filter"])
+        XCTAssertEqual(BinScan.found((0..<60).map { "Thing \($0)" }, items: []).count, 40)
+        XCTAssertTrue(BinScan.prompt.contains("JSON array"))
+    }
 }

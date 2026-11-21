@@ -7,6 +7,7 @@ enum AppInfo {
 
     struct Change: Identifiable { let version: String; let date: String; let notes: [String]; var id: String { version } }
     static let changes: [Change] = [
+        Change(version: "1.9", date: "November 21, 2026", notes: ["Scan photos: a checklist of what was found, to add to What's inside.", "Optional Scan with AI, which names the things in your photos. Needs your own key and sends those photos over the internet."]),
         Change(version: "1.8", date: "November 13, 2026", notes: ["About screen with the version, build number and what changed."]),
         Change(version: "1.7", date: "November 13, 2026", notes: ["Lists of bins are in A-to-Z order by name.", "Change a container's type or location and its label code follows."]),
         Change(version: "1.6", date: "November 13, 2026", notes: ["Location pull-downs on the main list: choose a place, then a shelf inside it.", "Label codes count each type on its own in each location: G-BIN-1, G-BOX-1, G-1."]),
@@ -27,7 +28,7 @@ struct AboutView: View {
                     LabeledContent("Version", value: AppInfo.version)
                     LabeledContent("Build", value: AppInfo.build)
                 } footer: {
-                    Text("Bin Finder helps you find things in storage bins. Everything stays on this phone.")
+                    Text("Bin Finder helps you find things in storage bins. Everything stays on this phone unless you set up and tap Scan with AI.")
                 }
                 Section("What changed") {
                     ForEach(AppInfo.changes) { c in

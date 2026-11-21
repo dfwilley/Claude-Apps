@@ -74,6 +74,13 @@ final class ScreenshotTests: XCTestCase {
             rivets.tap(); sleep(1)
             app.swipeUp(); sleep(1)
             snap(app, "12-bin-with-box-inside")
+            // Scan photos: the checklist of what the phone found
+            let scan = app.buttons["scanPhotos"]
+            if scan.exists && scan.isHittable {
+                scan.tap(); sleep(4)
+                snap(app, "16-scan-photos")
+                if app.buttons["Cancel"].firstMatch.exists { app.buttons["Cancel"].firstMatch.tap(); sleep(1) }
+            }
             app.navigationBars.buttons.firstMatch.tap(); sleep(1)
             app.swipeDown(); sleep(1)
         }

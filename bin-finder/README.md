@@ -21,6 +21,8 @@ Install it with Sideloadly (USB or Wi-Fi). With a free Apple ID, re-install ever
 - **Trip checklist**: switch on "Pack for trips" for the bins that get loaded for an RV trip. The checklist shows each thing in those bins to check off as it goes in the rig, with a "Start a new trip" button to uncheck everything.
 - **Voice search**: tap the microphone and say "where's the spare fuses". Filler words like *where's*, *did I put* are ignored. The native app listens on the phone itself when it can; the web version uses Safari's speech recognition (falls back to the keyboard microphone).
 - **QR labels** on Avery 5163 sheets (4 × 2 in, 10 per sheet), for one bin or a whole location. Scan a label with the iPhone Camera to open that bin.
+- **Scan photos**: open a bin and choose **Scan photos for what's inside** for a checklist of what was found; tick the right ones to add them. On its own the phone finds printed words (and, in the iPhone app, general kinds of things such as "screwdriver" or "hose").
+- **Scan with AI (optional)**: type your own Anthropic API key under ⋯ › AI scanning and the Scan screen gets a **Scan with AI** button, which names specific things ("brake fluid jar"). Tapping it sends that bin's photos over the internet to Anthropic's Claude service; nothing is sent otherwise. Anthropic bills your account, well under a cent a photo. The key stays on the phone and is not in backups.
 - **About**: tap ⋯ then About Bin Finder for the version, build number and a short list of what changed.
 - **Backup and restore**: one file with every bin and photo, to keep in iCloud Drive or Dropbox. Your data is also visible in the Files app under *On My iPhone › Bin Finder*.
 
@@ -43,4 +45,4 @@ Every push to `main` that changes Bin Finder builds on a GitHub cloud Mac: it ru
 
 ## Web version
 
-This folder holds the web version of the same app. It stores bins and photos in the browser on the phone (nothing is uploaded) and reads printed words in photos with Tesseract.js running in the browser (included in `vendor/`; no object recognition in the web version). Labels print from Safari on Avery 5163 sheets. Search rules are shared with the native app and checked by `node tests/bin-finder.test.js`.
+This folder holds the web version of the same app. It stores bins and photos in the browser on the phone (nothing is uploaded, apart from photos you send with the optional Scan with AI button) and reads printed words in photos with Tesseract.js running in the browser (included in `vendor/`; no object recognition in the web version). Labels print from Safari on Avery 5163 sheets. Search rules are shared with the native app and checked by `node tests/bin-finder.test.js`.

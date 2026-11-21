@@ -1,4 +1,4 @@
-/* Bin Finder (web). Everything stays on this phone: bins in IndexedDB, photos as JPEGs in IndexedDB,
+/* Bin Finder (web). Everything stays on this phone (except photos the owner chooses to send with the optional Scan with AI button): bins in IndexedDB, photos as JPEGs in IndexedDB,
    printed words read from photos by Tesseract running inside the browser. */
 (() => {
 "use strict";
@@ -189,8 +189,9 @@ function route() {
 }
 const go = (h) => { location.hash = h; };
 window.addEventListener("hashchange", render);
-const VERSION = "1.8", BUILD = 9; // BUILD is the number in sw.js's cache name; VERSION matches the iPhone app (tests check both)
+const VERSION = "1.9", BUILD = 10; // BUILD is the number in sw.js's cache name; VERSION matches the iPhone app (tests check both)
 const CHANGES = [
+  { v: "1.9", date: "November 21, 2026", notes: ["Scan photos: a checklist of what was found, to add to What's inside.", "Optional Scan with AI, which names the things in your photos. Needs your own key and sends those photos over the internet."] },
   { v: "1.8", date: "November 13, 2026", notes: ["About screen with the version, build number and what changed."] },
   { v: "1.7", date: "November 13, 2026", notes: ["Lists of bins are in A-to-Z order by name.", "Change a container's type or location and its label code follows."] },
   { v: "1.6", date: "November 13, 2026", notes: ["Location pull-downs on the main list: choose a place, then a shelf inside it.", "Label codes count each type on its own in each location: G-BIN-1, G-BOX-1, G-1."] },
@@ -212,6 +213,7 @@ function render() {
   if (r.name === "print") return renderPrint(r.params);
   if (r.name === "more") return renderMore();
   if (r.name === "about") return renderAbout();
+  if (r.name === "scan") return renderScan(r.id);
   if (r.name === "place") return renderPlace(r.params.p || "");
   if (r.name === "trip") return renderTrip();
   if (r.name === "items") return renderItems();
@@ -332,6 +334,7 @@ async function renderBin(id, params) {
       ${kids.map((k) => `<div class="row"><a class="grow kid" href="#/bin/${k.id}"><span aria-hidden="true">📦&nbsp; </span><span class="title">${esc(S.displayName(k))}</span><div class="sub2">${esc([S.kindWord(k), k.code, k.items.length === 1 ? "1 item" : k.items.length + " items"].filter(Boolean).join(" · "))}</div></a><button class="x" data-out="${k.id}" aria-label="Take ${esc(S.displayName(k))} out">⊖</button></div>`).join("")}
       ${b.items.map((it, i) => `<div class="row"><span class="grow">${esc(it)}</span><button class="x" data-del="${i}" aria-label="Remove ${esc(it)}">⊖</button></div>`).join("")}
       <form class="row" id="addItem"><input id="newItem" placeholder="Add an item" enterkeyhint="done" autocomplete="off" aria-label="Add an item"><button class="icon" aria-label="Add item">⊕</button></form>
+      ${b.photos.length ? `<a class="row act" href="#/scan/${b.id}">🔍&nbsp; Scan photos for what's inside<span class="grow"></span><span class="chev" aria-hidden="true">›</span></a>` : ""}
       ${canAdd.length ? `<label class="row act"><span class="grow">📦&nbsp; Add a saved bin or box</span><select id="addKid" aria-label="Add a saved bin or box"><option value="">Choose</option>${canAdd.map((x) => { const h = S.holderOf(x, BINS); return `<option value="${x.id}">${esc([S.displayName(x), x.code].join(" · ") + (h ? ` (now in ${S.displayName(h)})` : ""))}</option>`; }).join("")}</select></label>` : ""}
     </div>
     ${kids.length ? `<div class="secfoot">Tap a bin or box in the list to open it. ⊖ takes it out without deleting it.</div>` : ""}
@@ -633,21 +636,86 @@ function renderMore() {
     <div class="sechead">Backup</div>
     <div class="group"><button class="row act" id="backup">⇪&nbsp; Back up everything</button><button class="row act" id="restore">⇩&nbsp; Restore from a backup</button></div>
     <div class="secfoot">One file with every bin and photo. Save it to iCloud Drive or Dropbox. Backups work in both directions with the native Bin Finder app.</div>
+    <div class="sechead">AI scanning (optional)</div>
+    <div class="group">${aiKey() ? `<div class="row"><span class="grow">Key saved</span><span class="val">ends in ${esc(aiKey().slice(-4))}</span></div><button class="row danger" id="airm">Remove the key</button>`
+      : `<label class="row"><input id="aikey" type="password" placeholder="Anthropic API key (starts with sk-ant-)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-label="Anthropic API key"></label><button class="row act" id="aisave">Save the key</button>`}</div>
+    <div class="secfoot">With a key, a bin's Scan photos screen gets a <b>Scan with AI</b> button. Tapping it sends that bin's photos over the internet to Anthropic's Claude service, which names the things in them. Nothing is sent unless you tap it. Anthropic bills your account, well under a cent a photo. The key is kept only in this browser on this phone and is not put in backups.</div>
     <div class="sechead">Good to know</div>
-    <div class="group"><div class="row"><span class="grow sub">Your bins and photos are stored only in this browser on this phone; nothing is uploaded. Add Bin Finder to your Home Screen (Share › Add to Home Screen) so iOS keeps its storage. Note that the Home Screen copy and Safari keep separate bins — pick one and stick with it. QR labels open in Safari.</span></div>
+    <div class="group"><div class="row"><span class="grow sub">Your bins and photos are stored only in this browser on this phone; nothing is uploaded unless you add an AI key and tap Scan with AI. Add Bin Finder to your Home Screen (Share › Add to Home Screen) so iOS keeps its storage. Note that the Home Screen copy and Safari keep separate bins — pick one and stick with it. QR labels open in Safari.</span></div>
       <div class="row"><span class="grow sub" id="store"></span></div></div>
     <div class="group" style="margin-top:22px"><a class="row act" href="#/about">ⓘ&nbsp; About Bin Finder<span class="grow"></span><span class="val">Version ${VERSION}</span><span class="chev" aria-hidden="true">›</span></a></div>
   </div>`;
   $("backup").onclick = backup;
   $("restore").onclick = () => $("pickBackup").click();
+  if ($("aisave")) $("aisave").onclick = () => { const k = $("aikey").value.trim(); if (!k) return toast("Paste the key first."); try { localStorage.setItem(AI_KEY, k); } catch { return toast("Couldn't save the key here."); } toast("Key saved."); keepScroll(renderMore); };
+  if ($("airm")) $("airm").onclick = () => { try { localStorage.removeItem(AI_KEY); } catch {} toast("Key removed."); keepScroll(renderMore); };
   (async () => { try { const e = await navigator.storage?.estimate?.(); const p = await navigator.storage?.persisted?.(); $("store").textContent = `${BINS.length} bins, ${BINS.reduce((t, b) => t + b.photos.length, 0)} photos${e ? `, about ${(e.usage / 1048576).toFixed(1)} MB` : ""}.${p ? " Storage is protected from automatic clean-up." : ""}`; } catch {} })();
+}
+/* ---------- Scan photos for what's inside ---------- */
+// The optional AI scan sends a photo to Anthropic's Claude service, only when the Scan with AI button is tapped.
+const AI_KEY = "bf-ai-key", AI_MODEL = "claude-haiku-5-5";
+const aiKey = () => { try { return localStorage.getItem(AI_KEY) || ""; } catch { return ""; } };
+async function aiScan(blob) {
+  const type = ["image/jpeg", "image/png", "image/webp", "image/gif"].includes(blob.type) ? blob.type : "image/jpeg";
+  let r;
+  try {
+    r = await fetch("https://api.anthropic.com/v1/messages", { method: "POST",
+      headers: { "content-type": "application/json", "x-api-key": aiKey(), "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
+      body: JSON.stringify({ model: AI_MODEL, max_tokens: 1024, messages: [{ role: "user", content: [
+        { type: "image", source: { type: "base64", media_type: type, data: await blobToB64(blob) } }, { type: "text", text: S.SCAN_PROMPT }] }] }) });
+  } catch { throw new Error("Couldn't reach the AI service. Check the internet connection."); }
+  const data = await r.json().catch(() => ({}));
+  if (r.status === 401) throw new Error("Anthropic didn't accept the key. Check it under ⋯ More.");
+  if (r.status === 429 || r.status === 529) throw new Error("The AI service is busy or over its limit. Try again in a minute.");
+  if (!r.ok) throw new Error(data?.error?.message || `The AI service answered with error ${r.status}.`);
+  return S.parseScanAnswer((data.content || []).filter((c) => c.type === "text").map((c) => c.text).join("\n"));
+}
+let scan = null; // what the open Scan screen has found: { id, rows: [{ text, ai, on }], busy, note }
+function renderScan(id) {
+  const b = binById(id); if (!b) return go("#/");
+  if (!scan || scan.id !== id) scan = { id, rows: S.scanFound(b.autoWords, b.items).map((text) => ({ text, ai: false, on: false })), busy: "", note: "" };
+  const n = b.photos.length, photos = n === 1 ? "1 photo" : n + " photos", ticked = scan.rows.filter((r) => r.on).length;
+  app.innerHTML = `<div class="page">
+    <div class="bar"><a class="link" href="#/bin/${b.id}">‹ Back</a><span class="center">Scan photos</span><span style="width:60px"></span></div>
+    ${!n ? `<div class="group"><div class="row"><span class="grow sub">This ${S.kindNoun(b)} has no photos yet. Take one of what's inside first.</span></div></div>` : `
+    <div class="group">${aiKey()
+      ? `<button class="row act" id="aigo" ${scan.busy ? "disabled" : ""}>✨&nbsp; ${scan.busy ? esc(scan.busy) : "Scan with AI · " + photos}</button>`
+      : `<a class="row act" href="#/more">✨&nbsp; Set up Scan with AI<span class="grow"></span><span class="chev" aria-hidden="true">›</span></a>`}</div>
+    <div class="secfoot">${aiKey() ? `Sends ${n === 1 ? "this photo" : "these " + photos} over the internet to Anthropic's Claude service to name what's in ${n === 1 ? "it" : "them"}. Well under a cent a photo.`
+      : `AI can name the things in your photos. It needs your own key and sends the photos over the internet; set it up under ⋯ More. Without it, this screen lists the printed words read from the photos on this phone.`}</div>
+    ${scan.note ? `<div class="group" style="margin-top:14px"><div class="row"><span class="grow sub">${esc(scan.note)}</span></div></div>` : ""}
+    <div class="sechead">Found · ${scan.rows.length}</div>
+    <div class="group">${scan.rows.length ? scan.rows.map((r, i) => `<label class="row check"><input type="checkbox" data-row="${i}" ${r.on ? "checked" : ""}><span class="grow">${esc(r.text)}</span><span class="val">${r.ai ? "AI" : "printed word"}</span></label>`).join("")
+      : `<div class="row"><span class="grow sub">Nothing yet${queue.some((q) => q.binId === id) || reading ? ". The phone is still reading the photos" : ""}.</span></div>`}</div>
+    <div class="secfoot">Tick the ones that are right, then add them to What's inside.</div>
+    <p style="margin-top:18px"><button class="btn primary" id="scanadd" ${ticked ? "" : "disabled"} style="width:100%">${ticked ? `Add ${ticked} to What's inside` : "Nothing ticked"}</button></p>`}
+  </div>`;
+  app.querySelectorAll("[data-row]").forEach((x) => x.onchange = () => { scan.rows[+x.dataset.row].on = x.checked; keepScroll(() => renderScan(id)); });
+  if ($("aigo")) $("aigo").onclick = async () => {
+    const found = []; scan.note = "";
+    try {
+      for (let i = 0; i < b.photos.length; i++) {
+        scan.busy = `Asking AI… photo ${i + 1} of ${b.photos.length}`; if (route().name === "scan") renderScan(id);
+        const blob = await getPhoto(b.photos[i]); if (blob) found.push(...await aiScan(blob));
+      }
+    } catch (e) { scan.note = e.message; }
+    const fresh = S.scanFound(found, b.items), keys = new Set(fresh.map(S.normalize));
+    scan.rows = [...fresh.map((text) => ({ text, ai: true, on: true })), ...scan.rows.filter((r) => !keys.has(S.normalize(r.text)))];
+    if (!scan.note && !fresh.length) scan.note = "AI didn't find anything new in the photos.";
+    scan.busy = ""; if (route().name === "scan" && route().id === id) renderScan(id);
+  };
+  if ($("scanadd")) $("scanadd").onclick = async () => {
+    const add = scan.rows.filter((r) => r.on).map((r) => r.text).filter((t) => !b.items.some((i) => S.normalize(i) === S.normalize(t)));
+    b.items.push(...add); await putBin(b); scan = null;
+    toast(add.length === 1 ? "1 item added." : `${add.length} items added.`); location.replace("#/bin/" + b.id);
+  };
 }
 function renderAbout() {
   app.innerHTML = `<div class="page">
     <div class="bar"><a class="link" href="#/more">‹ More</a><span class="center">About</span><span style="width:60px"></span></div>
     <div class="group"><div class="row"><span class="grow">Version</span><span class="val">${VERSION}</span></div>
       <div class="row"><span class="grow">Build</span><span class="val">${BUILD} (web)</span></div></div>
-    <div class="secfoot">Bin Finder helps you find things in storage bins. Everything stays on this phone.</div>
+    <div class="secfoot">Bin Finder helps you find things in storage bins. Everything stays on this phone unless you set up and tap Scan with AI.</div>
     <div class="sechead">What changed</div>
     ${CHANGES.map((c) => `<div class="group" style="margin-bottom:12px"><div class="row"><span class="grow"><div class="title">Version ${esc(c.v)}</div><div class="sub2">${esc(c.date)}</div>${c.notes.map((n) => `<div class="list">• ${esc(n)}</div>`).join("")}</span></div></div>`).join("")}
   </div>`;

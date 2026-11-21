@@ -9,6 +9,7 @@ struct BinDetailView: View {
     @State private var newItem = ""
     @State private var editing: Bin?
     @State private var showLabel = false
+    @State private var showScan = false
     @State private var confirmDelete = false
     @State private var viewing: PhotoRef?
     @State private var showCamera = false
@@ -111,6 +112,10 @@ struct BinDetailView: View {
                         .disabled(newItem.trimmed.isEmpty)
                         .accessibilityLabel("Add item")
                 }
+                if !bin.photos.isEmpty {
+                    Button { showScan = true } label: { Label("Scan photos for what's inside", systemImage: "text.viewfinder") }
+                        .accessibilityIdentifier("scanPhotos")
+                }
                 if !canAdd.isEmpty {
                     Menu {
                         ForEach(canAdd) { c in
@@ -158,6 +163,7 @@ struct BinDetailView: View {
         }
         .sheet(item: $editing) { b in BinEditView(bin: b, isNew: false) { _ in } }
         .sheet(isPresented: $showLabel) { LabelView(bin: bin) }
+        .sheet(isPresented: $showScan) { ScanView(binID: binID) }
         .fullScreenCover(item: $viewing) { ref in PhotoViewer(name: ref.name, binID: binID) }
         .fullScreenCover(isPresented: $showCamera) {
             CameraPicker { img in store.addPhoto(img, to: binID) }.ignoresSafeArea()
