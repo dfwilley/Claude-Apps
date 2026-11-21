@@ -17,6 +17,7 @@ Usage: python3 asc_listing.py <listing.json> <screenshots folder> [--replace-scr
 import hashlib
 import json
 import os
+import re
 import struct
 import sys
 import time
@@ -216,6 +217,13 @@ def main():
     def review_notes():
         attrs = {"notes": "\n\n".join(cfg["reviewNotes"]), "demoAccountRequired": False}
         cur = call("GET", f"/appStoreVersions/{vid}/appStoreReviewDetail", ok_missing=True)
+        # The link to the owner's screen recording is typed into App Store Connect by hand and is
+        # never kept in this (public) repository. If one is already there, keep it.
+        if "PASTE-LINK-HERE" in attrs["notes"] and cur and cur.get("data"):
+            first = ((cur["data"]["attributes"].get("notes") or "").split("\n\n") or [""])[0]
+            link = re.search(r"https?://\S+", first)
+            if link:
+                attrs["notes"] = attrs["notes"].replace("PASTE-LINK-HERE", link.group(0))
         if cur and cur.get("data"):
             rid = cur["data"]["id"]
             call("PATCH", f"/appStoreReviewDetails/{rid}", {"data": {
