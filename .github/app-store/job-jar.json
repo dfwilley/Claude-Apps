@@ -16,7 +16,7 @@
     "",
     "FOR KIDS",
     "• Big pictures, big buttons, cheerful sounds",
-    "• Their own picture or photo, and their own jar",
+    "• Their own picture, photo or any emoji, and their own jar",
     "• A week chart that shows what they did each day",
     "",
     "FOR GROWN-UPS",
@@ -26,6 +26,8 @@
     "• Pay in stars, or in real coins your child can count: pennies, nickels, dimes, quarters",
     "• Special days such as birthdays, when chores pay double or triple",
     "• Special chores that show up only for a few days",
+    "• Chores that only need doing once a day: the first kid to do it gets it",
+    "• Pay a chore more than once, for three goals scored or a job done extra well",
     "• Matching: when Grandma or Granddad offers to match what a child earns, the app adds their share and keeps count",
     "• History of everything earned and spent",
     "• Backup to a file",
@@ -37,7 +39,7 @@
     "No accounts, no ads, no tracking. Everything stays on your devices. Nothing is sent over the internet."
   ],
   "reviewNotes": [
-    "SCREEN RECORDING (physical device, current iOS, starting from launching the app): PASTE-LINK-HERE",
+    "VERSION 1.1 adds: more built-in pictures and the option to type any emoji as a picture; chores that only need doing once a day (the first child to do it gets it); and, on the grown-up Check tab, paying a chore more than once (the − ×1 + control, and \"more\" under Paid today). No new permissions, services or data collection.",
     "PURPOSE AND AUDIENCE: The Job Jar! is a picture chore chart for families with young children (about ages 4 to 8), including children who cannot read yet. Problem it solves: paper chore charts get lost and need a grown-up to keep score. Here a child taps a picture when a chore is done, a grown-up confirms it, and the stars (or coins) earned buy rewards the family has chosen. Parents set it up; children use the simple picture screens.",
     "HOW TO SET UP AND USE THE MAIN FEATURES (no account, no login, no sample files needed):\n1. Launch the app. Tap \"Let's start\" and choose any 4-number grown-up PIN (enter it twice), or tap \"Skip the PIN for now\".\n2. Add a kid: type a name, pick a picture, tap Save. Tap Done.\n3. On the home screen tap the kid. Tap any chore picture: it turns yellow with an hourglass, waiting for a grown-up.\n4. Tap the house button, then Grown-ups, and enter the PIN. On the Check tab tap the green button to OK the chore. The stars go into the kid's jar.\n5. Tap Done, tap the kid, then Prizes to see rewards and the \"Get it!\" button once there are enough stars. \"My week\" shows the week chart.\n6. Grown-ups > Chores and Rewards: add or edit chores and rewards. Grown-ups > Specials: special days (chores pay double), short-time chores, and matching (a grandparent adds a share of what a child earns; this is only a tally inside the app, no payment happens). Grown-ups > Settings: \"Pay in money instead of stars\" shows the same totals as coins. This is pretend bookkeeping for a family allowance; the app handles no real money and has no purchases.",
     "OPTIONAL SECOND DEVICE: a child's own iPhone or iPad can show just that child's chart. Both devices must be on the same Wi-Fi. On the grown-up's device: Grown-ups > Devices > Link a kid's device, pick the kid, and a 6-number code appears. On the other device, at first launch tap \"This is a kid's device\" and type the code. The local network permission is used only for this. The app is fully usable on one device without it.",
@@ -75,5 +77,13 @@
         ]
       }
     ]
-  }
+  },
+  "version": "1.1",
+  "whatsNew": [
+    "New in this version:",
+    "• Many more pictures for chores and kids, and you can now use any emoji from your keyboard",
+    "• Chores that only need doing once a day: the first kid to do it gets it, then it leaves the other kids' lists until tomorrow",
+    "• Grown-ups can pay a chore more than once, for three goals scored or a job done extra well",
+    "• Coin stacks are easier for kids to count"
+  ]
 }

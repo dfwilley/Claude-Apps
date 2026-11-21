@@ -157,10 +157,26 @@ def main():
     editable_states = {"PREPARE_FOR_SUBMISSION", "DEVELOPER_REJECTED", "REJECTED", "METADATA_REJECTED", "INVALID_BINARY"}
     editable = [v for v in versions
                 if (v["attributes"].get("appVersionState") or v["attributes"].get("appStoreState")) in editable_states]
+    want = cfg.get("version")
     if not editable:
-        sys.exit("::error::No version is open for editing (it may already be waiting for review or on sale). Nothing was changed.")
+        # The last version is on sale (or waiting for review): start the next one.
+        on_sale = [v["attributes"].get("versionString") for v in versions]
+        if not want or want in on_sale:
+            sys.exit("::error::No version is open for editing, and the listing file names no newer version to start. Nothing was changed.")
+        try:
+            made = call("POST", "/appStoreVersions", {"data": {
+                "type": "appStoreVersions",
+                "attributes": {"platform": "IOS", "versionString": want},
+                "relationships": {"app": {"data": {"type": "apps", "id": app_id}}}}})
+        except ApiError as e:
+            sys.exit(f"::error::Could not start version {want}: {e}")
+        editable = [made["data"]]
+        done.append(f"Started version {want}")
+        print(f"OK: Started version {want}")
     version = editable[0]
     vid = version["id"]
+    version_string = version["attributes"].get("versionString")
+    first_version = len(versions) <= 1 and not done
 
     # ---- text on the version: description, keywords, promotional text, links
     def version_text():
@@ -169,6 +185,8 @@ def main():
         attrs = {"description": "\n".join(cfg["description"]), "keywords": cfg["keywords"],
                  "promotionalText": cfg["promotionalText"], "supportUrl": cfg["supportUrl"],
                  "marketingUrl": cfg.get("marketingUrl")}
+        if cfg.get("whatsNew") and not first_version:  # Apple takes "What's New" only for an update
+            attrs["whatsNew"] = "\n".join(cfg["whatsNew"])
         attrs = {k: v for k, v in attrs.items() if v}
         if loc:
             call("PATCH", f"/appStoreVersionLocalizations/{loc['id']}", {"data": {
@@ -236,11 +254,12 @@ def main():
 
     # ---- the build: newest one Apple has finished processing
     def pick_build():
-        builds = call("GET", f"/builds?filter[app]={app_id}&sort=-uploadedDate&limit=20")["data"]
+        builds = call("GET", f"/builds?filter[app]={app_id}&filter[preReleaseVersion.version]={urllib.parse.quote(version_string or '')}"
+                             "&sort=-uploadedDate&limit=20")["data"]
         good = [b for b in builds if b["attributes"].get("processingState") == "VALID"
                 and not b["attributes"].get("expired")]
         if not good:
-            raise ApiError("no build has finished processing yet")
+            raise ApiError(f"no build of version {version_string} has finished processing yet; run this again in a few minutes")
         best = max(good, key=lambda b: int(b["attributes"]["version"]) if str(b["attributes"]["version"]).isdigit() else 0)
         call("PATCH", f"/appStoreVersions/{vid}/relationships/build", {"data": {"type": "builds", "id": best["id"]}})
         return "build " + str(best["attributes"]["version"])
