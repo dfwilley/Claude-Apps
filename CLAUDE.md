@@ -28,6 +28,7 @@ Each app is a plain web app in its own top-level folder: HTML, CSS and JavaScrip
 | `wing-rib-riddles/` | Wing Rib Riddles | none |
 | `bend-it-right/` | Bend It Right | none |
 | `fit-the-part/` | Fit the Part | none |
+| `brick-pile/` | Brick Pile | none |
 | `blue-book/` | Blue Book | `native/blue-book/`, web app inside a native shell (TestFlight) |
 | `hgvc-binder/` | HGVC Binder | `native/hgvc-binder/`, web app inside a native shell (TestFlight) |
 | `bin-finder/` | Bin Finder | `native/bin-finder/`, separately written in SwiftUI |
@@ -48,6 +49,7 @@ No install is needed. Run them with Node from the repository root:
 node tests/bend-it-right.test.js
 node tests/bin-finder.test.js
 node tests/blue-book.test.js
+node tests/brick-pile.test.js
 node tests/fit-the-part.test.js
 node tests/gate-time-puzzles.test.js
 node tests/hgvc-binder.test.js
@@ -57,7 +59,7 @@ node tests/who-was-here.test.js
 node tests/wing-rib-riddles.test.js
 ```
 
-All ten passed on November 18, 2026. Knot of the Day, Wire Bender and Ask Me Tomorrow have no automated tests. The Swift unit tests and screenshot tests under `native/*/` need a Mac, so they run only in GitHub Actions.
+All eleven passed on November 21, 2026. Knot of the Day, Wire Bender and Ask Me Tomorrow have no automated tests. The Swift unit tests and screenshot tests under `native/*/` need a Mac, so they run only in GitHub Actions.
 
 ## How a change reaches the phone
 
@@ -79,6 +81,7 @@ For anything larger than a small fix, work on a branch and merge to `main` only 
 - **Personal data never goes in this repository.** It is public. HGVC Binder reads its data file from the owner's Dropbox (layout in `hgvc-binder/DATA-FORMAT.md`). Blue Book, Bin Finder, Ask Me Tomorrow and The Job Jar! keep everything on the device. Test data must be made up.
 - **Everything stays on the device** is a promise made in several apps' descriptions. Don't add analytics, accounts or cloud storage without the owner asking.
   - Blue Book has two exceptions the owner asked for (November 19, 2026), both off until he turns them on: the web app can keep the logbook in a folder he chooses, and it can send a picture of each page to the Claude API (`blue-book/js/ai.js`, his own key, kept in the browser only) because the in-browser reader cannot read handwriting. The page's Content-Security-Policy allows `api.anthropic.com` and nothing else. Keep the key out of the logbook file, backups and the repository.
+  - Brick Pile cannot work without it: the picture of the bricks, and later the list of bricks, go to the Claude API (`brick-pile/core.js`, the owner's own key, kept in the browser only). Same Content-Security-Policy rule as Blue Book. The pile and ideas stay on the device. The app's name and icon avoid the LEGO name and logo on purpose (trademark); keep it that way.
 - The Job Jar! is used by young children. It links a kid's device to a grown-up's over home Wi-Fi only, with no internet or cloud. Keep it that way.
 - Wing Rib Riddles draws every picture in code (`ITEMS` in `wing-rib-riddles/core.js`, each a 200 x 200 drawing with a close-up window). A new riddle needs a drawing, at least three wrong choices and a checked fact. The riddle of the day comes from the day number, so adding riddles reshuffles which one falls on which day.
 - Bend It Right's shapes (`RAW` in `bend-it-right/core.js`) are corner points; leg lengths are rounded to 1/8 inch and turns to 1 degree, so pick points whose slanted legs land near eighths (3-4-5 triangles) or a closed shape will not close. Saved patterns are the player's bends for a shape id, so changing an existing shape's points makes old saved patterns for it look wrong; add new shapes rather than reshaping old ones.

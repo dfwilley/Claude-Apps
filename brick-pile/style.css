@@ -1,0 +1,85 @@
+:root {
+  --bg: #FFF6DC; --card: #FFFDF6; --ink: #1F2430; --mut: #5F6470; --edge: #E6D9B0;
+  --red: #C91A09; --blue: #0055BF; --yellow: #F2CD37; --green: #237841; --warn: #8A5A00;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #16130C; --card: #211D13; --ink: #F1EDE2; --mut: #A8A292; --edge: #3A3424; --red: #F0685A; --blue: #6FA4F2; --green: #6FD192; --warn: #F2CD37; }
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 17px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+main { max-width: 520px; margin: 0 auto; min-height: 100vh; min-height: 100dvh; padding: calc(env(safe-area-inset-top) + 12px) 16px calc(env(safe-area-inset-bottom) + 28px); }
+button, input, select { font: inherit; color: inherit; }
+button, label.btn { cursor: pointer; touch-action: manipulation; }
+
+.top { display: flex; gap: 12px; align-items: center; margin: 6px 0 14px; }
+.top .logo { width: 56px; height: 56px; border-radius: 13px; }
+.top > div { flex: 1; min-width: 0; }
+.top h1 { font-size: 24px; line-height: 1.15; margin: 0; }
+.top p { margin: 2px 0 0; color: var(--mut); font-size: 15px; }
+.gear { width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--edge); background: var(--card); font-size: 22px; line-height: 1; flex: none; }
+h2 { font-size: 20px; margin: 24px 0 0; display: flex; align-items: baseline; gap: 10px; }
+h2 .count { font-size: 15px; font-weight: 600; color: var(--mut); }
+h3 { font-size: 16.5px; margin: 16px 0 6px; }
+.card h3 { margin-top: 0; }
+.blurb { margin: 4px 0 8px; color: var(--mut); font-size: 14.5px; }
+
+.card { background: var(--card); border: 1px solid var(--edge); border-radius: 14px; padding: 14px; margin: 10px 0; }
+.card p { margin: 6px 0; }
+.card ol, .card ul { margin: 8px 0; padding-left: 22px; }
+.card li { margin: 5px 0; }
+.card.bad { border-color: var(--red); color: var(--red); font-weight: 600; }
+.card.good { border-color: var(--green); }
+.tips { font-size: 15.5px; }
+
+.btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 48px; padding: 10px 14px; margin: 8px 0 0;
+  border: 1px solid var(--edge); border-radius: 12px; background: var(--card); font-weight: 600; text-align: center; }
+.btn.big { min-height: 60px; font-size: 18.5px; }
+.btn.primary { background: #C91A09; border-color: #8E1206; color: #fff; box-shadow: 0 3px 0 #8E1206; }
+.btn.primary:active { transform: translateY(2px); box-shadow: 0 1px 0 #8E1206; }
+.btn.quiet { background: none; border: none; color: var(--mut); font-weight: 500; text-decoration: underline; margin-top: 22px; }
+.snap { margin: 14px 0; }
+
+.photos { display: flex; gap: 8px; overflow-x: auto; padding: 2px 0 6px; }
+.photos img { height: 84px; border-radius: 10px; border: 1px solid var(--edge); flex: none; }
+
+.list { padding: 2px 12px; }
+.row { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-top: 1px solid var(--edge); }
+.row:first-child { border-top: none; }
+.row .what { flex: 1; min-width: 0; }
+.row .n { min-width: 30px; text-align: center; font-weight: 700; font-variant-numeric: tabular-nums; }
+.q { display: inline-block; width: 20px; height: 20px; line-height: 20px; border-radius: 50%; background: var(--yellow); color: #1F2430; text-align: center; font-size: 13px; }
+.step { width: 40px; height: 40px; border-radius: 10px; border: 1px solid var(--edge); background: var(--bg); font-size: 22px; line-height: 1; flex: none; padding: 0; }
+.sw { display: inline-block; width: 22px; height: 22px; border-radius: 5px; border: 1.5px solid rgba(0, 0, 0, .35); flex: none; box-shadow: inset 0 2px 0 rgba(255, 255, 255, .35); }
+.sw.clear { border-style: dashed; }
+@media (prefers-color-scheme: dark) { .sw { border-color: rgba(255, 255, 255, .45); } }
+
+label { display: block; font-size: 14.5px; color: var(--mut); margin: 8px 0 0; }
+label.btn { color: inherit; font-size: inherit; }
+label.btn.primary { color: #fff; }
+label.btn.big { font-size: 18.5px; }
+input:not([type=file]), select { display: block; width: 100%; min-height: 44px; margin-top: 3px; padding: 8px 10px; border: 1px solid var(--edge); border-radius: 10px; background: var(--bg); color: var(--ink); font-size: 17px; }
+.pair { display: grid; grid-template-columns: 1.2fr 1.2fr .8fr; gap: 8px; }
+.add summary { font-weight: 600; cursor: pointer; }
+.ask label { margin-top: 0; }
+
+.idea .head { display: flex; align-items: center; gap: 10px; }
+.idea .head h3 { flex: 1; margin: 0; font-size: 19px; }
+.lv { font-size: 13px; font-weight: 700; padding: 3px 10px; border-radius: 99px; color: #fff; background: var(--blue); }
+.lv.easy { background: #237841; } .lv.tricky { background: #C91A09; }
+@media (prefers-color-scheme: dark) { .lv { color: #16130C; } .lv.easy { background: #6FD192; } .lv.tricky { background: #F0685A; } }
+.uses { color: var(--mut); font-size: 14.5px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 9px 4px 5px; border: 1px solid var(--edge); border-radius: 8px; background: var(--bg); font-size: 14.5px; }
+.chip .sw { width: 18px; height: 18px; }
+.warn { color: var(--warn); font-weight: 600; font-size: 15px; }
+
+.busy { position: fixed; inset: 0; background: rgba(0, 0, 0, .55); display: flex; align-items: center; justify-content: center; padding: 24px; z-index: 5; }
+.busy .box { background: var(--card); border-radius: 16px; padding: 24px; max-width: 320px; text-align: center; font-weight: 600; }
+.bricks { display: flex; justify-content: center; gap: 8px; height: 44px; align-items: flex-end; }
+.bricks i { width: 28px; height: 20px; border-radius: 4px; background: var(--red); animation: hop 1s infinite ease-in-out; }
+.bricks i:nth-child(2) { background: #F2CD37; animation-delay: .15s; }
+.bricks i:nth-child(3) { background: #0055BF; animation-delay: .3s; }
+@keyframes hop { 0%, 60%, 100% { transform: translateY(0); } 30% { transform: translateY(-20px); } }
+@media (prefers-reduced-motion: reduce) { .bricks i { animation: none; } }
