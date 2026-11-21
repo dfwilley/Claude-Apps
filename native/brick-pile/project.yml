@@ -1,0 +1,66 @@
+name: BrickPile
+options:
+  bundleIdPrefix: com.dfwilley
+  deploymentTarget:
+    iOS: "16.0"
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+targets:
+  BrickPile:
+    type: application
+    platform: iOS
+    sources:
+      - path: BrickPile
+      - path: ../../brick-pile
+        type: folder
+        buildPhase: resources
+    info:
+      path: BrickPile/Info.plist
+      properties:
+        CFBundleDisplayName: Brick Pile
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSRequiresIPhoneOS: true
+        UILaunchScreen:
+          UIColorName: AccentColor
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        NSCameraUsageDescription: Brick Pile uses the camera to take a picture of your bricks so they can be counted.
+        ITSAppUsesNonExemptEncryption: false
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.dfwilley.brickpile
+        TARGETED_DEVICE_FAMILY: "1"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+  BrickPileTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [BrickPileTests]
+    dependencies:
+      - target: BrickPile
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        TARGETED_DEVICE_FAMILY: "1"
+  BrickPileUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [BrickPileUITests]
+    dependencies:
+      - target: BrickPile
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        TARGETED_DEVICE_FAMILY: "1"
+schemes:
+  BrickPile:
+    build:
+      targets:
+        BrickPile: all
+    test:
+      targets:
+        - BrickPileTests
+        - BrickPileUITests

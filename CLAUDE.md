@@ -28,7 +28,7 @@ Each app is a plain web app in its own top-level folder: HTML, CSS and JavaScrip
 | `wing-rib-riddles/` | Wing Rib Riddles | none |
 | `bend-it-right/` | Bend It Right | none |
 | `fit-the-part/` | Fit the Part | none |
-| `brick-pile/` | Brick Pile | none |
+| `brick-pile/` | Brick Pile | `native/brick-pile/`, web app inside a native shell (TestFlight) |
 | `blue-book/` | Blue Book | `native/blue-book/`, web app inside a native shell (TestFlight) |
 | `hgvc-binder/` | HGVC Binder | `native/hgvc-binder/`, web app inside a native shell (TestFlight) |
 | `bin-finder/` | Bin Finder | `native/bin-finder/`, separately written in SwiftUI |
@@ -36,7 +36,7 @@ Each app is a plain web app in its own top-level folder: HTML, CSS and JavaScrip
 
 Two kinds of iPhone app live under `native/`:
 
-- **Shells** (Blue Book, HGVC Binder): the app's `project.yml` bundles the web folder as-is and shows it in a web view, adding native extras such as Face ID or reminders. A change to the web folder changes the iPhone app too.
+- **Shells** (Blue Book, HGVC Binder, Brick Pile): the app's `project.yml` bundles the web folder as-is and shows it in a web view, adding native extras such as Face ID or reminders. A change to the web folder changes the iPhone app too.
 - **Separate native apps** (Bin Finder, The Job Jar!): the Swift code repeats the web app's rules. For example `native/job-jar/JobJar/Core.swift` must match `job-jar/core.js`, and Bin Finder's search tests use the same cases on both sides. **Change both sides together**, or the web and iPhone versions will behave differently.
 
 Each native app is defined by a `project.yml` that XcodeGen turns into an Xcode project during the cloud build. Generated projects and `Info.plist` files are not checked in (see `.gitignore`).
@@ -68,7 +68,7 @@ All eleven passed on November 21, 2026. Knot of the Day, Wire Bender and Ask Me 
 - The web apps go live on GitHub Pages as soon as they are pushed.
 - **Blue Book is the exception:** its two iPhone workflows (`blue-book-ios.yml`, `blue-book-testflight.yml`) run only when started by hand, at the owner's request (November 16, 2026). A push to `main` updates the Blue Book web app only. Start both workflows when he asks for an iPhone build, and tell him the web and iPhone versions may differ until then.
 - Each other `...-ios.yml` workflow runs when its app's files change: it runs the tests, builds an unsigned `.ipa`, and replaces the `<app>-latest` release (for Sideloadly).
-- Blue Book, HGVC Binder and The Job Jar! also have `...-testflight.yml` workflows that sign and upload to TestFlight on every push that touches them. Blue Book's runs its Node tests first; the other two **do not run the tests**, so a change with failing tests can still be uploaded. Check the test run before calling work finished.
+- Blue Book, HGVC Binder, The Job Jar! and Brick Pile also have `...-testflight.yml` workflows that sign and upload to TestFlight on every push that touches them. Blue Book's and Brick Pile's run their Node tests first; the other two **do not run the tests**, so a change with failing tests can still be uploaded. Check the test run before calling work finished.
 - Signing uses four repository secrets: `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_P8`, `APPLE_TEAM_ID`. Never print or log them. The shared helper scripts are in `.github/scripts/`.
 - Some workflows push screenshots to branches named `ci-screenshots-...`. Those branches are overwritten on every run; don't build on them.
 
