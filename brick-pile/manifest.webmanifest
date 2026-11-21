@@ -1,6 +1,6 @@
 {
-  "name": "Brick Pile",
-  "short_name": "Brick Pile",
+  "name": "Brick Pile Builder",
+  "short_name": "Brick Pile Builder",
   "description": "Take a picture of your loose building bricks, get a list of what you have, and get ideas for things to build with them.",
   "start_url": "./",
   "scope": "./",

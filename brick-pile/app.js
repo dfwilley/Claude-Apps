@@ -159,7 +159,7 @@
   function home() {
     const has = pile.items.length > 0;
     return `
-      <div class="top"><img class="logo" src="icon.svg" alt=""><div><h1>Brick Pile</h1><p>Snap your bricks. See what you have. Get ideas to build.</p></div>
+      <div class="top"><img class="logo" src="icon.svg" alt=""><div><h1>Brick Pile Builder</h1><p>Snap your bricks. See what you have. Get ideas to build.</p></div>
         <button class="gear" data-act="settings" aria-label="Settings">⚙︎</button></div>
       ${problem ? `<div class="card bad" role="alert">${esc(problem)}</div>` : ""}
       ${note ? `<div class="card good">${esc(note)}</div>` : ""}
@@ -171,7 +171,7 @@
       <div class="top"><button class="gear" data-act="home" aria-label="Back">‹</button><div><h1>Settings</h1></div></div>
       ${problem ? `<div class="card bad" role="alert">${esc(problem)}</div>` : ""}
       <div class="card"><h3>Sharper counts with Claude (optional)</h3>
-        <p>Brick Pile works without this. On its own it counts bricks by colour and rough size, and suggests builds from a built-in set.</p>
+        <p>Brick Pile Builder works without this. On its own it counts bricks by colour and rough size, and suggests builds from a built-in set.</p>
         <p>With an Anthropic key, each picture is looked at by Claude, an AI, which can name the pieces (2 x 4 brick, roof slope, wheel) and write ideas for your exact pile.</p>
         ${key ? `<p><strong>A key is saved</strong> (ends in …${esc(key.slice(-4))}).${spend ? ` Used so far: about $${spend.toFixed(2)} at list prices.` : ""}</p>
           <button class="btn" data-act="forget">Remove the key</button>`
@@ -180,7 +180,7 @@
           <li>Under API keys, make a key and copy it. It starts with sk-ant-</li><li>Paste it here.</li></ol>
           <form data-key><label>Anthropic API key<input name="key" type="password" autocomplete="off" spellcheck="false" placeholder="sk-ant-…"></label>
           <button class="btn primary" type="submit">Save the key</button></form>`}</div>
-      <div class="card"><h3>What it costs</h3><p>Without a key, nothing. With a key, Anthropic charges your account each time Brick Pile asks Claude something: roughly 5 to 12 cents for a picture or a set of ideas. The built-in ideas are always free.</p></div>
+      <div class="card"><h3>What it costs</h3><p>Without a key, nothing. With a key, Anthropic charges your account each time Brick Pile Builder asks Claude something: roughly 5 to 12 cents for a picture or a set of ideas. The built-in ideas are always free.</p></div>
       <div class="card"><h3>What leaves this device</h3>
         <p>${key ? "Because a key is saved: when you add a picture, that picture is sent to Anthropic to be looked at, and when you ask Claude for ideas, your list of bricks is sent. Nothing else is sent anywhere, and the app is blocked from contacting any other site. So take pictures of bricks, not people."
           : "Nothing. With no key, your pictures are looked at on this device and never sent anywhere."}</p>
