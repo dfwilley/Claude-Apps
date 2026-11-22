@@ -15,7 +15,7 @@
 
   // Each player picks their own look for their screens.
   const THEMES = [["field", "Field", "Green and orange"], ["berry", "Berry", "Pink and plum"], ["midnight", "Midnight", "Dark with violet"],
-    ["custom", "Custom", "Pick your own colors"]];
+    ["custom", "Custom", "Your own colors, with a color wheel"]];
   // Ready-made color sets for the Custom style: [name, background, main color, second color].
   const PALETTES = [["Lavender", "#F4F0FF", "#7B5CD6", "#E8679A"], ["Ocean", "#EAF6FB", "#0F7FA8", "#F2A541"], ["Mint", "#EEFAF4", "#1E9E77", "#7A6FF0"],
     ["Sunset", "#FFF3EA", "#E2553C", "#8E44AD"], ["Black & gold", "#121212", "#E3B341", "#E8E3D6"], ["Navy & coral", "#0F1B2D", "#FF7A6B", "#5BC0EB"]];
@@ -102,9 +102,40 @@
   const ITEM_PICS = ["🎀", "🪮", "🧴", "💇", "👟", "🦵", "🧦", "👕", "🩳", "👖", "🎗️", "🧢", "🎀", "🧤", "⛑️", "🏏", "⚽", "⚾", "🥎", "🏀", "🏈", "🏐",
     "🎾", "🏒", "🥅", "🥍", "🏸", "🛼", "🛹", "🚲", "🏊", "🥽", "🩱", "🩴", "🧥", "🧣", "🕶️", "🧴", "🩹", "🪥", "🎒", "👜",
     "💧", "🥤", "🧃", "🍎", "🍌", "🥨", "🍫", "🍪", "🧊", "🏅", "📋", "📱", "🔑", "🪪", "💵", "🎧", "🧸", "⭐"];
+  const MORE_ITEM_PICS = ["🦷", "🧊", "🩹", "🧼", "🪥", "💅", "💄", "🧽", "🧻", "🎽", "👗", "👒", "👚", "🩱", "🧥", "⌚", "🕶️", "🎧", "📱", "🔋", "🔌",
+    "📓", "✏️", "📚", "🗝️", "🧳", "👛", "💼", "🥤", "🧋", "🍫", "🥜", "🍊", "🍇", "🍓", "🥯", "🥪", "🍿", "🧁", "🍬", "🧃", "🫙", "🪭", "☂️", "🧢", "🎯", "🥊", "🏓",
+    "🏸", "🎿", "⛸️", "🛷", "🥌", "🤿", "🎳", "🏹", "🎻", "🎸", "🎹", "🥁", "🎤", "🎨", "📷", "🏆", "🥇", "🎖️", "📣", "💖", "🌸", "🌈", "🔥", "⚡", "💎", "🦄"];
   const BAG_PICS = ["⚽", "⚾", "🥎", "🏀", "🏈", "🏐", "🎾", "🏒", "🥍", "🏊", "🤸", "🥋", "🩰", "⛳", "🏃", "🚴", "🎒", "⛺", "🎵", "⭐"];
+  const MORE_BAG_PICS = ["🏋️", "🤾", "🏇", "🛹", "🎿", "🏂", "🧗", "🏓", "🏸", "🥊", "🤺", "⛸️", "🏄", "🚣", "🤽", "🏌️", "🎻", "🎸", "🎹", "🥁", "🎤",
+    "💃", "🎨", "🎭", "📚", "🏕️", "🏖️", "🎯", "🏆", "🥇", "💖", "🌸", "🌈", "🔥", "⚡", "💎", "🦋", "🎀", "👑", "🚀"];
   const AVATARS = ["🦊", "🐻", "🐼", "🐯", "🦁", "🐸", "🐵", "🐰", "🦄", "🐲", "🐙", "🦖", "🐧", "🦋", "🐝", "🐬", "🦉", "🐢",
     "🐶", "🐱", "🦅", "🐺", "🦈", "🚀", "✈️", "⚽", "🏀", "⚾", "🥎", "🌈", "⭐", "🤖", "👑", "🦸"];
+  const MORE_AVATARS = ["😎", "🤩", "🥰", "😊", "😁", "🤠", "🥳", "😺", "🐈", "🐕", "🐇", "🐥", "🦢", "🦩", "🦚", "🐠", "🦭", "🐋", "🦦", "🦥", "🦔", "🐞",
+    "🌸", "🌺", "🌷", "🌻", "🌼", "🍓", "🍒", "🍉", "🍑", "🧁", "🍩", "🍦", "💖", "💜", "💙", "💚", "🧡", "🖤", "🤍", "✨", "💫", "🔥", "⚡", "🌊", "❄️", "☀️",
+    "🌙", "🎀", "💎", "🎧", "🎨", "🎸", "🎤", "📸", "🏐", "🎾", "🏈", "🏒", "⛸️", "🏄", "🤸", "💃", "🏆", "🥇", "🦄", "🐉", "🌵", "🦂"];
+  const uniq = (a) => Array.from(new Set(a));
+  ITEM_PICS.push(...MORE_ITEM_PICS); BAG_PICS.push(...MORE_BAG_PICS); AVATARS.push(...MORE_AVATARS);
+  [ITEM_PICS, BAG_PICS, AVATARS].forEach((list) => { const u = uniq(list); list.length = 0; list.push(...u); });
+
+  // Fonts that come with iPhones and iPads (other phones and computers fall back to a similar kind).
+  const FONTS = [
+    ["rounded", "Standard", 'ui-rounded, "SF Pro Rounded", "Arial Rounded MT Bold", "Nunito", system-ui, sans-serif'],
+    ["clean", "Clean", '"Avenir Next", Avenir, "Segoe UI", system-ui, sans-serif'],
+    ["modern", "Modern", 'Futura, "Century Gothic", "Trebuchet MS", sans-serif'],
+    ["classic", "Classic", 'Georgia, "Times New Roman", serif'],
+    ["fancy", "Fancy", 'Didot, "Bodoni 72", "Bodoni MT", Georgia, serif'],
+    ["handwritten", "Handwritten", '"Bradley Hand", "Segoe Print", "Comic Sans MS", cursive'],
+    ["notebook", "Notebook", 'Noteworthy, "Segoe Print", "Comic Sans MS", cursive'],
+    ["marker", "Marker", '"Marker Felt", "Comic Sans MS", cursive'],
+    ["chalk", "Chalkboard", '"Chalkboard SE", Chalkboard, "Comic Sans MS", cursive'],
+    ["typewriter", "Typewriter", '"American Typewriter", "Courier New", monospace'],
+    ["sporty", "Sporty", '"DIN Condensed", "Arial Narrow", Impact, sans-serif'],
+    ["block", "Block", 'Rockwell, Superclarendon, "Rockwell Extra Bold", Georgia, serif'],
+  ];
+  const FONT_KEYS = FONTS.map((f) => f[0]);
+  /** An emoji (or a few characters) someone typed in: trimmed and kept short. */
+  function cleanEmoji(t, fallback) { const v = String(t == null ? "" : t).trim(); return v && Array.from(v).length <= 8 ? v : fallback; }
+
   const COLORS = ["#1E88E5", "#E53935", "#2E9E5B", "#8E44AD", "#F57C00", "#00897B", "#D81B60", "#5D6BD8"];
 
   let counter = 0;
@@ -132,7 +163,7 @@
 
   function addKid(s, name, avatar, color) {
     const kid = { id: newId("k"), name: cleanText(name, 20) || "Player", avatar: avatar || AVATARS[s.kids.length % AVATARS.length],
-      color: color || COLORS[s.kids.length % COLORS.length], theme: "field", plain: false, faith: false, custom: { bg: PALETTES[0][1], accent: PALETTES[0][2], accent2: PALETTES[0][3] } };
+      color: color || COLORS[s.kids.length % COLORS.length], theme: "field", font: "rounded", plain: false, faith: false, custom: { bg: PALETTES[0][1], accent: PALETTES[0][2], accent2: PALETTES[0][3] } };
     s.kids.push(kid);
     return kid;
   }
@@ -299,6 +330,18 @@
   }
   function contrast(a, b) { const x = luminance(a), y = luminance(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); }
   const isHex = (h) => /^#[0-9a-f]{6}$/i.test(h);
+  /** Color wheel math: hue 0-360, saturation and brightness 0-1. */
+  function hsvToHex(h, sat, v) {
+    h = ((h % 360) + 360) % 360; const c = v * sat, x = c * (1 - Math.abs(((h / 60) % 2) - 1)), m = v - c;
+    const [r, g, b] = h < 60 ? [c, x, 0] : h < 120 ? [x, c, 0] : h < 180 ? [0, c, x] : h < 240 ? [0, x, c] : h < 300 ? [x, 0, c] : [c, 0, x];
+    return rgbHex([(r + m) * 255, (g + m) * 255, (b + m) * 255]);
+  }
+  function hexToHsv(hex) {
+    const [r, g, b] = hexRgb(hex).map((v) => v / 255), max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
+    let h = 0;
+    if (d) h = max === r ? 60 * (((g - b) / d) % 6) : max === g ? 60 * ((b - r) / d + 2) : 60 * ((r - g) / d + 4);
+    return { h: (h + 360) % 360, s: max ? d / max : 0, v: max };
+  }
   /** The screen colors worked out from a player's three picks, with text that stays readable on each. */
   function customTokens(c) {
     const bg = isHex(c && c.bg) ? c.bg : PALETTES[0][1], accent = isHex(c && c.accent) ? c.accent : PALETTES[0][2];
@@ -388,19 +431,19 @@
     const s = defaultState();
     raw.kids.forEach((k) => {
       if (!k || !k.id) return;
-      s.kids.push({ id: String(k.id), name: cleanText(k.name, 20) || "Player", avatar: k.avatar || "⭐", color: /^#[0-9a-f]{6}$/i.test(k.color) ? k.color : COLORS[0],
-        theme: THEME_KEYS.includes(k.theme) ? k.theme : "field", plain: k.plain === true, faith: k.faith === true,
+      s.kids.push({ id: String(k.id), name: cleanText(k.name, 20) || "Player", avatar: cleanEmoji(k.avatar, "⭐"), color: /^#[0-9a-f]{6}$/i.test(k.color) ? k.color : COLORS[0],
+        theme: THEME_KEYS.includes(k.theme) ? k.theme : "field", font: FONT_KEYS.includes(k.font) ? k.font : "rounded", plain: k.plain === true, faith: k.faith === true,
         custom: { bg: isHex(k.custom && k.custom.bg) ? k.custom.bg : PALETTES[0][1], accent: isHex(k.custom && k.custom.accent) ? k.custom.accent : PALETTES[0][2],
           accent2: isHex(k.custom && k.custom.accent2) ? k.custom.accent2 : PALETTES[0][3] } });
     });
     const kidIds = new Set(s.kids.map((k) => k.id));
     raw.bags.forEach((b) => {
       if (!b || !b.id || !kidIds.has(String(b.kidId))) return;
-      const bag = { id: String(b.id), kidId: String(b.kidId), name: cleanText(b.name, 24) || "My bag", emoji: b.emoji || "🎒",
+      const bag = { id: String(b.id), kidId: String(b.kidId), name: cleanText(b.name, 24) || "My bag", emoji: cleanEmoji(b.emoji, "🎒"),
         days: Array.isArray(b.days) ? b.days.filter((d) => Number.isInteger(d) && d >= 0 && d <= 6) : [], items: [] };
       (Array.isArray(b.items) ? b.items : []).forEach((i) => {
         if (!i || !i.id) return;
-        bag.items.push({ id: String(i.id), emoji: i.emoji || "⭐", name: cleanText(i.name, 30) || "Item", count: clampCount(i.count),
+        bag.items.push({ id: String(i.id), emoji: cleanEmoji(i.emoji, "⭐"), name: cleanText(i.name, 30) || "Item", count: clampCount(i.count),
           cat: CAT_KEYS.includes(i.cat) ? i.cat : "gear", status: STATUS[i.status] ? i.status : "ok",
           note: cleanText(i.note, 80), statusDay: typeof i.statusDay === "string" ? i.statusDay : "" });
       });
@@ -425,7 +468,7 @@
     return s;
   }
 
-  return { VERSES, PRAYERS, verseFor, prayerFor, nextUp, countdown, startOf, VERSION, CATS, CAT_KEYS, THEMES, THEME_KEYS, HAIR_KIT, PALETTES, MAX_REPEAT, STATUS, TEMPLATES, TEMPLATE_KEYS, ITEM_PICS, BAG_PICS, AVATARS, COLORS, DAY_LETTERS, DAY_NAMES,
+  return { FONTS, FONT_KEYS, cleanEmoji, hsvToHex, hexToHsv, VERSES, PRAYERS, verseFor, prayerFor, nextUp, countdown, startOf, VERSION, CATS, CAT_KEYS, THEMES, THEME_KEYS, HAIR_KIT, PALETTES, MAX_REPEAT, STATUS, TEMPLATES, TEMPLATE_KEYS, ITEM_PICS, BAG_PICS, AVATARS, COLORS, DAY_LETTERS, DAY_NAMES,
     newId, dayKey, defaultState, kidById, bagById, bagsFor, addKid, removeKid, addBag, removeBag, copyBag, addKit, addItem, removeItem, moveItem,
     isToday, bagsToday, parseDay, addDays, addEvent, updateEvent, removeEvent, eventsOn, upcoming, placesFor, monthGrid, time12, contrast, customTokens, currentCheck, isPacked, togglePacked, startOver, setStatus, summary, finishCheck, attention, normalize };
 });

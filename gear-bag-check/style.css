@@ -306,3 +306,18 @@ body[data-view="check"] .wrap { padding-bottom: 170px; }
 @keyframes breathe { 0%, 100% { transform: scale(0.75); background: var(--field-soft); } 50% { transform: scale(1.05); background: color-mix(in srgb, var(--field) 35%, var(--card)); } }
 @media (prefers-reduced-motion: reduce) { .breath.on { animation: none; } }
 .quiet-time { font-size: 28px; font-weight: 900; margin-bottom: 10px; font-variant-numeric: tabular-nums; }
+
+/* ---------- Fonts, emoji box, color wheel ---------- */
+.fonts { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 6px; margin-top: 6px; }
+.font-opt { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 4px; border-radius: 12px; background: var(--bg); border: 2px solid transparent; font-size: 14px; font-weight: 600; }
+.font-opt.on { border-color: var(--field); background: var(--field-soft); }
+.font-aa { font-size: 26px; line-height: 1.1; }
+.emoji-input { display: block; width: 100%; margin: 6px 0; padding: 10px 12px; border-radius: 12px; border: 2px dashed var(--line); background: var(--card); font-size: 18px; }
+.wheel-targets button { display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 14px; }
+.tswatch { width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--line); flex: none; }
+.wheel-wrap { position: relative; width: min(260px, 80vw); aspect-ratio: 1; margin: 14px auto 6px; touch-action: none; }
+.wheel { width: 100%; height: 100%; border-radius: 50%; display: block; cursor: crosshair; touch-action: none; }
+.wheel-dot { position: absolute; width: 28px; height: 28px; margin: -14px 0 0 -14px; border-radius: 50%; border: 4px solid #fff; box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.45), 0 2px 6px rgba(0, 0, 0, 0.3); pointer-events: none; }
+.bright { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 14px; margin: 6px 0; }
+.bright input { flex: 1; accent-color: var(--field); height: 28px; }
+.hex { display: inline-block; font-family: ui-monospace, Menlo, monospace; font-size: 14px; padding: 3px 10px; border-radius: 8px; background: var(--card); }

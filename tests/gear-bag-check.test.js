@@ -232,6 +232,20 @@ assert.notEqual(G.verseFor(sat8)[0], G.verseFor(new Date(2026, 10, 22, 1))[0], "
 assert.notEqual(G.prayerFor(sat8, 0), G.prayerFor(sat8, 1));
 assert.equal(G.normalize({ kids: [{ id: "x", faith: true }], bags: [] }).kids[0].faith, true);
 
+// Fonts, emojis, color wheel
+assert.equal(G.addKid(G.defaultState(), "F").font, "rounded");
+assert.equal(G.normalize({ kids: [{ id: "x", font: "chalk" }], bags: [] }).kids[0].font, "chalk");
+assert.equal(G.normalize({ kids: [{ id: "x", font: "comic-papyrus" }], bags: [] }).kids[0].font, "rounded");
+assert.equal(new Set(G.FONT_KEYS).size, G.FONTS.length);
+[G.ITEM_PICS, G.BAG_PICS, G.AVATARS].forEach((list) => assert.equal(new Set(list).size, list.length, "no repeated emojis"));
+assert(G.AVATARS.length >= 100 && G.ITEM_PICS.length >= 100);
+assert.equal(G.cleanEmoji(" 🏐 ", "x"), "🏐"); assert.equal(G.cleanEmoji("👩‍👧", "x"), "👩‍👧", "joined emoji kept");
+assert.equal(G.cleanEmoji("", "⭐"), "⭐"); assert.equal(G.cleanEmoji("this is far too long", "⭐"), "⭐");
+assert.equal(G.normalize({ kids: [{ id: "x", avatar: "🦩" }], bags: [] }).kids[0].avatar, "🦩");
+assert.equal(G.hsvToHex(0, 1, 1), "#FF0000"); assert.equal(G.hsvToHex(120, 1, 1), "#00FF00"); assert.equal(G.hsvToHex(240, 1, 1), "#0000FF");
+assert.equal(G.hsvToHex(0, 0, 1), "#FFFFFF"); assert.equal(G.hsvToHex(300, 0.5, 0), "#000000");
+["#C2306F", "#0F7FA8", "#E3B341", "#123456", "#FFF0F6"].forEach((hex) => { const c = G.hexToHsv(hex); assert.equal(G.hsvToHex(c.h, c.s, c.v), hex, "round trip " + hex); });
+
 // Removing a kid removes their bags
 G.removeKid(s, ava.id);
 assert.equal(s.kids.length, 1); assert.equal(s.bags.length, 1);

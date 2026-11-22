@@ -105,6 +105,8 @@
     root.dataset.theme = theme;
     if (theme === "custom") { const t = G.customTokens(kid.custom); TOKEN_NAMES.forEach((k) => root.style.setProperty(k, t[k])); root.style.colorScheme = t.dark ? "dark" : "light"; }
     else { TOKEN_NAMES.forEach((k) => root.style.removeProperty(k)); root.style.colorScheme = ""; }
+    const font = kid && kid.font !== "rounded" && G.FONTS.find((f) => f[0] === kid.font);
+    root.style.fontFamily = font ? font[2] : "";
     const tc = document.querySelector('meta[name="theme-color"]');
     if (tc) tc.content = getComputedStyle(root).getPropertyValue("--bg").trim() || "#EEF4F0";
   }
@@ -119,6 +121,7 @@
     const bag = view.bagId && G.bagById(state, view.bagId);
     const kid = G.kidById(state, view.kidId || (bag && bag.kidId));
     applyTheme(kid);
+    initWheels();
   }
 
   function grownButton() {
@@ -379,7 +382,9 @@
   }
 
   function pickGrid(list, current, act) {
-    return '<div class="picks">' + list.map((e) => '<button class="pick' + (e === current ? " on" : "") + '" data-a="' + act + '" data-v="' + esc(e) +
+    const own = list.includes(current) ? "" : current;
+    return '<input class="emoji-input" data-emoji="' + act + '" maxlength="16" value="' + esc(own) + '" placeholder="Type any emoji" aria-label="Type any emoji">' +
+      '<div class="picks">' + list.map((e) => '<button class="pick' + (e === current ? " on" : "") + '" data-a="' + act + '" data-v="' + esc(e) +
       '" aria-label="' + esc(e) + '" aria-pressed="' + (e === current) + '">' + esc(e) + "</button>").join("") + "</div>";
   }
 
@@ -390,12 +395,18 @@
       (k === "custom" ? ' style="background:' + c.accent + '"' : "") + "></i><i" + (k === "custom" ? ' style="background:' + c.accent2 + '"' : "") + "></i><i></i></span><b>" +
       name + '</b><span class="soft">' + desc + "</span></button>").join("") + "</div>";
     if (kid.theme === "custom") {
-      h += '<div class="custom-box"><div class="colors">' + [["bg", "Background"], ["accent", "Main color"], ["accent2", "Second color"]].map(([k, l]) =>
-        '<label class="color-field"><input type="color" data-color="' + k + '" value="' + c[k] + '"><span>' + l + "</span></label>").join("") + "</div>" +
+      const tgt = WHEEL_TARGETS.some((x) => x[0] === wheelTarget) ? wheelTarget : "accent";
+      h += '<div class="custom-box"><div class="seg wheel-targets">' + WHEEL_TARGETS.map(([k, l]) => '<button class="' + (k === tgt ? "on" : "") + '" data-a="wheelTarget" data-v="' + k +
+        '"><span class="tswatch" data-swatch="' + k + '" style="background:' + c[k] + '"></span>' + l + "</button>").join("") + "</div>" +
+        '<div class="wheel-wrap"><canvas class="wheel" width="440" height="440" data-kid="' + kid.id + '" aria-label="Color wheel: drag to pick a color"></canvas><span class="wheel-dot"></span></div>' +
+        '<label class="bright">Brightness<input type="range" class="wheel-v" min="0" max="100" step="1"></label>' +
+        '<div class="center"><span class="hex" data-hex>' + esc(c[tgt]) + "</span></div>" +
         '<div class="soft small-label">Or start from one of these:</div><div class="palettes">' + G.PALETTES.map((p, i) =>
           '<button class="palette" data-a="palette" data-v="' + i + '" style="background:' + p[1] + '"><i style="background:' + p[2] + '"></i><i style="background:' + p[3] +
           '"></i><span style="color:' + (G.contrast(p[1], "#FFFFFF") > 4 ? "#FFFFFF" : "#141218") + '">' + esc(p[0]) + "</span></button>").join("") + "</div></div>";
     }
+    h += '<div class="field words-field">Font<div class="fonts">' + G.FONTS.map(([k, name, stack]) => '<button class="font-opt' + (kid.font === k ? " on" : "") +
+      '" data-a="setFont" data-v="' + k + '" aria-pressed="' + (kid.font === k) + '" style="font-family:' + esc(stack) + '"><span class="font-aa">Aa</span>' + name + "</button>").join("") + "</div></div>";
     h += '<div class="field words-field">Wording<div class="seg">' +
       '<button class="' + (kid.plain ? "" : "on") + '" data-a="setPlain" data-v="0">Fun <span class="soft">("Cleared for takeoff!")</span></button>' +
       '<button class="' + (kid.plain ? "on" : "") + '" data-a="setPlain" data-v="1">Simple <span class="soft">("All packed")</span></button></div></div>' +
@@ -485,13 +496,64 @@
       '<button class="btn ghost" data-m="close">Cancel</button></div>', modalCtx);
   }
 
+  // ---------- Color wheel ----------
+  const WHEEL_TARGETS = [["bg", "Background"], ["accent", "Main color"], ["accent2", "Second color"]];
+  let wheelTarget = "accent";
+  function initWheels() {
+    document.querySelectorAll("canvas.wheel").forEach((cv) => {
+      if (cv.dataset.ready) return; cv.dataset.ready = "1";
+      const kid = G.kidById(state, cv.dataset.kid); if (!kid) return;
+      const box = cv.closest(".custom-box"), dot = box.querySelector(".wheel-dot"), slider = box.querySelector(".wheel-v");
+      const tgt = WHEEL_TARGETS.some((x) => x[0] === wheelTarget) ? wheelTarget : "accent";
+      let hsv = G.hexToHsv(kid.custom[tgt]);
+      slider.value = Math.round(hsv.v * 100);
+      const size = cv.width, r = size / 2;
+      function draw() {
+        const ctx = cv.getContext("2d"), img = ctx.createImageData(size, size), d = img.data;
+        for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+          const dx = x - r, dy = y - r, dist = Math.sqrt(dx * dx + dy * dy), i = (y * size + x) * 4;
+          if (dist > r) { d[i + 3] = 0; continue; }
+          const hex = G.hsvToHex((Math.atan2(dy, dx) * 180) / Math.PI + 90, dist / r, hsv.v), n = parseInt(hex.slice(1), 16);
+          d[i] = (n >> 16) & 255; d[i + 1] = (n >> 8) & 255; d[i + 2] = n & 255; d[i + 3] = dist > r - 1.5 ? 140 : 255;
+        }
+        ctx.putImageData(img, 0, 0);
+      }
+      function placeDot() {
+        const a = ((hsv.h - 90) * Math.PI) / 180, pct = (v) => (v / size) * 100;
+        dot.style.left = pct(r + Math.cos(a) * hsv.s * r) + "%"; dot.style.top = pct(r + Math.sin(a) * hsv.s * r) + "%";
+        dot.style.background = G.hsvToHex(hsv.h, hsv.s, hsv.v);
+      }
+      function setColor() {
+        const hex = G.hsvToHex(hsv.h, hsv.s, hsv.v);
+        kid.custom[tgt] = hex; applyTheme(kid); placeDot();
+        document.querySelectorAll('[data-swatch="' + tgt + '"]').forEach((el) => { el.style.background = hex; });
+        document.querySelectorAll("[data-hex]").forEach((el) => { el.textContent = hex; });
+      }
+      function pick(ev) {
+        const rect = cv.getBoundingClientRect(), x = ((ev.clientX - rect.left) / rect.width) * size - r, y = ((ev.clientY - rect.top) / rect.height) * size - r;
+        hsv.h = (((Math.atan2(y, x) * 180) / Math.PI + 90) + 360) % 360; hsv.s = Math.min(1, Math.sqrt(x * x + y * y) / r);
+        if (hsv.v < 0.15) { hsv.v = 0.15; slider.value = 15; draw(); } // a black wheel can't be seen
+        setColor();
+      }
+      let down = false;
+      cv.addEventListener("pointerdown", (ev) => { down = true; cv.setPointerCapture(ev.pointerId); pick(ev); ev.preventDefault(); });
+      cv.addEventListener("pointermove", (ev) => { if (down) pick(ev); });
+      const done = () => { if (!down) return; down = false; save(); render(); refreshStyleModal(); };
+      cv.addEventListener("pointerup", done); cv.addEventListener("pointercancel", done);
+      slider.addEventListener("input", () => { hsv.v = Number(slider.value) / 100; draw(); setColor(); });
+      slider.addEventListener("change", () => { save(); render(); refreshStyleModal(); });
+      draw(); placeDot();
+    });
+  }
+
   function styleModal(kidId) {
     openModal('<h2>Your style</h2><div id="styleBody">' + styleChoices(G.kidById(state, kidId)) + "</div>" +
       '<button class="btn primary full" data-m="close">Done</button>', { kind: "style", kidId });
+    initWheels();
   }
   function refreshStyleModal() {
     if (!modalCtx || modalCtx.kind !== "style") return;
-    const body = document.getElementById("styleBody"); if (body) body.innerHTML = styleChoices(G.kidById(state, modalCtx.kidId));
+    const body = document.getElementById("styleBody"); if (body) { body.innerHTML = styleChoices(G.kidById(state, modalCtx.kidId)); initWheels(); }
   }
   function setPalette(kid, i) { const p = G.PALETTES[i]; if (!p) return; kid.custom = { bg: p[1], accent: p[2], accent2: p[3] }; save(); }
 
@@ -560,6 +622,8 @@
       case "style": styleModal(view.kidId); break;
       case "setTheme": G.kidById(state, view.kidId).theme = v; save(); render(); break;
       case "setPlain": G.kidById(state, view.kidId).plain = v === "1"; save(); render(); break;
+      case "setFont": G.kidById(state, view.kidId).font = v; save(); render(); break;
+      case "wheelTarget": wheelTarget = v; render(); break;
       case "setFaith": G.kidById(state, view.kidId).faith = v === "1"; save(); render(); break;
       case "pregame": stopQuiet(); prayerStep = 0; go({ name: "pregame", kidId: id || view.kidId || (G.bagById(state, view.bagId) || {}).kidId }); break;
       case "nextPrayer": prayerStep++; render(); break;
@@ -607,9 +671,9 @@
     const b = ev.target.closest("[data-m],[data-a]"); if (!b || !modalCtx) return;
     const m = b.dataset.m || b.dataset.a, v = b.dataset.v, c = modalCtx, d = now();
     if (m === "close") { closeModal(); return; }
-    if (c.kind === "style" && (m === "setTheme" || m === "setPlain" || m === "setFaith" || m === "palette")) {
+    if (c.kind === "style" && (m === "setTheme" || m === "setPlain" || m === "setFaith" || m === "palette" || m === "setFont" || m === "wheelTarget")) {
       const kid = G.kidById(state, c.kidId);
-      if (m === "setTheme") kid.theme = v; else if (m === "setPlain") kid.plain = v === "1"; else if (m === "setFaith") kid.faith = v === "1"; else setPalette(kid, Number(v));
+      if (m === "wheelTarget") wheelTarget = v; else if (m === "setFont") kid.font = v; else if (m === "setTheme") kid.theme = v; else if (m === "setPlain") kid.plain = v === "1"; else if (m === "setFaith") kid.faith = v === "1"; else setPalette(kid, Number(v));
       save(); render(); refreshStyleModal();
       return;
     }
@@ -649,6 +713,15 @@
     }
   });
   document.addEventListener("keydown", (ev) => { if (ev.key === "Escape" && !modal.hidden) closeModal(); });
+  document.addEventListener("change", (ev) => {
+    const t = ev.target; if (!t.dataset || !t.dataset.emoji) return;
+    const v = G.cleanEmoji(t.value, ""); if (!v) return;
+    const act = t.dataset.emoji;
+    if (act === "itemEmoji" && modalCtx && modalCtx.kind === "item") { modalCtx.emoji = v; modal.querySelectorAll(".pick").forEach((p) => p.classList.remove("on")); return; }
+    if (act === "kidAvatar") G.kidById(state, view.kidId).avatar = v;
+    if (act === "bagEmoji") G.bagById(state, view.bagId).emoji = v;
+    save(); render();
+  });
   function colorKid() { return G.kidById(state, (modalCtx && modalCtx.kidId) || view.kidId); }
   document.addEventListener("input", (ev) => {
     const t = ev.target; if (!t.dataset || !t.dataset.color) return;
