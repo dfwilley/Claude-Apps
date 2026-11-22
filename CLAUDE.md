@@ -28,6 +28,7 @@ Each app is a plain web app in its own top-level folder: HTML, CSS and JavaScrip
 | `wing-rib-riddles/` | Wing Rib Riddles | none |
 | `bend-it-right/` | Bend It Right | none |
 | `fit-the-part/` | Fit the Part | none |
+| `gear-bag-check/` | Gear Bag Check | none |
 | `brick-pile/` | Brick Pile Builder (called Brick Pile in the code and workflows). **Shelved** November 21, 2026 | `native/brick-pile/`, web app inside a native shell; builds only when started by hand |
 | `blue-book/` | Blue Book | `native/blue-book/`, web app inside a native shell (TestFlight) |
 | `hgvc-binder/` | HGVC Binder | `native/hgvc-binder/`, web app inside a native shell (TestFlight) |
@@ -52,6 +53,7 @@ node tests/blue-book.test.js
 node tests/brick-pile.test.js
 node tests/fit-the-part.test.js
 node tests/gate-time-puzzles.test.js
+node tests/gear-bag-check.test.js
 node tests/hgvc-binder.test.js
 node tests/job-jar.test.js
 node tests/which-gear-goes-where.test.js
@@ -59,7 +61,7 @@ node tests/who-was-here.test.js
 node tests/wing-rib-riddles.test.js
 ```
 
-All eleven passed on November 21, 2026. Knot of the Day, Wire Bender and Ask Me Tomorrow have no automated tests. The Swift unit tests and screenshot tests under `native/*/` need a Mac, so they run only in GitHub Actions.
+All twelve passed on November 21, 2026. Knot of the Day, Wire Bender and Ask Me Tomorrow have no automated tests. The Swift unit tests and screenshot tests under `native/*/` need a Mac, so they run only in GitHub Actions.
 
 ## How a change reaches the phone
 
