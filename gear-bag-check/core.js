@@ -19,6 +19,41 @@
   // Ready-made color sets for the Custom style: [name, background, main color, second color].
   const PALETTES = [["Lavender", "#F4F0FF", "#7B5CD6", "#E8679A"], ["Ocean", "#EAF6FB", "#0F7FA8", "#F2A541"], ["Mint", "#EEFAF4", "#1E9E77", "#7A6FF0"],
     ["Sunset", "#FFF3EA", "#E2553C", "#8E44AD"], ["Black & gold", "#121212", "#E3B341", "#E8E3D6"], ["Navy & coral", "#0F1B2D", "#FF7A6B", "#5BC0EB"]];
+  // Verse of the day: Berean Standard Bible (public domain), wording checked against biblehub.com, November 21, 2026.
+  const VERSES = [
+    ["Joshua 1:9", "Have I not commanded you to be strong and courageous? Do not be afraid; do not be discouraged, for the LORD your God is with you wherever you go."],
+    ["Philippians 4:13", "I can do all things through Christ who gives me strength."],
+    ["Isaiah 40:31", "But those who wait upon the LORD will renew their strength; they will mount up with wings like eagles; they will run and not grow weary, they will walk and not faint."],
+    ["Colossians 3:23", "Whatever you do, work at it with your whole being, as for the Lord and not for men,"],
+    ["2 Timothy 1:7", "For God has not given us a spirit of fear, but of power, love, and self-control."],
+    ["Isaiah 41:10", "Do not fear, for I am with you; do not be afraid, for I am your God. I will strengthen you; I will surely help you; I will uphold you with My righteous right hand."],
+    ["1 Corinthians 9:24", "Do you not know that in a race all the runners run, but only one receives the prize? Run in such a way as to take the prize."],
+    ["Psalm 28:7", "The LORD is my strength and my shield; my heart trusts in Him, and I am helped. Therefore my heart rejoices, and I give thanks to Him with my song."],
+    ["Proverbs 3:5-6", "Trust in the LORD with all your heart, and lean not on your own understanding; in all your ways acknowledge Him, and He will make your paths straight."],
+    ["Romans 8:31", "What then shall we say in response to these things? If God is for us, who can be against us?"],
+    ["Psalm 118:24", "This is the day that the LORD has made; we will rejoice and be glad in it."],
+    ["Psalm 56:3", "When I am afraid, I put my trust in You."],
+    ["Ephesians 6:10", "Finally, be strong in the Lord and in His mighty power."],
+    ["Psalm 46:1", "God is our refuge and strength, an ever-present help in times of trouble."],
+    ["1 Corinthians 10:31", "So whether you eat or drink or whatever you do, do it all to the glory of God."],
+    ["Galatians 6:9", "Let us not grow weary in well-doing, for in due time we will reap a harvest if we do not give up."],
+    ["Proverbs 16:3", "Commit your works to the LORD and your plans will be achieved."],
+    ["Deuteronomy 31:6", "Be strong and courageous; do not be afraid or terrified of them, for it is the LORD your God who goes with you; He will never leave you nor forsake you."],
+    ["Psalm 18:32", "It is God who arms me with strength and makes my way clear."],
+    ["Philippians 4:6", "Be anxious for nothing, but in everything, by prayer and petition, with thanksgiving, present your requests to God."],
+    ["Matthew 5:16", "In the same way, let your light shine before men, that they may see your good deeds and glorify your Father in heaven."],
+    ["1 Timothy 4:12", "Let no one despise your youth, but set an example for the believers in speech, in conduct, in love, in faith, in purity."],
+    ["Psalm 121:2", "My help comes from the LORD, the Maker of heaven and earth."],
+  ];
+  // Short pre-game prayers (written for this app).
+  const PRAYERS = [
+    "Lord, thank You for my team and for the chance to play today. Help me give my best, keep every player safe, and play with a good attitude whether we win or lose. Amen.",
+    "God, calm my nerves and help me focus. Help me be a good teammate, encourage the people around me, and show kindness on the field. Amen.",
+    "Father, thank You for the strength to play. Protect the players on both teams, and help me be thankful no matter what the score is. In Jesus' name, Amen.",
+    "Lord, remind me that who I am doesn't depend on the scoreboard. Help me play hard, play fair, and honor You in how I compete. Amen.",
+    "God, give me courage when I'm nervous, patience when things go wrong, and joy in the game. Help me shake off mistakes and keep going. Amen.",
+    "Lord, bless our team and our coaches. Help us work together, listen well, and lift each other up. Let our effort today bring You glory. Amen.",
+  ];
   const MAX_REPEAT = 26; // weeks a repeating schedule item can be copied ahead
   const THEME_KEYS = THEMES.map((t) => t[0]);
 
@@ -97,7 +132,7 @@
 
   function addKid(s, name, avatar, color) {
     const kid = { id: newId("k"), name: cleanText(name, 20) || "Player", avatar: avatar || AVATARS[s.kids.length % AVATARS.length],
-      color: color || COLORS[s.kids.length % COLORS.length], theme: "field", plain: false, custom: { bg: PALETTES[0][1], accent: PALETTES[0][2], accent2: PALETTES[0][3] } };
+      color: color || COLORS[s.kids.length % COLORS.length], theme: "field", plain: false, faith: false, custom: { bg: PALETTES[0][1], accent: PALETTES[0][2], accent2: PALETTES[0][3] } };
     s.kids.push(kid);
     return kid;
   }
@@ -171,7 +206,7 @@
   function cleanEvent(s, kidId, o) {
     const bag = o.bagId && bagById(s, o.bagId);
     return { kidId, date: validDay(o.date) ? o.date : "", time: validTime(o.time) ? o.time : "",
-      title: cleanText(o.title, 40) || (bag ? bag.name : ""), bagId: bag && bag.kidId === kidId ? bag.id : "", note: cleanText(o.note, 80) };
+      title: cleanText(o.title, 40) || (bag ? bag.name : ""), bagId: bag && bag.kidId === kidId ? bag.id : "", place: cleanText(o.place, 60), note: cleanText(o.note, 80) };
   }
   /** Adds a schedule item; repeat > 1 also adds it on the same weekday for that many weeks in all. Returns what was added. */
   function addEvent(s, kidId, o, repeat) {
@@ -201,6 +236,13 @@
     s.events = s.events.filter((x) => x.id !== eventId && !(all && e.group && x.group === e.group && x.date >= e.date));
     return before - s.events.length;
   }
+  /** Places this player has used before, most recent first, for picking again. */
+  function placesFor(s, kidId) {
+    const seen = new Map();
+    s.events.filter((e) => e.kidId === kidId && e.place).sort((a, b) => b.date.localeCompare(a.date))
+      .forEach((e) => { const k = e.place.toLowerCase(); if (!seen.has(k)) seen.set(k, e.place); });
+    return Array.from(seen.values()).slice(0, 30);
+  }
   const byTime = (a, b) => (a.date + (a.time || "99")).localeCompare(b.date + (b.time || "99")) || a.title.localeCompare(b.title);
   function eventsOn(s, kidId, key) { return s.events.filter((e) => e.kidId === kidId && e.date === key).sort(byTime); }
   /** The next schedule items from today on. */
@@ -221,6 +263,30 @@
     let h = Number(t.slice(0, 2)); const m = t.slice(3), ap = h >= 12 ? "PM" : "AM";
     h = h % 12 || 12;
     return h + ":" + m + " " + ap;
+  }
+
+  // ---------- Countdown, verse and prayer ----------
+  function dayNumber(date) { return Math.floor(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / 86400000); }
+  function verseFor(date) { return VERSES[((dayNumber(date) % VERSES.length) + VERSES.length) % VERSES.length]; }
+  function prayerFor(date, step) { const n = PRAYERS.length; return PRAYERS[(((dayNumber(date) + (step || 0)) % n) + n) % n]; }
+  /** When a schedule item starts (a plan with no time counts as the start of its day). */
+  function startOf(e) { const d = parseDay(e.date); if (e.time) d.setHours(Number(e.time.slice(0, 2)), Number(e.time.slice(3)), 0, 0); else d.setHours(0, 0, 0, 0); return d; }
+  /** The next schedule item that hasn't finished: timed ones stay "next" for 2 hours after they start. */
+  function nextUp(s, kidId, now) {
+    const today = dayKey(now), limit = now.getTime() - 2 * 3600000;
+    return s.events.filter((e) => e.kidId === kidId && e.date >= today && (!e.time || e.date > today || startOf(e).getTime() >= limit))
+      .sort((a, b) => (a.date + (a.time || "00:00")).localeCompare(b.date + (b.time || "00:00")))[0] || null;
+  }
+  /** "in 2 hr 15 min", "tomorrow at 5:30 PM", "in 3 days", "happening now". */
+  function countdown(e, now) {
+    const days = dayNumber(parseDay(e.date)) - dayNumber(now);
+    if (!e.time) return days <= 0 ? "today" : days === 1 ? "tomorrow" : "in " + days + " days";
+    const mins = Math.round((startOf(e).getTime() - now.getTime()) / 60000);
+    if (mins <= 0) return "happening now";
+    if (mins < 60) return "in " + mins + " min";
+    if (days === 0 || mins < 6 * 60) { const h = Math.floor(mins / 60), m = mins % 60; return "in " + h + " hr" + (m ? " " + m + " min" : ""); }
+    if (days === 1) return "tomorrow at " + time12(e.time);
+    return "in " + days + " days";
   }
 
   // ---------- Custom colors ----------
@@ -323,7 +389,7 @@
     raw.kids.forEach((k) => {
       if (!k || !k.id) return;
       s.kids.push({ id: String(k.id), name: cleanText(k.name, 20) || "Player", avatar: k.avatar || "⭐", color: /^#[0-9a-f]{6}$/i.test(k.color) ? k.color : COLORS[0],
-        theme: THEME_KEYS.includes(k.theme) ? k.theme : "field", plain: k.plain === true,
+        theme: THEME_KEYS.includes(k.theme) ? k.theme : "field", plain: k.plain === true, faith: k.faith === true,
         custom: { bg: isHex(k.custom && k.custom.bg) ? k.custom.bg : PALETTES[0][1], accent: isHex(k.custom && k.custom.accent) ? k.custom.accent : PALETTES[0][2],
           accent2: isHex(k.custom && k.custom.accent2) ? k.custom.accent2 : PALETTES[0][3] } });
     });
@@ -359,7 +425,7 @@
     return s;
   }
 
-  return { VERSION, CATS, CAT_KEYS, THEMES, THEME_KEYS, HAIR_KIT, PALETTES, MAX_REPEAT, STATUS, TEMPLATES, TEMPLATE_KEYS, ITEM_PICS, BAG_PICS, AVATARS, COLORS, DAY_LETTERS, DAY_NAMES,
+  return { VERSES, PRAYERS, verseFor, prayerFor, nextUp, countdown, startOf, VERSION, CATS, CAT_KEYS, THEMES, THEME_KEYS, HAIR_KIT, PALETTES, MAX_REPEAT, STATUS, TEMPLATES, TEMPLATE_KEYS, ITEM_PICS, BAG_PICS, AVATARS, COLORS, DAY_LETTERS, DAY_NAMES,
     newId, dayKey, defaultState, kidById, bagById, bagsFor, addKid, removeKid, addBag, removeBag, copyBag, addKit, addItem, removeItem, moveItem,
-    isToday, bagsToday, parseDay, addDays, addEvent, updateEvent, removeEvent, eventsOn, upcoming, monthGrid, time12, contrast, customTokens, currentCheck, isPacked, togglePacked, startOver, setStatus, summary, finishCheck, attention, normalize };
+    isToday, bagsToday, parseDay, addDays, addEvent, updateEvent, removeEvent, eventsOn, upcoming, placesFor, monthGrid, time12, contrast, customTokens, currentCheck, isPacked, togglePacked, startOver, setStatus, summary, finishCheck, attention, normalize };
 });

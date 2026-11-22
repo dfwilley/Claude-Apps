@@ -23,7 +23,7 @@
   const esc = (t) => String(t == null ? "" : t).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const now = () => new Date();
   let view = { name: "home" };
-  function go(v) { view = v; render(); window.scrollTo(0, 0); }
+  function go(v) { stopQuiet(); view = v; render(); window.scrollTo(0, 0); }
 
   function toast(msg) {
     const t = document.getElementById("toast");
@@ -74,7 +74,8 @@
   }
   function back() {
     const v = view;
-    if (v.name === "check" || v.name === "done") go({ name: "kid", kidId: (G.bagById(state, v.bagId) || {}).kidId });
+    if (v.name === "pregame") go({ name: "kid", kidId: v.kidId });
+    else if (v.name === "check" || v.name === "done") go({ name: "kid", kidId: (G.bagById(state, v.bagId) || {}).kidId });
     else if (v.name === "editBag") go({ name: "editKid", kidId: (G.bagById(state, v.bagId) || {}).kidId });
     else if (v.name === "editKid") go({ name: "grown" });
     else go({ name: "home" });
@@ -112,7 +113,7 @@
   function render() {
     const v = view;
     if ((v.kidId && !G.kidById(state, v.kidId)) || (v.bagId && !G.bagById(state, v.bagId))) view = { name: "home" };
-    const fn = { home: homeView, kid: kidView, check: checkView, done: doneView, grown: grownView, editKid: editKidView, editBag: editBagView }[view.name];
+    const fn = { home: homeView, kid: kidView, pregame: pregameView, check: checkView, done: doneView, grown: grownView, editKid: editKidView, editBag: editBagView }[view.name];
     app.innerHTML = fn();
     document.body.dataset.view = view.name;
     const bag = view.bagId && G.bagById(state, view.bagId);
@@ -157,6 +158,12 @@
     const bags = G.bagsFor(state, kid.id).slice().sort((a, b) => Number(todayIds.has(b.id)) - Number(todayIds.has(a.id)));
     let h = topBar(avatar(kid) + " " + esc(kid.name) + "'s bags", true, '<button class="round" data-a="style" aria-label="Change my style">🎨</button>');
     h += '<div class="wrap">';
+    h += nextUpCard(kid, d);
+    if (kid.faith) {
+      const vs = G.verseFor(d);
+      h += '<section class="card verse"><div class="verse-label">Verse of the day</div><p class="verse-text">“' + esc(vs[1]) + '”</p>' +
+        '<div class="verse-ref">' + esc(vs[0]) + ' <span class="soft">(BSB)</span></div></section>';
+    }
     if (!bags.length) h += '<section class="card welcome"><div class="big-emoji">🎒</div><p>' + w.noBags + "</p></section>";
     h += '<div class="bags">';
     bags.forEach((b) => {
@@ -171,6 +178,21 @@
     });
     h += "</div>" + scheduleCard(kid, d) + "</div>";
     return h;
+  }
+
+  function nextUpCard(kid, d) {
+    const e = G.nextUp(state, kid.id, d);
+    const btn = '<button class="btn small" data-a="pregame">' + (kid.faith ? "🙏 Pre-game" : "🧘 Pre-game focus") + "</button>";
+    if (!e) return '<section class="card next"><div class="next-row"><div class="grow"><div class="verse-label">Next up</div><div class="soft">Nothing on your schedule yet. Add games below.</div></div>' + btn + "</div></section>";
+    const bag = e.bagId && G.bagById(state, e.bagId);
+    return '<section class="card next"><div class="verse-label">Next up</div><div class="next-row"><div class="grow"><div class="next-title">' + (bag ? esc(bag.emoji) + " " : "") + esc(e.title) + "</div>" +
+      '<div class="countdown" data-count="' + esc(e.id) + '">' + esc(G.countdown(e, d)) + "</div>" +
+      '<div class="soft">' + esc(G.parseDay(e.date).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" }) + (e.time ? " · " + G.time12(e.time) : "")) + "</div>" +
+      (e.place ? '<div class="place">📍 ' + esc(e.place) + " " + mapLink(e.place) + "</div>" : "") + "</div></div>" +
+      '<div class="row">' + btn + (bag ? '<button class="btn small" data-a="check" data-id="' + bag.id + '">Pack ' + esc(bag.name.toLowerCase()) + " bag</button>" : "") + "</div></section>";
+  }
+  function mapLink(place) {
+    return '<a class="maplink" href="https://maps.apple.com/?q=' + encodeURIComponent(place) + '" target="_blank" rel="noopener">Directions</a>';
   }
 
   function scheduleCard(kid, d) {
@@ -207,7 +229,45 @@
     const when = (withDate ? G.parseDay(e.date).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }) + (e.time ? ", " : "") : "") + (e.time ? G.time12(e.time) : withDate ? "" : "Any time");
     return '<div class="ev"><button class="ev-main" data-a="editEvent" data-id="' + e.id + '"><span class="ev-time">' + esc(when) + '</span><span class="ev-what">' +
       (bag ? esc(bag.emoji) + " " : "") + "<b>" + esc(e.title) + "</b>" + (e.note ? '<span class="soft"> · ' + esc(e.note) + "</span>" : "") + "</span></button>" +
-      (bag && e.date === todayKey ? '<button class="btn small" data-a="check" data-id="' + bag.id + '">Pack</button>' : "") + "</div>";
+      (bag && e.date === todayKey ? '<button class="btn small" data-a="check" data-id="' + bag.id + '">Pack</button>' : "") +
+      (e.place ? '<span class="ev-place">📍 ' + esc(e.place) + " " + mapLink(e.place) + "</span>" : "") + "</div>";
+  }
+
+  let prayerStep = 0;
+  function pregameView() {
+    const kid = G.kidById(state, view.kidId), d = now(), e = G.nextUp(state, kid.id, d);
+    let h = topBar(kid.faith ? "🙏 Pre-game" : "🧘 Pre-game focus", true);
+    h += '<div class="wrap">';
+    if (e) h += '<section class="card center"><div class="verse-label">' + esc(e.title) + (e.place ? " · " + esc(e.place) : "") + '</div><div class="countdown big-count" data-count="' + esc(e.id) + '">' +
+      esc(G.countdown(e, d)) + "</div></section>";
+    if (kid.faith) {
+      const vs = G.verseFor(d);
+      h += '<section class="card verse"><div class="verse-label">Verse of the day</div><p class="verse-text">“' + esc(vs[1]) + '”</p><div class="verse-ref">' + esc(vs[0]) +
+        ' <span class="soft">(BSB)</span></div></section>';
+      h += '<section class="card"><div class="verse-label">A prayer before you play</div><p class="prayer">' + esc(G.prayerFor(d, prayerStep)) + "</p>" +
+        '<button class="btn small" data-a="nextPrayer">Another prayer</button></section>';
+    }
+    h += '<section class="card center quiet"><div class="verse-label">Quiet minute</div><p class="soft">' + (kid.faith ? "Breathe slowly, pray, and get ready." : "Breathe slowly and picture yourself playing well.") +
+      '</p><div class="breath" id="breath"><span id="breathText">Ready</span></div><div class="quiet-time" id="quietTime">1:00</div>' +
+      '<button class="btn primary" data-a="quiet" id="quietBtn">Start</button></section>';
+    h += "</div>";
+    return h;
+  }
+  let quietTimer = null;
+  function stopQuiet() { clearInterval(quietTimer); quietTimer = null; }
+  function startQuiet() {
+    stopQuiet();
+    const end = Date.now() + 60000, circle = document.getElementById("breath"), btn = document.getElementById("quietBtn");
+    circle.classList.add("on"); btn.textContent = "Stop";
+    const tick = () => {
+      const left = Math.max(0, Math.ceil((end - Date.now()) / 1000));
+      const el = document.getElementById("quietTime"), txt = document.getElementById("breathText");
+      if (!el) { stopQuiet(); return; }
+      el.textContent = "0:" + String(left).padStart(2, "0");
+      txt.textContent = Math.floor((60 - left) / 4) % 2 === 0 ? "Breathe in" : "Breathe out";
+      if (left === 0) { stopQuiet(); circle.classList.remove("on"); txt.textContent = "Ready to play"; btn.textContent = "Again"; tone([523, 659, 784]); }
+    };
+    tick(); quietTimer = setInterval(tick, 250);
   }
 
   function tile(bag, item, packed) {
@@ -257,7 +317,8 @@
         h += '<div class="note"><b>' + w.tell + "</b><ul>" + sm.flagged.map((i) => "<li>" + esc(i.emoji + " " + i.name) + " — " +
           esc(G.STATUS[i.status].label.toLowerCase()) + "</li>").join("") + "</ul></div>";
       }
-      h += '<button class="btn primary big" data-a="home">Done</button></section>';
+      h += '<div class="row center-row"><button class="btn primary big" data-a="home">Done</button>' +
+        '<button class="btn" data-a="pregame" data-id="' + kid.id + '">' + (kid.faith ? "🙏 Pre-game" : "🧘 Pre-game focus") + "</button></div></section>";
     } else {
       h += '<section class="card done hold-short">' + (w.missIcon ? '<div class="big-emoji">' + w.missIcon + "</div>" : "") + "<h2>" + w.missTitle + "</h2><p>" + w.missText + "</p>" +
         '<div class="missing">' + sm.missing.map((i) => '<button class="miss" data-a="packFromDone" data-id="' + i.id + '"><span>' + esc(i.emoji) +
@@ -340,7 +401,10 @@
     }
     h += '<div class="field words-field">Wording<div class="seg">' +
       '<button class="' + (kid.plain ? "" : "on") + '" data-a="setPlain" data-v="0">Fun <span class="soft">("Cleared for takeoff!")</span></button>' +
-      '<button class="' + (kid.plain ? "on" : "") + '" data-a="setPlain" data-v="1">Simple <span class="soft">("All packed")</span></button></div></div>';
+      '<button class="' + (kid.plain ? "on" : "") + '" data-a="setPlain" data-v="1">Simple <span class="soft">("All packed")</span></button></div></div>' +
+      '<div class="field words-field">Faith<div class="seg">' +
+      '<button class="' + (kid.faith ? "" : "on") + '" data-a="setFaith" data-v="0">Off</button>' +
+      '<button class="' + (kid.faith ? "on" : "") + '" data-a="setFaith" data-v="1">On <span class="soft">(Bible verse of the day, pre-game prayers)</span></button></div></div>';
     return h;
   }
 
@@ -436,7 +500,7 @@
 
   const REPEATS = [[1, "Just once"], [2, "Every week, 2 weeks"], [4, "Every week, 4 weeks"], [8, "Every week, 8 weeks"], [12, "Every week, 12 weeks"], [G.MAX_REPEAT, "Every week, 6 months"]];
   function eventModal(kid, ev, day) {
-    const e = ev || { date: day, time: "", title: "", bagId: "", note: "" };
+    const e = ev || { date: day, time: "", title: "", bagId: "", place: "", note: "" };
     const bags = G.bagsFor(state, kid.id);
     openModal("<h2>" + (ev ? "Edit plan" : "Add to schedule") + "</h2>" +
       '<label class="field">What<input id="evTitle" maxlength="40" value="' + esc(e.title) + '" placeholder="Practice, game, tryouts…" autocomplete="off"' + (ev ? "" : " autofocus") + "></label>" +
@@ -444,7 +508,9 @@
         esc(b.emoji + " " + b.name) + "</option>").join("") + "</select></label>" +
       '<div class="two"><label class="field">Date<input id="evDate" type="date" value="' + esc(e.date) + '"></label>' +
       '<label class="field">Time <span class="soft">(optional)</span><input id="evTime" type="time" value="' + esc(e.time) + '"></label></div>' +
-      '<label class="field">Note <span class="soft">(optional)</span><input id="evNote" maxlength="80" value="' + esc(e.note) + '" placeholder="Field 3, wear white jersey…"></label>' +
+      '<label class="field">Where <span class="soft">(optional)</span><input id="evPlace" maxlength="60" list="placeList" value="' + esc(e.place || "") +
+        '" placeholder="Field, gym or address" autocomplete="off"><datalist id="placeList">' + G.placesFor(state, kid.id).map((pl) => '<option value="' + esc(pl) + '">').join("") + "</datalist></label>" +
+      '<label class="field">Note <span class="soft">(optional)</span><input id="evNote" maxlength="80" value="' + esc(e.note) + '" placeholder="Wear white jersey, be there 30 min early…"></label>' +
       (ev ? "" : '<label class="field">Repeat<select id="evRepeat">' + REPEATS.map(([n, l]) => '<option value="' + n + '">' + l + "</option>").join("") + "</select></label>") +
       '<div class="row"><button class="btn primary" data-m="saveEvent">Save</button>' +
       (ev ? '<button class="btn danger" data-m="deleteEvent">Delete</button>' + (ev.group && state.events.some((x) => x.group === ev.group && x.date > ev.date) ?
@@ -497,6 +563,10 @@
       case "style": styleModal(view.kidId); break;
       case "setTheme": G.kidById(state, view.kidId).theme = v; save(); render(); break;
       case "setPlain": G.kidById(state, view.kidId).plain = v === "1"; save(); render(); break;
+      case "setFaith": G.kidById(state, view.kidId).faith = v === "1"; save(); render(); break;
+      case "pregame": stopQuiet(); prayerStep = 0; go({ name: "pregame", kidId: id || view.kidId || (G.bagById(state, view.bagId) || {}).kidId }); break;
+      case "nextPrayer": prayerStep++; render(); break;
+      case "quiet": if (quietTimer) { stopQuiet(); render(); } else startQuiet(); break;
       case "palette": setPalette(G.kidById(state, view.kidId), Number(v)); render(); break;
       case "calDay": view.sel = v; render(); break;
       case "calMove": { const base = G.parseDay((view.month || G.dayKey(d).slice(0, 7)) + "-01"); base.setMonth(base.getMonth() + Number(v)); view.month = G.dayKey(base).slice(0, 7); render(); break; }
@@ -540,16 +610,16 @@
     const b = ev.target.closest("[data-m],[data-a]"); if (!b || !modalCtx) return;
     const m = b.dataset.m || b.dataset.a, v = b.dataset.v, c = modalCtx, d = now();
     if (m === "close") { closeModal(); return; }
-    if (c.kind === "style" && (m === "setTheme" || m === "setPlain" || m === "palette")) {
+    if (c.kind === "style" && (m === "setTheme" || m === "setPlain" || m === "setFaith" || m === "palette")) {
       const kid = G.kidById(state, c.kidId);
-      if (m === "setTheme") kid.theme = v; else if (m === "setPlain") kid.plain = v === "1"; else setPalette(kid, Number(v));
+      if (m === "setTheme") kid.theme = v; else if (m === "setPlain") kid.plain = v === "1"; else if (m === "setFaith") kid.faith = v === "1"; else setPalette(kid, Number(v));
       save(); render(); refreshStyleModal();
       return;
     }
     if (c.kind === "event" && (m === "saveEvent" || m === "deleteEvent" || m === "deleteLater")) {
       if (m !== "saveEvent") { G.removeEvent(state, c.eventId, m === "deleteLater"); save(); closeModal(); render(); return; }
       const o = { title: document.getElementById("evTitle").value, bagId: document.getElementById("evBag").value, date: document.getElementById("evDate").value,
-        time: document.getElementById("evTime").value, note: document.getElementById("evNote").value };
+        time: document.getElementById("evTime").value, place: document.getElementById("evPlace").value, note: document.getElementById("evNote").value };
       if (!o.date) { toast("Pick a date."); return; }
       if (!o.title.trim() && !o.bagId) { toast("Say what it is, or pick a bag."); return; }
       if (c.eventId) G.updateEvent(state, c.eventId, o);
@@ -632,6 +702,13 @@
     };
     r.readAsText(file);
   }
+
+  // Keep countdowns current while the app is open.
+  setInterval(() => {
+    const els = document.querySelectorAll("[data-count]"); if (!els.length) return;
+    const d = now();
+    els.forEach((el) => { const e = state.events.find((x) => x.id === el.dataset.count); if (e) el.textContent = G.countdown(e, d); });
+  }, 20000);
 
   // A new day while the app sits open: redraw so yesterday's check marks clear.
   let lastDay = G.dayKey(now());

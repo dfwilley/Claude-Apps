@@ -1,6 +1,7 @@
 // Tests the packing rules of Gear Bag Check. Run: node tests/gear-bag-check.test.js
 const G = require(require("path").join(__dirname, "../gear-bag-check/core.js"));
 const assert = require("assert");
+let cs0, k0;
 
 const sat = new Date(2026, 10, 21, 8); // Saturday, November 21, 2026
 const sun = new Date(2026, 10, 22, 8);
@@ -190,6 +191,46 @@ G.PALETTES.forEach(([name, bg, a, a2]) => {
 });
 assert.equal(G.customTokens({ bg: "#FFFFFF", accent: "#FFEB3B", accent2: "#000000" })["--on-field"], "#141218", "dark text on a yellow button");
 assert.equal(G.customTokens({ bg: "#000000", accent: "#1A237E", accent2: "#FFFFFF" }).dark, true);
+
+// Places
+const pg = G.addEvent(cs0 = G.defaultState(), (k0 = G.addKid(cs0, "Kit")).id, { date: "2026-11-21", title: "Game", place: "  Reid Park   Field 2 " })[0];
+assert.equal(pg.place, "Reid Park Field 2");
+G.addEvent(cs0, k0.id, { date: "2026-11-28", title: "Game", place: "Kino Sports Complex" });
+G.addEvent(cs0, k0.id, { date: "2026-11-30", title: "Game", place: "reid park field 2" });
+G.addEvent(cs0, k0.id, { date: "2026-12-01", title: "Practice" });
+assert.deepEqual(G.placesFor(cs0, k0.id), ["reid park field 2", "Kino Sports Complex"], "newest spelling, no repeats, blanks skipped");
+assert.equal(G.normalize(JSON.parse(JSON.stringify(cs0))).events[0].place, "Reid Park Field 2");
+
+// Countdown, verse and prayer
+assert.equal(ava.faith, false, "verses and prayers are off until a player turns them on");
+const cs = G.defaultState(); const cz = G.addKid(cs, "Zoe");
+const sat8 = new Date(2026, 10, 21, 8, 0);
+assert.equal(G.nextUp(cs, cz.id, sat8), null);
+G.addEvent(cs, cz.id, { date: "2026-11-21", time: "10:15", title: "Game" });
+G.addEvent(cs, cz.id, { date: "2026-11-21", time: "07:00", title: "Early" });
+G.addEvent(cs, cz.id, { date: "2026-11-22", time: "17:30", title: "Practice" });
+G.addEvent(cs, cz.id, { date: "2026-11-25", title: "Photos" });
+assert.equal(G.nextUp(cs, cz.id, sat8).title, "Early", "started an hour ago: still next");
+assert.equal(G.countdown(G.nextUp(cs, cz.id, sat8), sat8), "happening now");
+const sat930 = new Date(2026, 10, 21, 9, 30);
+assert.equal(G.nextUp(cs, cz.id, sat930).title, "Game");
+assert.equal(G.countdown(G.nextUp(cs, cz.id, sat930), sat930), "in 45 min");
+assert.equal(G.countdown(G.nextUp(cs, cz.id, sat8), new Date(2026, 10, 21, 4, 0)), "in 3 hr");
+const sat13 = new Date(2026, 10, 21, 13, 0);
+assert.equal(G.nextUp(cs, cz.id, sat13).title, "Practice");
+assert.equal(G.countdown(G.nextUp(cs, cz.id, sat13), sat13), "tomorrow at 5:30 PM");
+assert.equal(G.countdown(G.nextUp(cs, cz.id, sat13), new Date(2026, 10, 22, 13, 0)), "in 4 hr 30 min");
+assert.equal(G.countdown({ date: "2026-11-25", time: "" }, sat13), "in 4 days");
+assert.equal(G.countdown({ date: "2026-11-21", time: "" }, sat13), "today");
+assert.equal(G.countdown({ date: "2026-11-22", time: "" }, sat13), "tomorrow");
+assert.equal(G.countdown({ date: "2026-11-30", time: "09:00" }, sat13), "in 9 days");
+assert.equal(G.countdown({ date: "2026-03-09", time: "01:00" }, new Date(2026, 2, 8, 23, 0)), "in 2 hr", "across the time change (Arizona has none, but phones elsewhere do)");
+assert(G.VERSES.length >= 20 && G.PRAYERS.length >= 5);
+G.VERSES.forEach(([ref, text]) => { assert(/^[1-3]? ?[A-Z][a-z]+ \d+:\d+(-\d+)?$/.test(ref), ref); assert(text.length > 20); });
+assert.equal(G.verseFor(sat8), G.verseFor(new Date(2026, 10, 21, 23, 59)), "same verse all day");
+assert.notEqual(G.verseFor(sat8)[0], G.verseFor(new Date(2026, 10, 22, 1))[0], "a new verse the next day");
+assert.notEqual(G.prayerFor(sat8, 0), G.prayerFor(sat8, 1));
+assert.equal(G.normalize({ kids: [{ id: "x", faith: true }], bags: [] }).kids[0].faith, true);
 
 // Removing a kid removes their bags
 G.removeKid(s, ava.id);

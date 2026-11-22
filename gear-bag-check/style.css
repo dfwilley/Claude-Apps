@@ -285,3 +285,25 @@ body[data-view="check"] .wrap { padding-bottom: 170px; }
 .palette span { margin-left: 4px; text-align: left; line-height: 1.1; }
 .words-field { margin-top: 14px; }
 .seg button .soft { display: block; font-size: 12px; font-weight: 500; }
+
+/* ---------- Next up, verse, pre-game ---------- */
+.verse-label { font-size: 13px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; color: var(--soft); margin-bottom: 6px; }
+.next-row { display: flex; align-items: flex-start; gap: 12px; }
+.next-title { font-size: 21px; font-weight: 800; }
+.countdown { font-size: 26px; font-weight: 900; color: var(--field); margin: 2px 0; }
+.big-count { font-size: 40px; }
+.place { margin-top: 4px; font-weight: 600; }
+.maplink { display: inline-block; margin-left: 6px; padding: 2px 10px; border-radius: 10px; background: var(--field-soft); color: var(--ink); font-size: 14px; font-weight: 700; text-decoration: none; }
+.ev { flex-wrap: wrap; }
+.ev-place { flex-basis: 100%; padding: 0 2px 10px 88px; font-size: 14px; font-weight: 600; margin-top: -6px; }
+.verse { background: linear-gradient(135deg, var(--card), var(--field-soft)); }
+.verse-text { font-size: 19px; line-height: 1.45; margin: 4px 0 8px; font-style: italic; }
+.verse-ref { font-weight: 800; }
+.prayer { font-size: 18px; line-height: 1.5; }
+.center-row { justify-content: center; }
+.quiet { display: flex; flex-direction: column; align-items: center; }
+.breath { width: 150px; height: 150px; border-radius: 50%; display: grid; place-items: center; margin: 10px auto; background: var(--field-soft); box-shadow: 0 0 0 6px var(--field-soft); font-weight: 800; font-size: 17px; transform: scale(0.8); }
+.breath.on { animation: breathe 8s ease-in-out infinite; }
+@keyframes breathe { 0%, 100% { transform: scale(0.75); background: var(--field-soft); } 50% { transform: scale(1.05); background: color-mix(in srgb, var(--field) 35%, var(--card)); } }
+@media (prefers-reduced-motion: reduce) { .breath.on { animation: none; } }
+.quiet-time { font-size: 28px; font-weight: 900; margin-bottom: 10px; font-variant-numeric: tabular-nums; }
