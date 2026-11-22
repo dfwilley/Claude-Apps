@@ -188,11 +188,8 @@
     return '<section class="card next"><div class="verse-label">Next up</div><div class="next-row"><div class="grow"><div class="next-title">' + (bag ? esc(bag.emoji) + " " : "") + esc(e.title) + "</div>" +
       '<div class="countdown" data-count="' + esc(e.id) + '">' + esc(G.countdown(e, d)) + "</div>" +
       '<div class="soft">' + esc(G.parseDay(e.date).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" }) + (e.time ? " · " + G.time12(e.time) : "")) + "</div>" +
-      (e.place ? '<div class="place">📍 ' + esc(e.place) + " " + mapLink(e.place) + "</div>" : "") + "</div></div>" +
+      (e.place ? '<div class="place">📍 ' + esc(e.place) + "</div>" : "") + "</div></div>" +
       '<div class="row">' + btn + (bag ? '<button class="btn small" data-a="check" data-id="' + bag.id + '">Pack ' + esc(bag.name.toLowerCase()) + " bag</button>" : "") + "</div></section>";
-  }
-  function mapLink(place) {
-    return '<a class="maplink" href="https://maps.apple.com/?q=' + encodeURIComponent(place) + '" target="_blank" rel="noopener">Directions</a>';
   }
 
   function scheduleCard(kid, d) {
@@ -230,7 +227,7 @@
     return '<div class="ev"><button class="ev-main" data-a="editEvent" data-id="' + e.id + '"><span class="ev-time">' + esc(when) + '</span><span class="ev-what">' +
       (bag ? esc(bag.emoji) + " " : "") + "<b>" + esc(e.title) + "</b>" + (e.note ? '<span class="soft"> · ' + esc(e.note) + "</span>" : "") + "</span></button>" +
       (bag && e.date === todayKey ? '<button class="btn small" data-a="check" data-id="' + bag.id + '">Pack</button>' : "") +
-      (e.place ? '<span class="ev-place">📍 ' + esc(e.place) + " " + mapLink(e.place) + "</span>" : "") + "</div>";
+      (e.place ? '<span class="ev-place">📍 ' + esc(e.place) + "</span>" : "") + "</div>";
   }
 
   let prayerStep = 0;
