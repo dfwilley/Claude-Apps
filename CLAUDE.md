@@ -29,6 +29,7 @@ Each app is a plain web app in its own top-level folder: HTML, CSS and JavaScrip
 | `bend-it-right/` | Bend It Right | none |
 | `fit-the-part/` | Fit the Part | none |
 | `gear-bag-check/` | Gear Bag Check | none |
+| `sketch-match/` | Sketch Match | none |
 | `brick-pile/` | Brick Pile Builder (called Brick Pile in the code and workflows). **Shelved** November 21, 2026 | `native/brick-pile/`, web app inside a native shell; builds only when started by hand |
 | `blue-book/` | Blue Book | `native/blue-book/`, web app inside a native shell (TestFlight) |
 | `hgvc-binder/` | HGVC Binder | `native/hgvc-binder/`, web app inside a native shell (TestFlight) |
@@ -56,12 +57,13 @@ node tests/gate-time-puzzles.test.js
 node tests/gear-bag-check.test.js
 node tests/hgvc-binder.test.js
 node tests/job-jar.test.js
+node tests/sketch-match.test.js
 node tests/which-gear-goes-where.test.js
 node tests/who-was-here.test.js
 node tests/wing-rib-riddles.test.js
 ```
 
-All twelve passed on November 21, 2026. Knot of the Day, Wire Bender and Ask Me Tomorrow have no automated tests. The Swift unit tests and screenshot tests under `native/*/` need a Mac, so they run only in GitHub Actions.
+All thirteen passed on November 22, 2026. Knot of the Day, Wire Bender and Ask Me Tomorrow have no automated tests. The Swift unit tests and screenshot tests under `native/*/` need a Mac, so they run only in GitHub Actions.
 
 ## How a change reaches the phone
 
@@ -85,10 +87,12 @@ For anything larger than a small fix, work on a branch and merge to `main` only 
 - **Everything stays on the device** is a promise made in several apps' descriptions. Don't add analytics, accounts or cloud storage without the owner asking. The one exception the owner asked for (November 21, 2026) is Bin Finder's optional **Scan with AI**: it sends a bin's photos to Anthropic's API only when he taps that button, using his own API key typed into the app. The key is stored on the device only (browser storage on the web, Keychain on iPhone) and must never be put in this repository or in backups.
   - Blue Book has two exceptions the owner asked for (November 19, 2026), both off until he turns them on: the web app can keep the logbook in a folder he chooses, and it can send a picture of each page to the Claude API (`blue-book/js/ai.js`, his own key, kept in the browser only) because the in-browser reader cannot read handwriting. The page's Content-Security-Policy allows `api.anthropic.com` and nothing else. Keep the key out of the logbook file, backups and the repository.
   - Brick Pile works with nothing leaving the device: `brick-pile/finder.js` counts bricks by colour and rough size, and `brick-pile/builds.js` holds the built-in builds (the owner asked for a no-key mode on November 21, 2026). Only if the owner saves his own Anthropic key (kept in the browser only) do the picture of the bricks, and later the list of bricks, go to the Claude API (`brick-pile/core.js`). Same Content-Security-Policy rule as Blue Book. Both ways must keep working. The app's name and icon avoid the LEGO name and logo on purpose (trademark); keep it that way.
+  - Sketch Match (the owner asked for it, November 22, 2026) sends the picture to copy and the photo of the drawing to the Claude API when "Check my drawing" is tapped. It never holds a key: it calls a Cloudflare worker script (`sketch-match/worker/sketch-match-worker.mjs`, set up by the owner per `worker/SETUP.md`) that keeps the key and a family code as Cloudflare secrets. The worker is deployed by hand in the Cloudflare dashboard, so **a change to the worker file does nothing until the owner pastes it in again**; tell him when that is needed. The page's Content-Security-Policy allows `*.workers.dev` and nothing else. The app is used by a 13-year-old: keep the coach's wording kind and honest, and keep the family code and key out of the repository.
 - The Job Jar! is used by young children. It links a kid's device to a grown-up's over home Wi-Fi only, with no internet or cloud. Keep it that way.
 - Wing Rib Riddles draws every picture in code (`ITEMS` in `wing-rib-riddles/core.js`, each a 200 x 200 drawing with a close-up window). A new riddle needs a drawing, at least three wrong choices and a checked fact. The riddle of the day comes from the day number, so adding riddles reshuffles which one falls on which day.
 - Bend It Right's shapes (`RAW` in `bend-it-right/core.js`) are corner points; leg lengths are rounded to 1/8 inch and turns to 1 degree, so pick points whose slanted legs land near eighths (3-4-5 triangles) or a closed shape will not close. Saved patterns are the player's bends for a shape id, so changing an existing shape's points makes old saved patterns for it look wrong; add new shapes rather than reshaping old ones.
 - Fit the Part's answers are never typed in: each puzzle in `PUZZLES` in `fit-the-part/core.js` lists its given numbers (three sets) and its clues as simple sums, and the app solves them. A new puzzle needs clues that give exactly one answer of at most three decimal places for every set, a drawing whose dimensions match, the working, and a SolidWorks part idea; `tests/fit-the-part.test.js` checks all of that.
+- Sketch Match's pictures (`DRAWINGS` in `sketch-match/core.js`) are line art drawn in code on a 200 x 200 square, each with a plain description for the coach and three starting steps. The worker and the app must agree on the feedback areas; `tests/sketch-match.test.js` checks that and runs the worker with a pretend Claude.
 - Brick Pile's built-in builds (`BUILDS` in `brick-pile/builds.js`) are each written as a side view, one line of text per layer from the bottom up (`B24@0:a` is a 2 x 4 brick starting 0 studs from the left, in colour group a). The pieces needed, the picture and the steps all come from that. A new build needs every piece to rest on a piece below it; `tests/brick-pile.test.js` checks that.
 - Who Was Here uses live Wikidata, Wikipedia and OpenStreetMap services. Be gentle with request volume and keep the attribution.
 - New web apps go in a new top-level folder and get a line in `README.md`. A native version goes under `native/<app>/` with its own workflows copied from an existing app of the same kind.

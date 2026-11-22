@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: blob:; connect-src 'self' https://*.workers.dev; style-src 'self'; script-src 'self'; base-uri 'none'; form-action 'none'">
+  <title>Sketch Match</title>
+  <meta name="description" content="Drawing practice: copy a picture on paper, take a photo of your drawing, and get friendly feedback on how it matches.">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Sketch Match">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="theme-color" content="#FBF7F0">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main id="app"></main>
+  <input id="camera" type="file" accept="image/*" capture="environment" hidden>
+  <input id="library" type="file" accept="image/*" hidden>
+  <noscript>Sketch Match needs JavaScript turned on.</noscript>
+  <script src="config.js"></script>
+  <script src="core.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
