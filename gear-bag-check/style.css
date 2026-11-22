@@ -328,3 +328,11 @@ body[data-view="check"] .wrap { padding-bottom: 170px; }
 .home-colors { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 6px; }
 .home-color { display: flex; align-items: center; gap: 6px; padding: 8px; border-radius: 12px; background: var(--card); border: 2px solid transparent; font-size: 14px; font-weight: 700; }
 .home-color.on { border-color: var(--field); }
+
+/* ---------- Holidays and the family calendar ---------- */
+.hol-mark { position: absolute; top: 0; right: 1px; font-size: 11px; line-height: 1; }
+.cal-day.hol:not(.sel) { background: var(--orange-soft); }
+.hol-row { padding: 6px 2px; font-size: 16px; }
+.next-hol { margin: 4px 0 0; font-weight: 600; }
+.small-note { font-size: 13px; margin: 10px 0 0; }
+.avatar.sm { width: 26px; height: 26px; font-size: 14px; border-width: 2px; vertical-align: middle; }

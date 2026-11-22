@@ -154,7 +154,7 @@
   }
 
   function defaultState() {
-    return { version: VERSION, kids: [], bags: [], checks: {}, log: [], events: [], settings: { speak: true, sound: true, homeBg: "" } };
+    return { version: VERSION, kids: [], bags: [], checks: {}, log: [], events: [], settings: { speak: true, sound: true, homeBg: "", homeFont: "rounded", holidays: true } };
   }
 
   function clampCount(n) { n = Math.round(Number(n) || 1); return Math.max(1, Math.min(9, n)); }
@@ -297,6 +297,59 @@
     let h = Number(t.slice(0, 2)); const m = t.slice(3), ap = h >= 12 ? "PM" : "AM";
     h = h % 12 || 12;
     return h + ":" + m + " " + ap;
+  }
+
+  // ---------- Holidays (US, worked out for any year) ----------
+  /** The nth weekday of a month (n = -1 for the last one). weekday: 0 = Sunday. */
+  function nthWeekday(year, month, weekday, n) {
+    if (n > 0) { const first = new Date(year, month, 1, 12).getDay(); return 1 + ((weekday - first + 7) % 7) + (n - 1) * 7; }
+    const lastDay = new Date(year, month + 1, 0, 12), back = (lastDay.getDay() - weekday + 7) % 7;
+    return lastDay.getDate() - back;
+  }
+  /** Easter Sunday (Western churches), by the standard Gregorian calculation. */
+  function easter(year) {
+    const a = year % 19, b = Math.floor(year / 100), c = year % 100, d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25),
+      g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30, i = Math.floor(c / 4), k = c % 4,
+      l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451), month = Math.floor((h + l - 7 * m + 114) / 31),
+      day = ((h + l - 7 * m + 114) % 31) + 1;
+    return new Date(year, month - 1, day, 12);
+  }
+  const holidayCache = {};
+  /** All holidays in a year: { "YYYY-MM-DD": [[emoji, name], ...] }. */
+  function holidaysIn(year) {
+    if (holidayCache[year]) return holidayCache[year];
+    const out = {}, add = (month, day, emoji, name) => { const k = dayKey(new Date(year, month, day, 12)); (out[k] = out[k] || []).push([emoji, name]); };
+    const ea = easter(year), gf = new Date(ea); gf.setDate(gf.getDate() - 2);
+    add(0, 1, "🎉", "New Year's Day");
+    add(0, nthWeekday(year, 0, 1, 3), "🕊️", "Martin Luther King Jr. Day");
+    add(1, 14, "💝", "Valentine's Day");
+    add(1, nthWeekday(year, 1, 1, 3), "🇺🇸", "Presidents' Day");
+    add(2, 17, "☘️", "St. Patrick's Day");
+    add(gf.getMonth(), gf.getDate(), "✝️", "Good Friday");
+    add(ea.getMonth(), ea.getDate(), "🐣", "Easter");
+    add(4, nthWeekday(year, 4, 0, 2), "💐", "Mother's Day");
+    add(4, nthWeekday(year, 4, 1, -1), "🇺🇸", "Memorial Day");
+    add(5, nthWeekday(year, 5, 0, 3), "👔", "Father's Day");
+    add(5, 19, "🎊", "Juneteenth");
+    add(6, 4, "🎆", "Independence Day");
+    add(8, nthWeekday(year, 8, 1, 1), "🛠️", "Labor Day");
+    add(9, nthWeekday(year, 9, 1, 2), "🧭", "Columbus Day / Indigenous Peoples' Day");
+    add(9, 31, "🎃", "Halloween");
+    add(10, 11, "🎖️", "Veterans Day");
+    add(10, nthWeekday(year, 10, 4, 4), "🦃", "Thanksgiving");
+    add(11, 24, "🎄", "Christmas Eve");
+    add(11, 25, "🎄", "Christmas Day");
+    add(11, 31, "🥳", "New Year's Eve");
+    holidayCache[year] = out;
+    return out;
+  }
+  function holidaysOn(key) { return holidaysIn(Number(String(key).slice(0, 4)))[key] || []; }
+  /** The next holiday on or after a date: [dayKey, emoji, name]. */
+  function nextHoliday(date) {
+    const key = dayKey(date), y = date.getFullYear();
+    const all = Object.assign({}, holidaysIn(y), holidaysIn(y + 1));
+    const k = Object.keys(all).filter((x) => x >= key).sort()[0];
+    return [k, all[k][0][0], all[k][0][1]];
   }
 
   // ---------- Countdown, verse and prayer ----------
@@ -470,11 +523,13 @@
     if (raw.settings) {
       s.settings.speak = raw.settings.speak !== false; s.settings.sound = raw.settings.sound !== false;
       s.settings.homeBg = isHex(raw.settings.homeBg) ? raw.settings.homeBg.toUpperCase() : "";
+      s.settings.homeFont = FONT_KEYS.includes(raw.settings.homeFont) ? raw.settings.homeFont : "rounded";
+      s.settings.holidays = raw.settings.holidays !== false;
     }
     return s;
   }
 
-  return { HOME_COLORS, FONTS, FONT_KEYS, cleanEmoji, hsvToHex, hexToHsv, VERSES, PRAYERS, verseFor, prayerFor, nextUp, countdown, startOf, VERSION, CATS, CAT_KEYS, THEMES, THEME_KEYS, HAIR_KIT, PALETTES, MAX_REPEAT, STATUS, TEMPLATES, TEMPLATE_KEYS, ITEM_PICS, BAG_PICS, AVATARS, COLORS, DAY_LETTERS, DAY_NAMES,
+  return { holidaysIn, holidaysOn, nextHoliday, easter, HOME_COLORS, FONTS, FONT_KEYS, cleanEmoji, hsvToHex, hexToHsv, VERSES, PRAYERS, verseFor, prayerFor, nextUp, countdown, startOf, VERSION, CATS, CAT_KEYS, THEMES, THEME_KEYS, HAIR_KIT, PALETTES, MAX_REPEAT, STATUS, TEMPLATES, TEMPLATE_KEYS, ITEM_PICS, BAG_PICS, AVATARS, COLORS, DAY_LETTERS, DAY_NAMES,
     newId, dayKey, defaultState, kidById, bagById, bagsFor, addKid, removeKid, addBag, removeBag, copyBag, addKit, addItem, removeItem, moveItem,
     isToday, bagsToday, parseDay, addDays, addEvent, updateEvent, removeEvent, eventsOn, upcoming, placesFor, monthGrid, time12, contrast, customTokens, currentCheck, isPacked, togglePacked, startOver, setStatus, summary, finishCheck, attention, normalize };
 });

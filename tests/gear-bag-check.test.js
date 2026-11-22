@@ -252,6 +252,29 @@ assert.equal(G.normalize({ kids: [], bags: [], settings: { homeBg: "#fde2e4" } }
 assert.equal(G.normalize({ kids: [], bags: [], settings: { homeBg: "pink" } }).settings.homeBg, "");
 assert.equal(G.HOME_COLORS[0][1], "#FBF6EA", "cream comes first");
 
+// Holidays (checked against published 2026 and 2027 dates)
+const hol = (k) => G.holidaysOn(k).map((x) => x[1]);
+assert.deepEqual(hol("2026-11-26"), ["Thanksgiving"]);
+assert.deepEqual(hol("2027-11-25"), ["Thanksgiving"]);
+assert.deepEqual(hol("2026-04-05"), ["Easter"]); assert.deepEqual(hol("2026-04-03"), ["Good Friday"]);
+assert.deepEqual(hol("2027-03-28"), ["Easter"]); assert.deepEqual(hol("2025-04-20"), ["Easter"]); assert.deepEqual(hol("2024-03-31"), ["Easter"]);
+assert.deepEqual(hol("2026-01-19"), ["Martin Luther King Jr. Day"]);
+assert.deepEqual(hol("2026-02-16"), ["Presidents' Day"]);
+assert.deepEqual(hol("2026-05-10"), ["Mother's Day"]);
+assert.deepEqual(hol("2026-05-25"), ["Memorial Day"]);
+assert.deepEqual(hol("2026-06-21"), ["Father's Day"]);
+assert.deepEqual(hol("2026-09-07"), ["Labor Day"]);
+assert.deepEqual(hol("2026-10-12"), ["Columbus Day / Indigenous Peoples' Day"]);
+assert.deepEqual(hol("2026-12-25"), ["Christmas Day"]);
+assert.deepEqual(hol("2026-11-22"), []);
+assert.equal(Object.keys(G.holidaysIn(2026)).length, 20);
+assert.deepEqual(G.nextHoliday(new Date(2026, 10, 22, 9)), ["2026-11-26", "🦃", "Thanksgiving"]);
+assert.deepEqual(G.nextHoliday(new Date(2026, 11, 31, 22)).slice(2), ["New Year's Eve"], "today counts");
+assert.deepEqual(G.nextHoliday(new Date(2027, 0, 1, 12, 0, 0, 0)).slice(0, 1), ["2027-01-01"]);
+const st0 = G.defaultState(); assert.equal(st0.settings.holidays, true); assert.equal(st0.settings.homeFont, "rounded");
+const ns = G.normalize({ kids: [], bags: [], settings: { holidays: false, homeFont: "marker" } }).settings;
+assert.equal(ns.holidays, false); assert.equal(ns.homeFont, "marker");
+
 // Removing a kid removes their bags
 G.removeKid(s, ava.id);
 assert.equal(s.kids.length, 1); assert.equal(s.bags.length, 1);

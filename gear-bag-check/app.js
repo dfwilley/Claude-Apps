@@ -109,6 +109,7 @@
     else { TOKEN_NAMES.forEach((k) => root.style.removeProperty(k)); root.style.colorScheme = ""; }
     const font = kid && kid.font !== "rounded" && G.FONTS.find((f) => f[0] === kid.font);
     root.style.fontFamily = font ? font[2] : "";
+    if (view.name === "home") { const hf = state.settings.homeFont !== "rounded" && G.FONTS.find((f) => f[0] === state.settings.homeFont); root.style.fontFamily = hf ? hf[2] : ""; }
     if (view.name === "home" && state.settings.homeBg) {
       const t = G.customTokens({ bg: state.settings.homeBg, accent: "#1F7A4D", accent2: "#F57C00" });
       TOKEN_NAMES.forEach((k) => root.style.setProperty(k, t[k])); root.style.colorScheme = t.dark ? "dark" : "light";
@@ -138,7 +139,7 @@
   }
 
   function homeView() {
-    let h = topBar('<img src="icon.svg" alt=""> Gear Bag Check', false, state.kids.length ? '<button class="round" data-a="homeStyle" aria-label="Main screen color">🎨</button>' : "");
+    let h = topBar('<img src="icon.svg" alt=""> Gear Bag Check', false, state.kids.length ? '<button class="round" data-a="homeStyle" aria-label="Main screen color and font">🎨</button>' : "");
     h += '<div class="wrap">';
     if (!state.kids.length) {
       h += '<section class="card welcome"><div class="big-emoji">🎒</div><h2>Preflight your gear bag</h2>' +
@@ -155,9 +156,26 @@
           (evs.length ? '<span class="today">Today: ' + evs.slice(0, 2).map((e) => esc((e.time ? G.time12(e.time) + " " : "") + e.title)).join(", ") + "</span>"
             : today.length ? '<span class="today">Today: ' + today.map((b) => esc(b.emoji + " " + b.name)).join(", ") + "</span>" : "") + "</button>";
       });
-      h += "</div>";
+      h += "</div>" + familyCalendar(d);
     }
     h += '<div class="foot">' + grownButton() + "</div></div>";
+    return h;
+  }
+
+  function familyCalendar(d) {
+    const todayKey = G.dayKey(d), sel = view.sel || todayKey;
+    let h = '<section class="card sched"><div class="sched-head"><h2>Family calendar</h2></div>';
+    if (state.settings.holidays) { const nh = G.nextHoliday(d); h += '<p class="soft next-hol">Next holiday: ' + nh[1] + " " + esc(nh[2]) + (nh[0] === todayKey ? " (today!)" : ", " + esc(fmtDayKey(nh[0]))) + "</p>"; }
+    h += calendarHTML(todayKey, state.events, new Set());
+    const evs = state.events.filter((e) => e.date === sel).sort((a, b) => (a.time || "99").localeCompare(b.time || "99"));
+    if (!evs.length) h += '<p class="soft">' + (G.holidaysOn(sel).length && state.settings.holidays ? "No games or practices." : "Nothing planned.") + "</p>";
+    evs.forEach((e) => {
+      const kid = G.kidById(state, e.kidId), bag = e.bagId && G.bagById(state, e.bagId);
+      h += '<div class="ev"><button class="ev-main" data-a="editEvent" data-id="' + e.id + '"><span class="ev-time">' + esc(e.time ? G.time12(e.time) : "Any time") + '</span><span class="ev-what">' +
+        (kid ? avatar(kid, "sm") + " " : "") + (bag ? esc(bag.emoji) + " " : "") + "<b>" + esc(e.title) + "</b>" + (kid ? '<span class="soft"> · ' + esc(kid.name) + "</span>" : "") +
+        "</span></button>" + (e.place ? '<span class="ev-place">📍 ' + esc(e.place) + "</span>" : "") + "</div>";
+    });
+    h += '<p class="soft small-note">Add games and practices from each player\'s page.</p></section>';
     return h;
   }
 
@@ -201,27 +219,36 @@
       '<div class="row">' + btn + (bag ? '<button class="btn small" data-a="check" data-id="' + bag.id + '">Pack ' + esc(bag.name.toLowerCase()) + " bag</button>" : "") + "</div></section>";
   }
 
-  function scheduleCard(kid, d) {
-    const todayKey = G.dayKey(d);
+  /** Month calendar used on a player's page and the main page. events = the plans to mark; weekly = weekdays with practice. */
+  function calendarHTML(todayKey, events, weekly) {
     const sel = view.sel || todayKey;
     const month = view.month || todayKey.slice(0, 7);
     const y = Number(month.slice(0, 4)), m = Number(month.slice(5, 7)) - 1;
     const title = new Date(y, m, 1).toLocaleDateString("en-US", { month: "long", year: "numeric" });
-    const kidEvents = state.events.filter((e) => e.kidId === kid.id && e.date.startsWith(month));
-    const hasEvent = new Set(kidEvents.map((e) => e.date));
-    const weekly = new Set(); G.bagsFor(state, kid.id).forEach((b) => b.days.forEach((x) => weekly.add(x)));
-    let h = '<section class="card sched"><div class="sched-head"><h2>Schedule</h2><button class="btn small" data-a="addEvent">+ Add</button></div>';
-    h += '<div class="cal-nav"><button class="mini" data-a="calMove" data-v="-1" aria-label="Previous month">‹</button><b>' + title +
+    const hasEvent = new Set(events.filter((e) => e.date.startsWith(month)).map((e) => e.date));
+    const showHol = state.settings.holidays;
+    let h = '<div class="cal-nav"><button class="mini" data-a="calMove" data-v="-1" aria-label="Previous month">‹</button><b>' + title +
       '</b><button class="mini" data-a="calMove" data-v="1" aria-label="Next month">›</button></div>';
     h += '<div class="cal" role="grid">' + G.DAY_LETTERS.map((l) => '<span class="cal-dow">' + l + "</span>").join("") +
       G.monthGrid(y, m).map((k) => {
         if (!k) return "<span></span>";
-        const cls = "cal-day" + (k === todayKey ? " today" : "") + (k === sel ? " sel" : "") + (hasEvent.has(k) ? " has" : weekly.has(G.parseDay(k).getDay()) ? " weekly" : "");
-        return '<button class="' + cls + '" data-a="calDay" data-v="' + k + '" aria-label="' + esc(fmtDayKey(k)) + (hasEvent.has(k) ? ", has plans" : "") + '">' + Number(k.slice(8)) + "</button>";
+        const hol = showHol ? G.holidaysOn(k) : [];
+        const cls = "cal-day" + (k === todayKey ? " today" : "") + (k === sel ? " sel" : "") + (hasEvent.has(k) ? " has" : weekly.has(G.parseDay(k).getDay()) ? " weekly" : "") + (hol.length ? " hol" : "");
+        return '<button class="' + cls + '" data-a="calDay" data-v="' + k + '" aria-label="' + esc(fmtDayKey(k)) + (hol.length ? ", " + esc(hol.map((x) => x[1]).join(", ")) : "") +
+          (hasEvent.has(k) ? ", has plans" : "") + '">' + Number(k.slice(8)) + (hol.length ? '<span class="hol-mark" aria-hidden="true">' + hol[0][0] + "</span>" : "") + "</button>";
       }).join("") + "</div>";
-    const evs = G.eventsOn(state, kid.id, sel);
     const selDate = G.parseDay(sel).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
     h += '<h3 class="sect">' + esc(sel === todayKey ? "Today, " + selDate : selDate) + "</h3>";
+    if (showHol) h += G.holidaysOn(sel).map((x) => '<div class="hol-row">' + x[0] + " <b>" + esc(x[1]) + "</b></div>").join("");
+    return h;
+  }
+
+  function scheduleCard(kid, d) {
+    const todayKey = G.dayKey(d), sel = view.sel || todayKey;
+    const weekly = new Set(); G.bagsFor(state, kid.id).forEach((b) => b.days.forEach((x) => weekly.add(x)));
+    let h = '<section class="card sched"><div class="sched-head"><h2>Schedule</h2><button class="btn small" data-a="addEvent">+ Add</button></div>';
+    h += calendarHTML(todayKey, state.events.filter((e) => e.kidId === kid.id), weekly);
+    const evs = G.eventsOn(state, kid.id, sel);
     if (!evs.length) {
       const next = G.upcoming(state, kid.id, d, 3).filter((e) => e.date !== sel);
       h += '<p class="soft">Nothing planned.</p>';
@@ -376,7 +403,8 @@
 
     h += '<section class="card"><h2>Settings</h2>' +
       '<label class="switch"><input type="checkbox" data-set="speak"' + (state.settings.speak ? " checked" : "") + "> Say each item out loud when it's packed</label>" +
-      '<label class="switch"><input type="checkbox" data-set="sound"' + (state.settings.sound ? " checked" : "") + "> Sounds</label></section>";
+      '<label class="switch"><input type="checkbox" data-set="sound"' + (state.settings.sound ? " checked" : "") + "> Sounds</label>" +
+      '<label class="switch"><input type="checkbox" data-set="holidays"' + (state.settings.holidays ? " checked" : "") + "> Show holidays on the calendars</label></section>";
 
     h += '<section class="card"><h2>Backup</h2><p class="soft">Everything is kept on this phone only. Save a backup file now and then ' +
       "(for example to iCloud Drive or Dropbox), so a new phone can pick up where this one left off.</p>" +
@@ -561,10 +589,12 @@
       '<div class="center"><span class="hex" data-hex>' + esc(cur) + "</span></div>" +
       '<div class="soft small-label">Quick picks:</div><div class="home-colors">' + G.HOME_COLORS.map(([name, hex]) =>
         '<button class="home-color' + (hex === cur ? " on" : "") + '" data-m="homeColor" data-v="' + hex + '"><span class="tswatch" style="background:' + hex + '"></span>' + name + "</button>").join("") +
-      "</div></div>";
+      "</div></div>" +
+      '<div class="field words-field">Font<div class="fonts">' + G.FONTS.map(([k, name, stack]) => '<button class="font-opt' + (state.settings.homeFont === k ? " on" : "") +
+        '" data-m="homeFont" data-v="' + k + '" aria-pressed="' + (state.settings.homeFont === k) + '" style="font-family:' + esc(stack) + '"><span class="font-aa">Aa</span>' + name + "</button>").join("") + "</div></div>";
   }
   function homeModal() {
-    openModal("<h2>Main screen color</h2><p class=\"soft\">Changes the \"Who's packing?\" screen. Each player's own screens keep their own style.</p>" +
+    openModal("<h2>Main screen style</h2><p class=\"soft\">Changes the \"Who's packing?\" screen. Each player's own screens keep their own style.</p>" +
       '<div id="homeBody">' + homeColorBody() + "</div>" + '<button class="btn primary full" data-m="close">Done</button>', { kind: "home" });
     initWheels();
   }
@@ -716,6 +746,7 @@
       save(); closeModal(); view.sel = o.date; view.month = o.date.slice(0, 7); render();
       return;
     }
+    if (c.kind === "home" && m === "homeFont") { state.settings.homeFont = v; save(); render(); refreshHomeModal(); return; }
     if (c.kind === "home" && m === "homeColor") {
       state.settings.homeBg = v === HOME_DEFAULT ? "" : v; save(); render(); refreshHomeModal(); return;
     }
