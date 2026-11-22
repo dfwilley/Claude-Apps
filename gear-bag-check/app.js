@@ -103,6 +103,7 @@
   function applyTheme(kid) {
     const root = document.documentElement, theme = kid ? kid.theme : "field";
     root.dataset.theme = theme;
+    root.dataset.page = view.name;
     if (theme === "custom") { const t = G.customTokens(kid.custom); TOKEN_NAMES.forEach((k) => root.style.setProperty(k, t[k])); root.style.colorScheme = t.dark ? "dark" : "light"; }
     else { TOKEN_NAMES.forEach((k) => root.style.removeProperty(k)); root.style.colorScheme = ""; }
     const font = kid && kid.font !== "rounded" && G.FONTS.find((f) => f[0] === kid.font);

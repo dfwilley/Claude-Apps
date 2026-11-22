@@ -321,3 +321,7 @@ body[data-view="check"] .wrap { padding-bottom: 170px; }
 .bright { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 14px; margin: 6px 0; }
 .bright input { flex: 1; accent-color: var(--field); height: 28px; }
 .hex { display: inline-block; font-family: ui-monospace, Menlo, monospace; font-size: 14px; padding: 3px 10px; border-radius: 8px; background: var(--card); }
+
+/* Main "Who's packing?" page: cream white */
+:root[data-page="home"] { --bg: #FBF6EA; --card: #FFFDF8; --line: #EDE4CF; }
+@media (prefers-color-scheme: dark) { :root[data-page="home"] { --bg: #0F1A16; --card: #1A2A24; --line: #2E443B; } }
