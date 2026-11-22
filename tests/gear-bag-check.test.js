@@ -246,6 +246,12 @@ assert.equal(G.hsvToHex(0, 1, 1), "#FF0000"); assert.equal(G.hsvToHex(120, 1, 1)
 assert.equal(G.hsvToHex(0, 0, 1), "#FFFFFF"); assert.equal(G.hsvToHex(300, 0.5, 0), "#000000");
 ["#C2306F", "#0F7FA8", "#E3B341", "#123456", "#FFF0F6"].forEach((hex) => { const c = G.hexToHsv(hex); assert.equal(G.hsvToHex(c.h, c.s, c.v), hex, "round trip " + hex); });
 
+// Main screen color
+assert.equal(G.defaultState().settings.homeBg, "");
+assert.equal(G.normalize({ kids: [], bags: [], settings: { homeBg: "#fde2e4" } }).settings.homeBg, "#FDE2E4");
+assert.equal(G.normalize({ kids: [], bags: [], settings: { homeBg: "pink" } }).settings.homeBg, "");
+assert.equal(G.HOME_COLORS[0][1], "#FBF6EA", "cream comes first");
+
 // Removing a kid removes their bags
 G.removeKid(s, ava.id);
 assert.equal(s.kids.length, 1); assert.equal(s.bags.length, 1);

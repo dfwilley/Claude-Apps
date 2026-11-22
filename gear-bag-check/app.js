@@ -104,10 +104,15 @@
     const root = document.documentElement, theme = kid ? kid.theme : "field";
     root.dataset.theme = theme;
     root.dataset.page = view.name;
+
     if (theme === "custom") { const t = G.customTokens(kid.custom); TOKEN_NAMES.forEach((k) => root.style.setProperty(k, t[k])); root.style.colorScheme = t.dark ? "dark" : "light"; }
     else { TOKEN_NAMES.forEach((k) => root.style.removeProperty(k)); root.style.colorScheme = ""; }
     const font = kid && kid.font !== "rounded" && G.FONTS.find((f) => f[0] === kid.font);
     root.style.fontFamily = font ? font[2] : "";
+    if (view.name === "home" && state.settings.homeBg) {
+      const t = G.customTokens({ bg: state.settings.homeBg, accent: "#1F7A4D", accent2: "#F57C00" });
+      TOKEN_NAMES.forEach((k) => root.style.setProperty(k, t[k])); root.style.colorScheme = t.dark ? "dark" : "light";
+    }
     const tc = document.querySelector('meta[name="theme-color"]');
     if (tc) tc.content = getComputedStyle(root).getPropertyValue("--bg").trim() || "#EEF4F0";
   }
@@ -133,7 +138,7 @@
   }
 
   function homeView() {
-    let h = topBar('<img src="icon.svg" alt=""> Gear Bag Check');
+    let h = topBar('<img src="icon.svg" alt=""> Gear Bag Check', false, state.kids.length ? '<button class="round" data-a="homeStyle" aria-label="Main screen color">🎨</button>' : "");
     h += '<div class="wrap">';
     if (!state.kids.length) {
       h += '<section class="card welcome"><div class="big-emoji">🎒</div><h2>Preflight your gear bag</h2>' +
@@ -503,10 +508,10 @@
   function initWheels() {
     document.querySelectorAll("canvas.wheel").forEach((cv) => {
       if (cv.dataset.ready) return; cv.dataset.ready = "1";
-      const kid = G.kidById(state, cv.dataset.kid); if (!kid) return;
+      const home = cv.dataset.home === "1", kid = home ? null : G.kidById(state, cv.dataset.kid); if (!home && !kid) return;
       const box = cv.closest(".custom-box"), dot = box.querySelector(".wheel-dot"), slider = box.querySelector(".wheel-v");
-      const tgt = WHEEL_TARGETS.some((x) => x[0] === wheelTarget) ? wheelTarget : "accent";
-      let hsv = G.hexToHsv(kid.custom[tgt]);
+      const tgt = home ? "home" : WHEEL_TARGETS.some((x) => x[0] === wheelTarget) ? wheelTarget : "accent";
+      let hsv = G.hexToHsv(home ? state.settings.homeBg || HOME_DEFAULT : kid.custom[tgt]);
       slider.value = Math.round(hsv.v * 100);
       const size = cv.width, r = size / 2;
       function draw() {
@@ -526,7 +531,8 @@
       }
       function setColor() {
         const hex = G.hsvToHex(hsv.h, hsv.s, hsv.v);
-        kid.custom[tgt] = hex; applyTheme(kid); placeDot();
+        if (home) state.settings.homeBg = hex; else kid.custom[tgt] = hex;
+        applyTheme(kid); placeDot();
         document.querySelectorAll('[data-swatch="' + tgt + '"]').forEach((el) => { el.style.background = hex; });
         document.querySelectorAll("[data-hex]").forEach((el) => { el.textContent = hex; });
       }
@@ -539,12 +545,32 @@
       let down = false;
       cv.addEventListener("pointerdown", (ev) => { down = true; cv.setPointerCapture(ev.pointerId); pick(ev); ev.preventDefault(); });
       cv.addEventListener("pointermove", (ev) => { if (down) pick(ev); });
-      const done = () => { if (!down) return; down = false; save(); render(); refreshStyleModal(); };
+      const done = () => { if (!down) return; down = false; save(); render(); refreshStyleModal(); refreshHomeModal(); };
       cv.addEventListener("pointerup", done); cv.addEventListener("pointercancel", done);
       slider.addEventListener("input", () => { hsv.v = Number(slider.value) / 100; draw(); setColor(); });
-      slider.addEventListener("change", () => { save(); render(); refreshStyleModal(); });
+      slider.addEventListener("change", () => { save(); render(); refreshStyleModal(); refreshHomeModal(); });
       draw(); placeDot();
     });
+  }
+
+  const HOME_DEFAULT = "#FBF6EA";
+  function homeColorBody() {
+    const cur = state.settings.homeBg || HOME_DEFAULT;
+    return '<div class="custom-box"><div class="wheel-wrap"><canvas class="wheel" width="440" height="440" data-home="1" aria-label="Color wheel: drag to pick a color"></canvas><span class="wheel-dot"></span></div>' +
+      '<label class="bright">Brightness<input type="range" class="wheel-v" min="0" max="100" step="1"></label>' +
+      '<div class="center"><span class="hex" data-hex>' + esc(cur) + "</span></div>" +
+      '<div class="soft small-label">Quick picks:</div><div class="home-colors">' + G.HOME_COLORS.map(([name, hex]) =>
+        '<button class="home-color' + (hex === cur ? " on" : "") + '" data-m="homeColor" data-v="' + hex + '"><span class="tswatch" style="background:' + hex + '"></span>' + name + "</button>").join("") +
+      "</div></div>";
+  }
+  function homeModal() {
+    openModal("<h2>Main screen color</h2><p class=\"soft\">Changes the \"Who's packing?\" screen. Each player's own screens keep their own style.</p>" +
+      '<div id="homeBody">' + homeColorBody() + "</div>" + '<button class="btn primary full" data-m="close">Done</button>', { kind: "home" });
+    initWheels();
+  }
+  function refreshHomeModal() {
+    if (!modalCtx || modalCtx.kind !== "home") return;
+    const body = document.getElementById("homeBody"); if (body) { body.innerHTML = homeColorBody(); initWheels(); }
   }
 
   function styleModal(kidId) {
@@ -623,6 +649,7 @@
       case "style": styleModal(view.kidId); break;
       case "setTheme": G.kidById(state, view.kidId).theme = v; save(); render(); break;
       case "setPlain": G.kidById(state, view.kidId).plain = v === "1"; save(); render(); break;
+      case "homeStyle": homeModal(); break;
       case "setFont": G.kidById(state, view.kidId).font = v; save(); render(); break;
       case "wheelTarget": wheelTarget = v; render(); break;
       case "setFaith": G.kidById(state, view.kidId).faith = v === "1"; save(); render(); break;
@@ -688,6 +715,9 @@
       else { const added = G.addEvent(state, c.kidId, o, Number(document.getElementById("evRepeat").value)); if (added.length > 1) toast("Added " + added.length + " weeks."); }
       save(); closeModal(); view.sel = o.date; view.month = o.date.slice(0, 7); render();
       return;
+    }
+    if (c.kind === "home" && m === "homeColor") {
+      state.settings.homeBg = v === HOME_DEFAULT ? "" : v; save(); render(); refreshHomeModal(); return;
     }
     if (c.kind === "confirm" && m === "yes") { const f = c.onYes; closeModal(); f(); return; }
     if (c.kind === "report" && m === "status") {

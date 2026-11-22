@@ -1,5 +1,5 @@
 // Gear Bag Check: works without a signal once loaded. Asks the server for the newest copy first (skipping the phone's saved copy) so updates arrive.
-const CACHE = "gb-v8";
+const CACHE = "gb-v9";
 const SHELL = ["./", "index.html", "style.css", "core.js", "app.js", "manifest.webmanifest", "icon.svg", "icons/icon-180.png", "icons/icon-192.png", "icons/icon-512.png"];
 self.addEventListener("install", (e) => { e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting())); });
 self.addEventListener("activate", (e) => { e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim())); });

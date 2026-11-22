@@ -54,6 +54,9 @@
     "God, give me courage when I'm nervous, patience when things go wrong, and joy in the game. Help me shake off mistakes and keep going. Amen.",
     "Lord, bless our team and our coaches. Help us work together, listen well, and lift each other up. Let our effort today bring You glory. Amen.",
   ];
+  // Quick picks for the main screen's color (cream is the default).
+  const HOME_COLORS = [["Cream", "#FBF6EA"], ["White", "#FFFFFF"], ["Blush", "#FDEBF1"], ["Lavender", "#EFEAFB"], ["Mint", "#E6F6EE"], ["Sky", "#E5F2FB"],
+    ["Peach", "#FDEDE1"], ["Sage", "#DDE8D8"], ["Navy", "#14213D"], ["Black", "#111111"]];
   const MAX_REPEAT = 26; // weeks a repeating schedule item can be copied ahead
   const THEME_KEYS = THEMES.map((t) => t[0]);
 
@@ -151,7 +154,7 @@
   }
 
   function defaultState() {
-    return { version: VERSION, kids: [], bags: [], checks: {}, log: [], events: [], settings: { speak: true, sound: true } };
+    return { version: VERSION, kids: [], bags: [], checks: {}, log: [], events: [], settings: { speak: true, sound: true, homeBg: "" } };
   }
 
   function clampCount(n) { n = Math.round(Number(n) || 1); return Math.max(1, Math.min(9, n)); }
@@ -464,11 +467,14 @@
         if (c.title) s.events.push(Object.assign({ id: String(e.id), group: typeof e.group === "string" ? e.group : "" }, c));
       });
     }
-    if (raw.settings) { s.settings.speak = raw.settings.speak !== false; s.settings.sound = raw.settings.sound !== false; }
+    if (raw.settings) {
+      s.settings.speak = raw.settings.speak !== false; s.settings.sound = raw.settings.sound !== false;
+      s.settings.homeBg = isHex(raw.settings.homeBg) ? raw.settings.homeBg.toUpperCase() : "";
+    }
     return s;
   }
 
-  return { FONTS, FONT_KEYS, cleanEmoji, hsvToHex, hexToHsv, VERSES, PRAYERS, verseFor, prayerFor, nextUp, countdown, startOf, VERSION, CATS, CAT_KEYS, THEMES, THEME_KEYS, HAIR_KIT, PALETTES, MAX_REPEAT, STATUS, TEMPLATES, TEMPLATE_KEYS, ITEM_PICS, BAG_PICS, AVATARS, COLORS, DAY_LETTERS, DAY_NAMES,
+  return { HOME_COLORS, FONTS, FONT_KEYS, cleanEmoji, hsvToHex, hexToHsv, VERSES, PRAYERS, verseFor, prayerFor, nextUp, countdown, startOf, VERSION, CATS, CAT_KEYS, THEMES, THEME_KEYS, HAIR_KIT, PALETTES, MAX_REPEAT, STATUS, TEMPLATES, TEMPLATE_KEYS, ITEM_PICS, BAG_PICS, AVATARS, COLORS, DAY_LETTERS, DAY_NAMES,
     newId, dayKey, defaultState, kidById, bagById, bagsFor, addKid, removeKid, addBag, removeBag, copyBag, addKit, addItem, removeItem, moveItem,
     isToday, bagsToday, parseDay, addDays, addEvent, updateEvent, removeEvent, eventsOn, upcoming, placesFor, monthGrid, time12, contrast, customTokens, currentCheck, isPacked, togglePacked, startOver, setStatus, summary, finishCheck, attention, normalize };
 });

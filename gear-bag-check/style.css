@@ -325,3 +325,6 @@ body[data-view="check"] .wrap { padding-bottom: 170px; }
 /* Main "Who's packing?" page: cream white */
 :root[data-page="home"] { --bg: #FBF6EA; --card: #FFFDF8; --line: #EDE4CF; }
 @media (prefers-color-scheme: dark) { :root[data-page="home"] { --bg: #0F1A16; --card: #1A2A24; --line: #2E443B; } }
+.home-colors { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 6px; }
+.home-color { display: flex; align-items: center; gap: 6px; padding: 8px; border-radius: 12px; background: var(--card); border: 2px solid transparent; font-size: 14px; font-weight: 700; }
+.home-color.on { border-color: var(--field); }
