@@ -80,6 +80,34 @@
     else go({ name: "home" });
   }
 
+  // ---------- Words: "fun" for younger kids, "simple" for older ones (each player picks) ----------
+  const WORDS = {
+    fun: { ready: "Ready to go", goodIcon: "✈️", goodTitle: "Cleared for takeoff!", goodText: (k, b) => "Everything's in " + k.name + "'s " + b.name.toLowerCase() + " bag. Have a great time!",
+      tell: "Tell a grown-up:", missIcon: "✋", missTitle: "Hold short!", missText: "Still not in the bag:", foundHint: "Found one? Tap it to put it in the bag.",
+      goFind: "Go find them", leave: "Leave without them", checkHint: "Tap a picture when it goes in the bag. Tap <b>!</b> if you can't find it, or it's worn out or too small.",
+      noBags: "No bags yet. Ask a grown-up to add one.", empty: "This bag has nothing on its list yet. Ask a grown-up to add things.", flagged: "need a grown-up",
+      sayGood: "Cleared for takeoff!", sayMiss: (n) => "Hold short. Still missing " + n + (n === 1 ? " thing." : " things."),
+      reported: (i, v) => "Thanks! Grown-ups will see: " + i.name + ", " + G.STATUS[v].label.toLowerCase() + ".", cancel: "Never mind", whatsWrong: "What's wrong?" },
+    simple: { ready: "Done packing", goodIcon: "✅", goodTitle: "All packed", goodText: (k, b) => "Everything's in your " + b.name.toLowerCase() + " bag.",
+      tell: "Needs replacing:", missIcon: "", missTitle: "Missing items", missText: "Not checked off yet:", foundHint: "Found one? Tap it to check it off.",
+      goFind: "Back to the list", leave: "Leave anyway", checkHint: "Tap an item to check it off. Use <b>!</b> to flag something lost, worn out or too small.",
+      noBags: "No bags yet. Ask a parent to set one up.", empty: "This bag is empty. Ask a parent to add items.", flagged: "flagged",
+      sayGood: "All packed.", sayMiss: (n) => "Missing " + n + (n === 1 ? " item." : " items."),
+      reported: (i, v) => "Flagged: " + i.name + ", " + G.STATUS[v].label.toLowerCase() + ".", cancel: "Cancel", whatsWrong: "What's the problem?" },
+  };
+  const W = (kid) => WORDS[kid && kid.plain ? "simple" : "fun"];
+
+  // ---------- Colors for the current player ----------
+  const TOKEN_NAMES = Object.keys(G.customTokens({})).filter((k) => k.startsWith("--"));
+  function applyTheme(kid) {
+    const root = document.documentElement, theme = kid ? kid.theme : "field";
+    root.dataset.theme = theme;
+    if (theme === "custom") { const t = G.customTokens(kid.custom); TOKEN_NAMES.forEach((k) => root.style.setProperty(k, t[k])); root.style.colorScheme = t.dark ? "dark" : "light"; }
+    else { TOKEN_NAMES.forEach((k) => root.style.removeProperty(k)); root.style.colorScheme = ""; }
+    const tc = document.querySelector('meta[name="theme-color"]');
+    if (tc) tc.content = getComputedStyle(root).getPropertyValue("--bg").trim() || "#EEF4F0";
+  }
+
   // ---------- Screens ----------
   function render() {
     const v = view;
@@ -89,15 +117,13 @@
     document.body.dataset.view = view.name;
     const bag = view.bagId && G.bagById(state, view.bagId);
     const kid = G.kidById(state, view.kidId || (bag && bag.kidId));
-    document.documentElement.dataset.theme = kid ? kid.theme : "field";
-    const tc = document.querySelector('meta[name="theme-color"]');
-    if (tc) tc.content = getComputedStyle(document.documentElement).getPropertyValue("--bg").trim() || "#EEF4F0";
+    applyTheme(kid);
   }
 
   function grownButton() {
     const n = G.attention(state).length;
-    return '<button class="hold" data-hold="grown" aria-label="Grown-ups: press and hold">' +
-      '<span class="hold-fill"></span><span class="hold-text">🔧 Grown-ups' + (n ? ' <b class="badge">' + n + "</b>" : "") +
+    return '<button class="hold" data-hold="grown" aria-label="Settings: press and hold">' +
+      '<span class="hold-fill"></span><span class="hold-text">⚙️ Settings' + (n ? ' <b class="badge">' + n + "</b>" : "") +
       '</span><small>press and hold</small></button>';
   }
 
@@ -107,16 +133,17 @@
     if (!state.kids.length) {
       h += '<section class="card welcome"><div class="big-emoji">🎒</div><h2>Preflight your gear bag</h2>' +
         "<p>Like a pilot's checklist: before you head out the door, tap each thing as it goes in the bag. " +
-        "You'll see right away what's still missing, and grown-ups see what's worn out or lost.</p>" +
+        "You'll see right away what's still missing, and parents see what's worn out or lost.</p>" +
         '<button class="btn primary" data-a="firstKid">Add the first player</button></section>';
     } else {
       h += '<p class="lead">Who\'s packing?</p><div class="kids">';
       const d = now();
       state.kids.forEach((k) => {
-        const today = G.bagsToday(state, k.id, d);
+        const today = G.bagsToday(state, k.id, d), evs = G.eventsOn(state, k.id, G.dayKey(d));
         h += '<button class="kid-card" style="--kid:' + esc(k.color) + '" data-a="kid" data-id="' + k.id + '">' + avatar(k, "xl") +
           '<span class="kid-name">' + esc(k.name) + "</span>" +
-          (today.length ? '<span class="today">Today: ' + today.map((b) => esc(b.emoji + " " + b.name)).join(", ") + "</span>" : "") + "</button>";
+          (evs.length ? '<span class="today">Today: ' + evs.slice(0, 2).map((e) => esc((e.time ? G.time12(e.time) + " " : "") + e.title)).join(", ") + "</span>"
+            : today.length ? '<span class="today">Today: ' + today.map((b) => esc(b.emoji + " " + b.name)).join(", ") + "</span>" : "") + "</button>";
       });
       h += "</div>";
     }
@@ -125,24 +152,62 @@
   }
 
   function kidView() {
-    const kid = G.kidById(state, view.kidId), d = now();
-    const bags = G.bagsFor(state, kid.id).slice().sort((a, b) => Number(G.isToday(b, d)) - Number(G.isToday(a, d)));
+    const kid = G.kidById(state, view.kidId), d = now(), w = W(kid);
+    const todayIds = new Set(G.bagsToday(state, kid.id, d).map((b) => b.id));
+    const bags = G.bagsFor(state, kid.id).slice().sort((a, b) => Number(todayIds.has(b.id)) - Number(todayIds.has(a.id)));
     let h = topBar(avatar(kid) + " " + esc(kid.name) + "'s bags", true, '<button class="round" data-a="style" aria-label="Change my style">🎨</button>');
     h += '<div class="wrap">';
-    if (!bags.length) h += '<section class="card welcome"><div class="big-emoji">🎒</div><p>No bags yet. Ask a grown-up to add one.</p></section>';
+    if (!bags.length) h += '<section class="card welcome"><div class="big-emoji">🎒</div><p>' + w.noBags + "</p></section>";
     h += '<div class="bags">';
     bags.forEach((b) => {
       const sm = G.summary(state, b.id, d);
       const flags = b.items.filter((i) => i.status !== "ok").length;
       h += '<button class="bag-card" data-a="check" data-id="' + b.id + '">' +
         '<span class="bag-emoji">' + esc(b.emoji) + "</span>" +
-        '<span class="bag-text"><span class="bag-name">' + esc(b.name) + (G.isToday(b, d) ? ' <span class="chip today-chip">Today</span>' : "") + "</span>" +
+        '<span class="bag-text"><span class="bag-name">' + esc(b.name) + (todayIds.has(b.id) ? ' <span class="chip today-chip">Today</span>' : "") + "</span>" +
         '<span class="bag-sub">' + (sm.packed ? sm.packed + " of " + sm.total + " in the bag" : sm.total + " things to pack") +
-        (flags ? ' · <span class="warn">' + flags + " need a grown-up</span>" : "") + "</span></span>" +
+        (flags ? ' · <span class="warn">' + flags + " " + w.flagged + "</span>" : "") + "</span></span>" +
         (sm.allPacked ? '<span class="ok-mark">✓</span>' : '<span class="go">›</span>') + "</button>";
     });
-    h += "</div></div>";
+    h += "</div>" + scheduleCard(kid, d) + "</div>";
     return h;
+  }
+
+  function scheduleCard(kid, d) {
+    const todayKey = G.dayKey(d);
+    const sel = view.sel || todayKey;
+    const month = view.month || todayKey.slice(0, 7);
+    const y = Number(month.slice(0, 4)), m = Number(month.slice(5, 7)) - 1;
+    const title = new Date(y, m, 1).toLocaleDateString("en-US", { month: "long", year: "numeric" });
+    const kidEvents = state.events.filter((e) => e.kidId === kid.id && e.date.startsWith(month));
+    const hasEvent = new Set(kidEvents.map((e) => e.date));
+    const weekly = new Set(); G.bagsFor(state, kid.id).forEach((b) => b.days.forEach((x) => weekly.add(x)));
+    let h = '<section class="card sched"><div class="sched-head"><h2>Schedule</h2><button class="btn small" data-a="addEvent">+ Add</button></div>';
+    h += '<div class="cal-nav"><button class="mini" data-a="calMove" data-v="-1" aria-label="Previous month">‹</button><b>' + title +
+      '</b><button class="mini" data-a="calMove" data-v="1" aria-label="Next month">›</button></div>';
+    h += '<div class="cal" role="grid">' + G.DAY_LETTERS.map((l) => '<span class="cal-dow">' + l + "</span>").join("") +
+      G.monthGrid(y, m).map((k) => {
+        if (!k) return "<span></span>";
+        const cls = "cal-day" + (k === todayKey ? " today" : "") + (k === sel ? " sel" : "") + (hasEvent.has(k) ? " has" : weekly.has(G.parseDay(k).getDay()) ? " weekly" : "");
+        return '<button class="' + cls + '" data-a="calDay" data-v="' + k + '" aria-label="' + esc(fmtDayKey(k)) + (hasEvent.has(k) ? ", has plans" : "") + '">' + Number(k.slice(8)) + "</button>";
+      }).join("") + "</div>";
+    const evs = G.eventsOn(state, kid.id, sel);
+    const selDate = G.parseDay(sel).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+    h += '<h3 class="sect">' + esc(sel === todayKey ? "Today, " + selDate : selDate) + "</h3>";
+    if (!evs.length) {
+      const next = G.upcoming(state, kid.id, d, 3).filter((e) => e.date !== sel);
+      h += '<p class="soft">Nothing planned.</p>';
+      if (next.length && sel <= todayKey) h += '<h3 class="sect">Coming up</h3>' + next.map((e) => eventRow(e, todayKey, true)).join("");
+    } else h += evs.map((e) => eventRow(e, todayKey, false)).join("");
+    h += "</section>";
+    return h;
+  }
+  function eventRow(e, todayKey, withDate) {
+    const bag = e.bagId && G.bagById(state, e.bagId);
+    const when = (withDate ? G.parseDay(e.date).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }) + (e.time ? ", " : "") : "") + (e.time ? G.time12(e.time) : withDate ? "" : "Any time");
+    return '<div class="ev"><button class="ev-main" data-a="editEvent" data-id="' + e.id + '"><span class="ev-time">' + esc(when) + '</span><span class="ev-what">' +
+      (bag ? esc(bag.emoji) + " " : "") + "<b>" + esc(e.title) + "</b>" + (e.note ? '<span class="soft"> · ' + esc(e.note) + "</span>" : "") + "</span></button>" +
+      (bag && e.date === todayKey ? '<button class="btn small" data-a="check" data-id="' + bag.id + '">Pack</button>' : "") + "</div>";
   }
 
   function tile(bag, item, packed) {
@@ -160,7 +225,7 @@
   }
 
   function checkView() {
-    const bag = G.bagById(state, view.bagId), kid = G.kidById(state, bag.kidId), d = now();
+    const bag = G.bagById(state, view.bagId), kid = G.kidById(state, bag.kidId), d = now(), w = W(kid);
     const sm = G.summary(state, bag.id, d), c = G.currentCheck(state, bag.id, d);
     const pct = sm.total ? Math.round((sm.packed / sm.total) * 100) : 0;
     let h = topBar(esc(bag.emoji + " " + bag.name) + ' <small class="sub">' + esc(kid.name) + "</small>", true);
@@ -168,39 +233,39 @@
     h += '<div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="' + sm.total + '" aria-valuenow="' + sm.packed + '">' +
       '<div class="bar"><span style="width:' + pct + '%"></span></div>' +
       '<div class="ptext"><b>' + sm.packed + " of " + sm.total + "</b> in the bag</div></div>";
-    if (!bag.items.length) h += '<section class="card"><p>This bag has nothing on its list yet. Ask a grown-up to add things.</p></section>';
+    if (!bag.items.length) h += '<section class="card"><p>' + w.empty + '</p></section>';
     G.CATS.forEach(([key, label]) => {
       const items = bag.items.filter((i) => i.cat === key);
       if (!items.length) return;
       h += '<h2 class="sect">' + label + '</h2><div class="tiles">' + items.map((i) => tile(bag, i, c.packed.includes(i.id))).join("") + "</div>";
     });
-    h += '<p class="hint">Tap a picture when it goes in the bag. Tap <b>!</b> if you can\'t find it, or it\'s worn out or too small.</p>';
+    h += '<p class="hint">' + w.checkHint + "</p>";
     h += "</div>";
     h += '<div class="dock"><button class="btn ghost" data-a="startOver">Start over</button>' +
-      '<button class="btn primary big" data-a="ready"' + (bag.items.length ? "" : " disabled") + ">Ready to go</button></div>";
+      '<button class="btn primary big" data-a="ready"' + (bag.items.length ? "" : " disabled") + ">" + w.ready + "</button></div>";
     return h;
   }
 
   function doneView() {
-    const bag = G.bagById(state, view.bagId), kid = G.kidById(state, bag.kidId), sm = G.summary(state, bag.id, now());
+    const bag = G.bagById(state, view.bagId), kid = G.kidById(state, bag.kidId), sm = G.summary(state, bag.id, now()), w = W(kid);
     let h = topBar(esc(bag.emoji + " " + bag.name), true);
     h += '<div class="wrap">';
     if (sm.allPacked) {
-      h += '<section class="card done good"><div class="big-emoji fly">✈️</div><h2>Cleared for takeoff!</h2>' +
-        "<p>Everything's in " + esc(kid.name) + "'s " + esc(bag.name.toLowerCase()) + " bag. Have a great time!</p>";
+      h += '<section class="card done good"><div class="big-emoji fly">' + w.goodIcon + "</div><h2>" + w.goodTitle + "</h2>" +
+        "<p>" + esc(w.goodText(kid, bag)) + "</p>";
       if (sm.flagged.length) {
-        h += '<div class="note"><b>Tell a grown-up:</b><ul>' + sm.flagged.map((i) => "<li>" + esc(i.emoji + " " + i.name) + " — " +
+        h += '<div class="note"><b>' + w.tell + "</b><ul>" + sm.flagged.map((i) => "<li>" + esc(i.emoji + " " + i.name) + " — " +
           esc(G.STATUS[i.status].label.toLowerCase()) + "</li>").join("") + "</ul></div>";
       }
       h += '<button class="btn primary big" data-a="home">Done</button></section>';
     } else {
-      h += '<section class="card done hold-short"><div class="big-emoji">✋</div><h2>Hold short!</h2><p>Still not in the bag:</p>' +
+      h += '<section class="card done hold-short">' + (w.missIcon ? '<div class="big-emoji">' + w.missIcon + "</div>" : "") + "<h2>" + w.missTitle + "</h2><p>" + w.missText + "</p>" +
         '<div class="missing">' + sm.missing.map((i) => '<button class="miss" data-a="packFromDone" data-id="' + i.id + '"><span>' + esc(i.emoji) +
         "</span>" + esc(i.name) + (i.count > 1 ? " ×" + i.count : "") + (i.status === "lost" ? ' <span class="status s-lost">🔍 Lost</span>' : "") +
         "</button>").join("") + "</div>" +
-        '<p class="hint">Found one? Tap it to put it in the bag.</p>' +
-        '<div class="row"><button class="btn primary big" data-a="check" data-id="' + bag.id + '">Go find them</button>' +
-        '<button class="btn ghost" data-a="leave">Leave without them</button></div></section>';
+        '<p class="hint">' + w.foundHint + "</p>" +
+        '<div class="row"><button class="btn primary big" data-a="check" data-id="' + bag.id + '">' + w.goFind + "</button>" +
+        '<button class="btn ghost" data-a="leave">' + w.leave + "</button></div></section>";
     }
     h += "</div>";
     return h;
@@ -208,7 +273,7 @@
 
   function grownView() {
     const att = G.attention(state);
-    let h = topBar("🔧 Grown-ups", true);
+    let h = topBar("⚙️ Settings", true);
     h += '<div class="wrap">';
     h += '<section class="card"><h2>Needs attention' + (att.length ? ' <b class="badge">' + att.length + "</b>" : "") + "</h2>";
     if (!att.length) h += '<p class="soft">Nothing lost, worn out or outgrown. 👍</p>';
@@ -261,8 +326,22 @@
   }
 
   function styleChoices(kid) {
-    return '<div class="styles">' + G.THEMES.map(([k, name, desc]) => '<button class="style-opt' + (kid.theme === k ? " on" : "") + '" data-a="setTheme" data-v="' + k +
-      '" aria-pressed="' + (kid.theme === k) + '"><span class="style-swatch sw-' + k + '"><i></i><i></i><i></i></span><b>' + name + '</b><span class="soft">' + desc + "</span></button>").join("") + "</div>";
+    const c = kid.custom;
+    let h = '<div class="styles">' + G.THEMES.map(([k, name, desc]) => '<button class="style-opt' + (kid.theme === k ? " on" : "") + '" data-a="setTheme" data-v="' + k +
+      '" aria-pressed="' + (kid.theme === k) + '"><span class="style-swatch sw-' + k + '"' + (k === "custom" ? ' style="background:' + c.bg + '"' : "") + '><i' +
+      (k === "custom" ? ' style="background:' + c.accent + '"' : "") + "></i><i" + (k === "custom" ? ' style="background:' + c.accent2 + '"' : "") + "></i><i></i></span><b>" +
+      name + '</b><span class="soft">' + desc + "</span></button>").join("") + "</div>";
+    if (kid.theme === "custom") {
+      h += '<div class="custom-box"><div class="colors">' + [["bg", "Background"], ["accent", "Main color"], ["accent2", "Second color"]].map(([k, l]) =>
+        '<label class="color-field"><input type="color" data-color="' + k + '" value="' + c[k] + '"><span>' + l + "</span></label>").join("") + "</div>" +
+        '<div class="soft small-label">Or start from one of these:</div><div class="palettes">' + G.PALETTES.map((p, i) =>
+          '<button class="palette" data-a="palette" data-v="' + i + '" style="background:' + p[1] + '"><i style="background:' + p[2] + '"></i><i style="background:' + p[3] +
+          '"></i><span style="color:' + (G.contrast(p[1], "#FFFFFF") > 4 ? "#FFFFFF" : "#141218") + '">' + esc(p[0]) + "</span></button>").join("") + "</div></div>";
+    }
+    h += '<div class="field words-field">Wording<div class="seg">' +
+      '<button class="' + (kid.plain ? "" : "on") + '" data-a="setPlain" data-v="0">Fun <span class="soft">("Cleared for takeoff!")</span></button>' +
+      '<button class="' + (kid.plain ? "on" : "") + '" data-a="setPlain" data-v="1">Simple <span class="soft">("All packed")</span></button></div></div>';
+    return h;
   }
 
   function editKidView() {
@@ -325,10 +404,10 @@
     const opts = ["lost", "worn", "small"].map((s) => '<button class="opt' + (item.status === s ? " on" : "") + '" data-m="status" data-v="' + s + '">' +
       '<span class="opt-icon">' + G.STATUS[s].icon + "</span>" + G.STATUS[s].label + "</button>").join("");
     openModal('<div class="sheet-head"><span class="big-emoji sm">' + esc(item.emoji) + "</span><h2>" + esc(item.name) + "</h2></div>" +
-      "<p>What's wrong?</p>" + opts +
+      "<p>" + W(G.kidById(state, bag.kidId)).whatsWrong + "</p>" + opts +
       '<label class="field">Anything to add? <span class="soft">(optional)</span><input id="reportNote" maxlength="80" value="' + esc(item.note) + '" placeholder="like: the strap broke"></label>' +
       (item.status !== "ok" ? '<button class="opt good" data-m="status" data-v="ok"><span class="opt-icon">✓</span>It\'s fine now</button>' : "") +
-      '<button class="btn ghost full" data-m="close">Never mind</button>', { kind: "report", bagId: bag.id, itemId: item.id });
+      '<button class="btn ghost full" data-m="close">' + W(G.kidById(state, bag.kidId)).cancel + "</button>", { kind: "report", bagId: bag.id, itemId: item.id });
   }
 
   function itemModal(bag, item) {
@@ -343,6 +422,34 @@
       '<label class="field">Condition<select id="itemStatus">' + Object.keys(G.STATUS).map((k) => '<option value="' + k + '"' + (k === it.status ? " selected" : "") + ">" + G.STATUS[k].label + "</option>").join("") + "</select></label>" +
       '<div class="row"><button class="btn primary" data-m="saveItem">Save</button>' + (item ? '<button class="btn danger" data-m="deleteItem">Delete</button>' : "") +
       '<button class="btn ghost" data-m="close">Cancel</button></div>', modalCtx);
+  }
+
+  function styleModal(kidId) {
+    openModal('<h2>Your style</h2><div id="styleBody">' + styleChoices(G.kidById(state, kidId)) + "</div>" +
+      '<button class="btn primary full" data-m="close">Done</button>', { kind: "style", kidId });
+  }
+  function refreshStyleModal() {
+    if (!modalCtx || modalCtx.kind !== "style") return;
+    const body = document.getElementById("styleBody"); if (body) body.innerHTML = styleChoices(G.kidById(state, modalCtx.kidId));
+  }
+  function setPalette(kid, i) { const p = G.PALETTES[i]; if (!p) return; kid.custom = { bg: p[1], accent: p[2], accent2: p[3] }; save(); }
+
+  const REPEATS = [[1, "Just once"], [2, "Every week, 2 weeks"], [4, "Every week, 4 weeks"], [8, "Every week, 8 weeks"], [12, "Every week, 12 weeks"], [G.MAX_REPEAT, "Every week, 6 months"]];
+  function eventModal(kid, ev, day) {
+    const e = ev || { date: day, time: "", title: "", bagId: "", note: "" };
+    const bags = G.bagsFor(state, kid.id);
+    openModal("<h2>" + (ev ? "Edit plan" : "Add to schedule") + "</h2>" +
+      '<label class="field">What<input id="evTitle" maxlength="40" value="' + esc(e.title) + '" placeholder="Practice, game, tryouts…" autocomplete="off"' + (ev ? "" : " autofocus") + "></label>" +
+      '<label class="field">Bag to pack<select id="evBag"><option value="">None</option>' + bags.map((b) => '<option value="' + b.id + '"' + (b.id === e.bagId ? " selected" : "") + ">" +
+        esc(b.emoji + " " + b.name) + "</option>").join("") + "</select></label>" +
+      '<div class="two"><label class="field">Date<input id="evDate" type="date" value="' + esc(e.date) + '"></label>' +
+      '<label class="field">Time <span class="soft">(optional)</span><input id="evTime" type="time" value="' + esc(e.time) + '"></label></div>' +
+      '<label class="field">Note <span class="soft">(optional)</span><input id="evNote" maxlength="80" value="' + esc(e.note) + '" placeholder="Field 3, wear white jersey…"></label>' +
+      (ev ? "" : '<label class="field">Repeat<select id="evRepeat">' + REPEATS.map(([n, l]) => '<option value="' + n + '">' + l + "</option>").join("") + "</select></label>") +
+      '<div class="row"><button class="btn primary" data-m="saveEvent">Save</button>' +
+      (ev ? '<button class="btn danger" data-m="deleteEvent">Delete</button>' + (ev.group && state.events.some((x) => x.group === ev.group && x.date > ev.date) ?
+        '<button class="btn danger" data-m="deleteLater">Delete this and later weeks</button>' : "") : "") +
+      '<button class="btn ghost" data-m="close">Cancel</button></div>', { kind: "event", kidId: kid.id, eventId: ev ? ev.id : null });
   }
 
   function confirmModal(text, yesLabel, onYes) {
@@ -377,8 +484,9 @@
       case "startOver": G.startOver(state, view.bagId, d); save(); render(); break;
       case "ready": {
         const sm = G.summary(state, view.bagId, d);
-        if (sm.allPacked) { G.finishCheck(state, view.bagId, d); save(); tone(FANFARE); say("Cleared for takeoff!"); }
-        else say("Hold short. Still missing " + sm.missing.length + (sm.missing.length === 1 ? " thing." : " things."));
+        const w = W(G.kidById(state, G.bagById(state, view.bagId).kidId));
+        if (sm.allPacked) { G.finishCheck(state, view.bagId, d); save(); tone(FANFARE); say(w.sayGood); }
+        else say(w.sayMiss(sm.missing.length));
         go({ name: "done", bagId: view.bagId }); break;
       }
       case "leave": G.finishCheck(state, view.bagId, d); save(); go({ name: "home" }); break;
@@ -386,9 +494,14 @@
       case "fixed": G.setStatus(state, b.dataset.bag, id, "ok", "", d); save(); render(); break;
       case "editKid": go({ name: "editKid", kidId: id }); break;
       case "kidAvatar": G.kidById(state, view.kidId).avatar = v; save(); render(); break;
-      case "style": openModal("<h2>Pick your style</h2>" + styleChoices(G.kidById(state, view.kidId)) +
-        '<button class="btn ghost full" data-m="close">Done</button>', { kind: "style", kidId: view.kidId }); break;
+      case "style": styleModal(view.kidId); break;
       case "setTheme": G.kidById(state, view.kidId).theme = v; save(); render(); break;
+      case "setPlain": G.kidById(state, view.kidId).plain = v === "1"; save(); render(); break;
+      case "palette": setPalette(G.kidById(state, view.kidId), Number(v)); render(); break;
+      case "calDay": view.sel = v; render(); break;
+      case "calMove": { const base = G.parseDay((view.month || G.dayKey(d).slice(0, 7)) + "-01"); base.setMonth(base.getMonth() + Number(v)); view.month = G.dayKey(base).slice(0, 7); render(); break; }
+      case "addEvent": eventModal(G.kidById(state, view.kidId), null, view.sel || G.dayKey(d)); break;
+      case "editEvent": { const e = state.events.find((x) => x.id === id); if (e) eventModal(G.kidById(state, e.kidId), e); break; }
       case "hairKit": { const n = G.addKit(G.bagById(state, view.bagId), G.HAIR_KIT); save(); render();
         toast(n ? "Added the hair kit." : "This bag already has the hair kit."); break; }
       case "kidColor": G.kidById(state, view.kidId).color = v; save(); render(); break;
@@ -427,9 +540,21 @@
     const b = ev.target.closest("[data-m],[data-a]"); if (!b || !modalCtx) return;
     const m = b.dataset.m || b.dataset.a, v = b.dataset.v, c = modalCtx, d = now();
     if (m === "close") { closeModal(); return; }
-    if (c.kind === "style" && m === "setTheme") {
-      G.kidById(state, c.kidId).theme = v; save(); render();
-      modal.querySelectorAll(".style-opt").forEach((o) => { o.classList.toggle("on", o.dataset.v === v); o.setAttribute("aria-pressed", o.dataset.v === v); });
+    if (c.kind === "style" && (m === "setTheme" || m === "setPlain" || m === "palette")) {
+      const kid = G.kidById(state, c.kidId);
+      if (m === "setTheme") kid.theme = v; else if (m === "setPlain") kid.plain = v === "1"; else setPalette(kid, Number(v));
+      save(); render(); refreshStyleModal();
+      return;
+    }
+    if (c.kind === "event" && (m === "saveEvent" || m === "deleteEvent" || m === "deleteLater")) {
+      if (m !== "saveEvent") { G.removeEvent(state, c.eventId, m === "deleteLater"); save(); closeModal(); render(); return; }
+      const o = { title: document.getElementById("evTitle").value, bagId: document.getElementById("evBag").value, date: document.getElementById("evDate").value,
+        time: document.getElementById("evTime").value, note: document.getElementById("evNote").value };
+      if (!o.date) { toast("Pick a date."); return; }
+      if (!o.title.trim() && !o.bagId) { toast("Say what it is, or pick a bag."); return; }
+      if (c.eventId) G.updateEvent(state, c.eventId, o);
+      else { const added = G.addEvent(state, c.kidId, o, Number(document.getElementById("evRepeat").value)); if (added.length > 1) toast("Added " + added.length + " weeks."); }
+      save(); closeModal(); view.sel = o.date; view.month = o.date.slice(0, 7); render();
       return;
     }
     if (c.kind === "confirm" && m === "yes") { const f = c.onYes; closeModal(); f(); return; }
@@ -437,7 +562,7 @@
       const note = (document.getElementById("reportNote") || {}).value || "";
       const item = G.bagById(state, c.bagId).items.find((i) => i.id === c.itemId);
       G.setStatus(state, c.bagId, c.itemId, v, note, d); save(); closeModal(); render();
-      toast(v === "ok" ? item.name + ": all good." : "Thanks! Grown-ups will see: " + item.name + ", " + G.STATUS[v].label.toLowerCase() + ".");
+      toast(v === "ok" ? item.name + ": all good." : W(G.kidById(state, G.bagById(state, c.bagId).kidId)).reported(item, v));
       return;
     }
     if (c.kind === "item") {
@@ -457,6 +582,18 @@
     }
   });
   document.addEventListener("keydown", (ev) => { if (ev.key === "Escape" && !modal.hidden) closeModal(); });
+  function colorKid() { return G.kidById(state, (modalCtx && modalCtx.kidId) || view.kidId); }
+  document.addEventListener("input", (ev) => {
+    const t = ev.target; if (!t.dataset || !t.dataset.color) return;
+    const kid = colorKid(); if (!kid) return;
+    kid.custom[t.dataset.color] = t.value.toUpperCase(); applyTheme(kid);
+  });
+  document.addEventListener("change", (ev) => {
+    const t = ev.target; if (!t.dataset || !t.dataset.color) return;
+    const kid = colorKid(); if (!kid) return;
+    kid.custom[t.dataset.color] = t.value.toUpperCase(); save();
+    if (!modalCtx) render(); else { render(); refreshStyleModal(); }
+  });
 
   // ---------- Grown-up button: press and hold so little fingers don't wander in ----------
   let holdTimer = null, holdEl = null;

@@ -142,6 +142,55 @@ assert.equal(G.normalize(JSON.parse(JSON.stringify(s))).kids[0].theme, "berry");
 assert.equal(G.normalize({ kids: [{ id: "x", theme: "neon" }], bags: [] }).kids[0].theme, "field");
 assert.equal(G.normalize({ kids: [{ id: "x" }], bags: [{ id: "b", kidId: "x", items: [{ id: "i", cat: "hair" }] }] }).bags[0].items[0].cat, "hair");
 
+// Schedule
+assert.deepEqual(s.events, []);
+const ev = G.addEvent(s, ava.id, { date: "2026-11-24", time: "17:30", title: "", bagId: soccer.id, note: "Field 3" });
+assert.equal(ev.length, 1); assert.equal(ev[0].title, "Soccer", "title defaults to the bag's name");
+assert.equal(G.time12("17:30"), "5:30 PM"); assert.equal(G.time12("00:05"), "12:05 AM"); assert.equal(G.time12("12:00"), "12:00 PM"); assert.equal(G.time12("25:00"), "");
+const games = G.addEvent(s, ava.id, { date: "2026-11-28", time: "09:00", title: "Game", bagId: soccer.id }, 4);
+assert.deepEqual(games.map((e) => e.date), ["2026-11-28", "2026-12-05", "2026-12-12", "2026-12-19"]);
+assert.equal(G.addEvent(s, ava.id, { date: "2026-02-30", title: "x" }).length, 0, "not a real date");
+assert.equal(G.addEvent(s, ava.id, { date: "2026-11-24", title: "" }).length, 0, "needs a title or a bag");
+assert.equal(G.addEvent(s, ava.id, { date: "2026-12-01", title: "Long", bagId: hoops.id })[0].bagId, "", "can't use another player's bag");
+const big = G.addEvent(s, ava.id, { date: "2026-11-24", title: "Big", }, 99);
+assert.equal(big.length, G.MAX_REPEAT);
+assert.equal(G.removeEvent(s, big[1].id, true), G.MAX_REPEAT - 1, "removing from week 2 on keeps week 1");
+const tue = new Date(2026, 10, 24, 7);
+G.addEvent(s, ava.id, { date: "2026-11-24", title: "Team photo", time: "07:45" });
+assert.deepEqual(G.eventsOn(s, ava.id, "2026-11-24").map((e) => e.title), ["Team photo", "Soccer", "Big"], "sorted by time, no-time last");
+soccer.days = [];
+assert.deepEqual(G.bagsToday(s, ava.id, tue).map((b) => b.id), [soccer.id], "a scheduled practice makes the bag Today");
+assert.deepEqual(G.bagsToday(s, ava.id, new Date(2026, 10, 25, 7)), []);
+assert.deepEqual(G.upcoming(s, ava.id, new Date(2026, 11, 6), 2).map((e) => e.date), ["2026-12-12", "2026-12-19"]);
+assert(G.updateEvent(s, games[1].id, { date: "2026-12-06", time: "10:00", title: "Tournament", bagId: soccer.id, note: "" }));
+assert.equal(games[1].date, "2026-12-06");
+assert(!G.updateEvent(s, games[1].id, { date: "nope", title: "x" }));
+assert.equal(G.removeEvent(s, games[2].id, true), 2, "this and later repeats");
+assert.equal(s.events.filter((e) => e.group === games[0].group).length, 2);
+assert.equal(G.removeEvent(s, games[0].id), 1);
+const grid = G.monthGrid(2026, 10); // November 2026 starts on a Sunday
+assert.equal(grid[0], "2026-11-01"); assert.equal(grid.length, 30);
+assert.equal(G.monthGrid(2026, 11)[2], "2026-12-01", "December 2026 starts on a Tuesday");
+assert.equal(G.addDays("2026-03-07", 1), "2026-03-08");
+const back = G.normalize(JSON.parse(JSON.stringify(s)));
+assert.equal(back.events.length, s.events.length);
+assert.equal(G.normalize({ kids: [], bags: [], events: [{ id: "e", kidId: "ghost", date: "2026-11-24", title: "x" }] }).events.length, 0);
+
+// Wording and custom colors
+assert.equal(ava.plain, false);
+ava.plain = true; ava.theme = "custom"; ava.custom = { bg: "#121212", accent: "#E3B341", accent2: "#E8E3D6" };
+const kept = G.normalize(JSON.parse(JSON.stringify(s))).kids[0];
+assert.equal(kept.plain, true); assert.equal(kept.theme, "custom"); assert.equal(kept.custom.accent, "#E3B341");
+assert.equal(G.normalize({ kids: [{ id: "x", custom: { bg: "red" } }], bags: [] }).kids[0].custom.bg, G.PALETTES[0][1]);
+G.PALETTES.forEach(([name, bg, a, a2]) => {
+  const t = G.customTokens({ bg, accent: a, accent2: a2 });
+  assert(G.contrast(t["--ink"], t["--bg"]) >= 7, name + ": text readable on the background");
+  assert(G.contrast(t["--ink"], t["--card"]) >= 7, name + ": text readable on cards");
+  assert(G.contrast(t["--on-field"], a) >= 2.5, name + ": button text readable");
+});
+assert.equal(G.customTokens({ bg: "#FFFFFF", accent: "#FFEB3B", accent2: "#000000" })["--on-field"], "#141218", "dark text on a yellow button");
+assert.equal(G.customTokens({ bg: "#000000", accent: "#1A237E", accent2: "#FFFFFF" }).dark, true);
+
 // Removing a kid removes their bags
 G.removeKid(s, ava.id);
 assert.equal(s.kids.length, 1); assert.equal(s.bags.length, 1);

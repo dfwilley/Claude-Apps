@@ -14,7 +14,12 @@
   const CATS = [["gear", "Gear"], ["uniform", "Uniform"], ["hair", "Hair"], ["water", "Water & snacks"]];
 
   // Each player picks their own look for their screens.
-  const THEMES = [["field", "Field", "Green and orange"], ["berry", "Berry", "Pink and plum"], ["midnight", "Midnight", "Dark with violet"]];
+  const THEMES = [["field", "Field", "Green and orange"], ["berry", "Berry", "Pink and plum"], ["midnight", "Midnight", "Dark with violet"],
+    ["custom", "Custom", "Pick your own colors"]];
+  // Ready-made color sets for the Custom style: [name, background, main color, second color].
+  const PALETTES = [["Lavender", "#F4F0FF", "#7B5CD6", "#E8679A"], ["Ocean", "#EAF6FB", "#0F7FA8", "#F2A541"], ["Mint", "#EEFAF4", "#1E9E77", "#7A6FF0"],
+    ["Sunset", "#FFF3EA", "#E2553C", "#8E44AD"], ["Black & gold", "#121212", "#E3B341", "#E8E3D6"], ["Navy & coral", "#0F1B2D", "#FF7A6B", "#5BC0EB"]];
+  const MAX_REPEAT = 26; // weeks a repeating schedule item can be copied ahead
   const THEME_KEYS = THEMES.map((t) => t[0]);
 
   // One tap adds the hair things to a bag.
@@ -80,7 +85,7 @@
   }
 
   function defaultState() {
-    return { version: VERSION, kids: [], bags: [], checks: {}, log: [], settings: { speak: true, sound: true } };
+    return { version: VERSION, kids: [], bags: [], checks: {}, log: [], events: [], settings: { speak: true, sound: true } };
   }
 
   function clampCount(n) { n = Math.round(Number(n) || 1); return Math.max(1, Math.min(9, n)); }
@@ -92,12 +97,13 @@
 
   function addKid(s, name, avatar, color) {
     const kid = { id: newId("k"), name: cleanText(name, 20) || "Player", avatar: avatar || AVATARS[s.kids.length % AVATARS.length],
-      color: color || COLORS[s.kids.length % COLORS.length], theme: "field" };
+      color: color || COLORS[s.kids.length % COLORS.length], theme: "field", plain: false, custom: { bg: PALETTES[0][1], accent: PALETTES[0][2], accent2: PALETTES[0][3] } };
     s.kids.push(kid);
     return kid;
   }
   function removeKid(s, kidId) {
     bagsFor(s, kidId).forEach((b) => removeBag(s, b.id));
+    s.events = s.events.filter((e) => e.kidId !== kidId);
     s.kids = s.kids.filter((k) => k.id !== kidId);
   }
 
@@ -118,6 +124,7 @@
   function removeBag(s, bagId) {
     s.bags = s.bags.filter((b) => b.id !== bagId);
     delete s.checks[bagId];
+    s.events.forEach((e) => { if (e.bagId === bagId) e.bagId = ""; });
   }
   /** Copies a bag to another player, with every item back in good shape (the copy is their own gear). */
   function copyBag(s, bagId, kidId) {
@@ -150,7 +157,96 @@
 
   /** True when the bag is used on that weekday. A bag with no days picked is "any day" but never "today". */
   function isToday(bag, date) { return bag.days.length > 0 && bag.days.includes(date.getDay()); }
-  function bagsToday(s, kidId, date) { return bagsFor(s, kidId).filter((b) => isToday(b, date)); }
+  /** Bags needed today: their weekly days, or a schedule item today that uses them. */
+  function bagsToday(s, kidId, date) {
+    const fromSchedule = new Set(eventsOn(s, kidId, dayKey(date)).map((e) => e.bagId).filter(Boolean));
+    return bagsFor(s, kidId).filter((b) => isToday(b, date) || fromSchedule.has(b.id));
+  }
+
+  // ---------- Schedule ----------
+  function parseDay(key) { const p = String(key).split("-").map(Number); return new Date(p[0], p[1] - 1, p[2], 12); }
+  function addDays(key, n) { const d = parseDay(key); d.setDate(d.getDate() + n); return dayKey(d); }
+  function validDay(k) { return typeof k === "string" && /^\d{4}-\d{2}-\d{2}$/.test(k) && dayKey(parseDay(k)) === k; }
+  function validTime(t) { return typeof t === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(t); }
+  function cleanEvent(s, kidId, o) {
+    const bag = o.bagId && bagById(s, o.bagId);
+    return { kidId, date: validDay(o.date) ? o.date : "", time: validTime(o.time) ? o.time : "",
+      title: cleanText(o.title, 40) || (bag ? bag.name : ""), bagId: bag && bag.kidId === kidId ? bag.id : "", note: cleanText(o.note, 80) };
+  }
+  /** Adds a schedule item; repeat > 1 also adds it on the same weekday for that many weeks in all. Returns what was added. */
+  function addEvent(s, kidId, o, repeat) {
+    if (!kidById(s, kidId)) return [];
+    const base = cleanEvent(s, kidId, o);
+    if (!base.date || !base.title) return [];
+    const weeks = Math.max(1, Math.min(MAX_REPEAT, Math.round(Number(repeat) || 1)));
+    const group = weeks > 1 ? newId("g") : "";
+    const out = [];
+    for (let w = 0; w < weeks; w++) {
+      const e = Object.assign({ id: newId("e"), group }, base, { date: addDays(base.date, 7 * w) });
+      s.events.push(e); out.push(e);
+    }
+    return out;
+  }
+  function updateEvent(s, eventId, o) {
+    const e = s.events.find((x) => x.id === eventId); if (!e) return false;
+    const c = cleanEvent(s, e.kidId, o);
+    if (!c.date || !c.title) return false;
+    Object.assign(e, c);
+    return true;
+  }
+  /** Removes one schedule item, or with all=true every repeat of it from that date on. */
+  function removeEvent(s, eventId, all) {
+    const e = s.events.find((x) => x.id === eventId); if (!e) return 0;
+    const before = s.events.length;
+    s.events = s.events.filter((x) => x.id !== eventId && !(all && e.group && x.group === e.group && x.date >= e.date));
+    return before - s.events.length;
+  }
+  const byTime = (a, b) => (a.date + (a.time || "99")).localeCompare(b.date + (b.time || "99")) || a.title.localeCompare(b.title);
+  function eventsOn(s, kidId, key) { return s.events.filter((e) => e.kidId === kidId && e.date === key).sort(byTime); }
+  /** The next schedule items from today on. */
+  function upcoming(s, kidId, date, n) {
+    const key = dayKey(date);
+    return s.events.filter((e) => e.kidId === kidId && e.date >= key).sort(byTime).slice(0, n || 3);
+  }
+  /** Day keys in a month grid (weeks start Sunday), with blanks ("") before the 1st. */
+  function monthGrid(year, month) {
+    const first = new Date(year, month, 1, 12), days = new Date(year, month + 1, 0, 12).getDate();
+    const cells = []; for (let i = 0; i < first.getDay(); i++) cells.push("");
+    for (let d = 1; d <= days; d++) cells.push(dayKey(new Date(year, month, d, 12)));
+    return cells;
+  }
+  /** Turns "17:30" into "5:30 PM". */
+  function time12(t) {
+    if (!validTime(t)) return "";
+    let h = Number(t.slice(0, 2)); const m = t.slice(3), ap = h >= 12 ? "PM" : "AM";
+    h = h % 12 || 12;
+    return h + ":" + m + " " + ap;
+  }
+
+  // ---------- Custom colors ----------
+  function hexRgb(h) { const n = parseInt(String(h).slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
+  function rgbHex(c) { return "#" + c.map((v) => Math.round(Math.max(0, Math.min(255, v))).toString(16).padStart(2, "0")).join("").toUpperCase(); }
+  function mix(a, b, t) { const x = hexRgb(a), y = hexRgb(b); return rgbHex(x.map((v, i) => v + (y[i] - v) * t)); }
+  function luminance(h) {
+    return hexRgb(h).map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); })
+      .reduce((sum, v, i) => sum + v * [0.2126, 0.7152, 0.0722][i], 0);
+  }
+  function contrast(a, b) { const x = luminance(a), y = luminance(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); }
+  const isHex = (h) => /^#[0-9a-f]{6}$/i.test(h);
+  /** The screen colors worked out from a player's three picks, with text that stays readable on each. */
+  function customTokens(c) {
+    const bg = isHex(c && c.bg) ? c.bg : PALETTES[0][1], accent = isHex(c && c.accent) ? c.accent : PALETTES[0][2];
+    const accent2 = isHex(c && c.accent2) ? c.accent2 : PALETTES[0][3];
+    const dark = luminance(bg) < 0.18;
+    const card = dark ? mix(bg, "#FFFFFF", 0.07) : mix(bg, "#FFFFFF", 0.8);
+    const ink = dark ? mix("#FFFFFF", accent, 0.08) : mix("#141218", accent, 0.15);
+    const onColor = (x) => (contrast(x, "#FFFFFF") >= contrast(x, "#141218") ? "#FFFFFF" : "#141218");
+    return { "--bg": bg, "--card": card, "--ink": ink, "--navy": ink, "--soft": mix(ink, bg, 0.4), "--line": mix(bg, ink, dark ? 0.2 : 0.13),
+      "--field": accent, "--on-field": onColor(accent), "--field-soft": mix(card, accent, dark ? 0.3 : 0.16),
+      "--orange": accent2, "--on-orange": onColor(accent2), "--orange-soft": mix(card, accent2, dark ? 0.28 : 0.16),
+      "--shadow": dark ? "0 1px 0 rgba(0,0,0,.3), 0 10px 28px rgba(0,0,0,.35)" : "0 1px 0 rgba(0,0,0,.04), 0 10px 26px rgba(0,0,0,.08)",
+      dark };
+  }
 
   /** Today's check for a bag. Yesterday's check marks are cleared: every trip starts with an empty bag. */
   function currentCheck(s, bagId, now) {
@@ -227,7 +323,9 @@
     raw.kids.forEach((k) => {
       if (!k || !k.id) return;
       s.kids.push({ id: String(k.id), name: cleanText(k.name, 20) || "Player", avatar: k.avatar || "⭐", color: /^#[0-9a-f]{6}$/i.test(k.color) ? k.color : COLORS[0],
-        theme: THEME_KEYS.includes(k.theme) ? k.theme : "field" });
+        theme: THEME_KEYS.includes(k.theme) ? k.theme : "field", plain: k.plain === true,
+        custom: { bg: isHex(k.custom && k.custom.bg) ? k.custom.bg : PALETTES[0][1], accent: isHex(k.custom && k.custom.accent) ? k.custom.accent : PALETTES[0][2],
+          accent2: isHex(k.custom && k.custom.accent2) ? k.custom.accent2 : PALETTES[0][3] } });
     });
     const kidIds = new Set(s.kids.map((k) => k.id));
     raw.bags.forEach((b) => {
@@ -250,11 +348,18 @@
       });
     }
     if (Array.isArray(raw.log)) s.log = raw.log.filter((e) => e && typeof e.t === "number").slice(0, KEEP_LOG);
+    if (Array.isArray(raw.events)) {
+      raw.events.forEach((e) => {
+        if (!e || !e.id || !kidIds.has(String(e.kidId)) || !validDay(e.date)) return;
+        const c = cleanEvent(s, String(e.kidId), e);
+        if (c.title) s.events.push(Object.assign({ id: String(e.id), group: typeof e.group === "string" ? e.group : "" }, c));
+      });
+    }
     if (raw.settings) { s.settings.speak = raw.settings.speak !== false; s.settings.sound = raw.settings.sound !== false; }
     return s;
   }
 
-  return { VERSION, CATS, CAT_KEYS, THEMES, THEME_KEYS, HAIR_KIT, STATUS, TEMPLATES, TEMPLATE_KEYS, ITEM_PICS, BAG_PICS, AVATARS, COLORS, DAY_LETTERS, DAY_NAMES,
+  return { VERSION, CATS, CAT_KEYS, THEMES, THEME_KEYS, HAIR_KIT, PALETTES, MAX_REPEAT, STATUS, TEMPLATES, TEMPLATE_KEYS, ITEM_PICS, BAG_PICS, AVATARS, COLORS, DAY_LETTERS, DAY_NAMES,
     newId, dayKey, defaultState, kidById, bagById, bagsFor, addKid, removeKid, addBag, removeBag, copyBag, addKit, addItem, removeItem, moveItem,
-    isToday, bagsToday, currentCheck, isPacked, togglePacked, startOver, setStatus, summary, finishCheck, attention, normalize };
+    isToday, bagsToday, parseDay, addDays, addEvent, updateEvent, removeEvent, eventsOn, upcoming, monthGrid, time12, contrast, customTokens, currentCheck, isPacked, togglePacked, startOver, setStatus, summary, finishCheck, attention, normalize };
 });
