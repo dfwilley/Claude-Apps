@@ -275,6 +275,21 @@ const st0 = G.defaultState(); assert.equal(st0.settings.holidays, true); assert.
 const ns = G.normalize({ kids: [], bags: [], settings: { holidays: false, homeFont: "marker" } }).settings;
 assert.equal(ns.holidays, false); assert.equal(ns.homeFont, "marker");
 
+// Voice
+assert.equal(G.packLine("Cleats", true, 0), "Cleats, check.");
+assert.equal(G.packLine("Water bottle", true, 3), "Got your water bottle.");
+assert.equal(G.packLine("Glove", false, 0), "Glove, in the bag!");
+const said = new Set([0, 1, 2, 3, 4].map((n) => G.packLine("Bat", true, n))); assert(said.size >= 3, "wording changes as you pack");
+assert.equal(G.doneLine(true, 0), "All packed. Have a good game."); assert.equal(G.doneLine(false, 0), "Cleared for takeoff!");
+const vs = [{ name: "Fred", lang: "en-US" }, { name: "Samantha", lang: "en-US" }, { name: "Ava (Premium)", lang: "en-US" }, { name: "Thomas", lang: "fr-FR" },
+  { name: "Daniel (Enhanced)", lang: "en-GB" }, { name: "Zarvox", lang: "en-US" }];
+assert.equal(G.bestVoice(vs).name, "Ava (Premium)");
+assert.equal(G.bestVoice(vs.filter((v) => !/Premium|Enhanced/.test(v.name))).name, "Samantha");
+assert(G.voiceScore(vs[0]) < G.voiceScore(vs[1]), "robot-sounding voices go last");
+assert.equal(G.voiceScore(vs[3]), -1, "only English voices");
+assert.equal(G.bestVoice([]), null);
+assert.equal(G.normalize({ kids: [{ id: "x", voice: "Ava (Premium)" }], bags: [] }).kids[0].voice, "Ava (Premium)");
+
 // Removing a kid removes their bags
 G.removeKid(s, ava.id);
 assert.equal(s.kids.length, 1); assert.equal(s.bags.length, 1);

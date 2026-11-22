@@ -166,7 +166,7 @@
 
   function addKid(s, name, avatar, color) {
     const kid = { id: newId("k"), name: cleanText(name, 20) || "Player", avatar: avatar || AVATARS[s.kids.length % AVATARS.length],
-      color: color || COLORS[s.kids.length % COLORS.length], theme: "field", font: "rounded", plain: false, faith: false, custom: { bg: PALETTES[0][1], accent: PALETTES[0][2], accent2: PALETTES[0][3] } };
+      color: color || COLORS[s.kids.length % COLORS.length], theme: "field", font: "rounded", voice: "", plain: false, faith: false, custom: { bg: PALETTES[0][1], accent: PALETTES[0][2], accent2: PALETTES[0][3] } };
     s.kids.push(kid);
     return kid;
   }
@@ -298,6 +298,34 @@
     h = h % 12 || 12;
     return h + ":" + m + " " + ap;
   }
+
+  // ---------- What the voice says (mixed up so it sounds like a person, not a machine) ----------
+  const PACK_LINES = {
+    simple: ["{n}, check.", "{n}. Got it.", "{n}, check.", "Got your {l}.", "{n}. Check."],
+    fun: ["{n}, in the bag!", "Got your {l}!", "{n}, check!", "Nice. {n}.", "{n}, packed!"],
+  };
+  const DONE_LINES = {
+    simple: ["All packed. Have a good game.", "That's everything. Good luck today.", "All set. Go get 'em."],
+    fun: ["Cleared for takeoff!", "All packed! Have a great game!", "That's everything. Go get 'em!"],
+  };
+  /** One spoken line for packing an item; turn picks which wording, so it doesn't repeat the same phrase every time. */
+  function packLine(itemName, plain, turn) {
+    const lines = PACK_LINES[plain ? "simple" : "fun"], line = lines[((turn % lines.length) + lines.length) % lines.length];
+    return line.replace("{n}", itemName).replace("{l}", itemName.toLowerCase());
+  }
+  function doneLine(plain, turn) { const lines = DONE_LINES[plain ? "simple" : "fun"]; return lines[((turn % lines.length) + lines.length) % lines.length]; }
+  /** Ranks a phone's voices for a natural sound: downloaded Premium and Enhanced voices first, then well-known natural ones. */
+  const NATURAL_VOICES = ["Ava", "Zoe", "Samantha", "Allison", "Susan", "Evan", "Nathan", "Joelle", "Noelle", "Tom", "Nicky", "Aaron", "Google US English", "Microsoft Aria", "Microsoft Jenny"];
+  function voiceScore(v) {
+    if (!v || !/^en/i.test(v.lang || "")) return -1;
+    let sc = /en[-_]US/i.test(v.lang) ? 5 : 2;
+    if (/premium/i.test(v.name)) sc += 40; else if (/enhanced/i.test(v.name)) sc += 30;
+    if (/natural|neural|online/i.test(v.name)) sc += 25;
+    if (NATURAL_VOICES.some((n) => v.name.indexOf(n) === 0)) sc += 10;
+    if (/compact|eloquence|bad news|bells|boing|bubbles|cellos|good news|jester|organ|superstar|trinoids|whisper|wobble|zarvox|albert|fred|junior|ralph|kathy|bahh|grandpa|grandma|reed|rocko|sandy|shelley|flo/i.test(v.name)) sc -= 30;
+    return sc;
+  }
+  function bestVoice(voices) { return (voices || []).filter((v) => voiceScore(v) >= 0).sort((a, b) => voiceScore(b) - voiceScore(a))[0] || null; }
 
   // ---------- Holidays (US, worked out for any year) ----------
   /** The nth weekday of a month (n = -1 for the last one). weekday: 0 = Sunday. */
@@ -488,7 +516,7 @@
     raw.kids.forEach((k) => {
       if (!k || !k.id) return;
       s.kids.push({ id: String(k.id), name: cleanText(k.name, 20) || "Player", avatar: cleanEmoji(k.avatar, "⭐"), color: /^#[0-9a-f]{6}$/i.test(k.color) ? k.color : COLORS[0],
-        theme: THEME_KEYS.includes(k.theme) ? k.theme : "field", font: FONT_KEYS.includes(k.font) ? k.font : "rounded", plain: k.plain === true, faith: k.faith === true,
+        theme: THEME_KEYS.includes(k.theme) ? k.theme : "field", font: FONT_KEYS.includes(k.font) ? k.font : "rounded", voice: typeof k.voice === "string" ? k.voice.slice(0, 80) : "", plain: k.plain === true, faith: k.faith === true,
         custom: { bg: isHex(k.custom && k.custom.bg) ? k.custom.bg : PALETTES[0][1], accent: isHex(k.custom && k.custom.accent) ? k.custom.accent : PALETTES[0][2],
           accent2: isHex(k.custom && k.custom.accent2) ? k.custom.accent2 : PALETTES[0][3] } });
     });
@@ -529,7 +557,7 @@
     return s;
   }
 
-  return { holidaysIn, holidaysOn, nextHoliday, easter, HOME_COLORS, FONTS, FONT_KEYS, cleanEmoji, hsvToHex, hexToHsv, VERSES, PRAYERS, verseFor, prayerFor, nextUp, countdown, startOf, VERSION, CATS, CAT_KEYS, THEMES, THEME_KEYS, HAIR_KIT, PALETTES, MAX_REPEAT, STATUS, TEMPLATES, TEMPLATE_KEYS, ITEM_PICS, BAG_PICS, AVATARS, COLORS, DAY_LETTERS, DAY_NAMES,
+  return { packLine, doneLine, voiceScore, bestVoice, holidaysIn, holidaysOn, nextHoliday, easter, HOME_COLORS, FONTS, FONT_KEYS, cleanEmoji, hsvToHex, hexToHsv, VERSES, PRAYERS, verseFor, prayerFor, nextUp, countdown, startOf, VERSION, CATS, CAT_KEYS, THEMES, THEME_KEYS, HAIR_KIT, PALETTES, MAX_REPEAT, STATUS, TEMPLATES, TEMPLATE_KEYS, ITEM_PICS, BAG_PICS, AVATARS, COLORS, DAY_LETTERS, DAY_NAMES,
     newId, dayKey, defaultState, kidById, bagById, bagsFor, addKid, removeKid, addBag, removeBag, copyBag, addKit, addItem, removeItem, moveItem,
     isToday, bagsToday, parseDay, addDays, addEvent, updateEvent, removeEvent, eventsOn, upcoming, placesFor, monthGrid, time12, contrast, customTokens, currentCheck, isPacked, togglePacked, startOver, setStatus, summary, finishCheck, attention, normalize };
 });

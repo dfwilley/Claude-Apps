@@ -31,10 +31,22 @@
     clearTimeout(toast.timer); toast.timer = setTimeout(() => { t.hidden = true; }, 3200);
   }
 
-  function say(text) {
-    if (!state.settings.speak || !("speechSynthesis" in window)) return;
-    try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.rate = 1; speechSynthesis.speak(u); } catch (e) { /* no voice */ }
+  // ---------- Speaking ----------
+  let voices = [];
+  function loadVoices() { try { voices = speechSynthesis.getVoices().filter((v) => G.voiceScore(v) >= 0).sort((a, b) => G.voiceScore(b) - G.voiceScore(a)); } catch (e) { voices = []; } }
+  if ("speechSynthesis" in window) { loadVoices(); try { speechSynthesis.addEventListener("voiceschanged", () => { loadVoices(); refreshStyleModal(); }); } catch (e) { /* older phones */ } }
+  function voiceFor(kid) { return (kid && kid.voice && voices.find((v) => v.name === kid.voice)) || voices[0] || null; }
+  function say(text, kid, force) {
+    if ((!state.settings.speak && !force) || !("speechSynthesis" in window)) return;
+    try {
+      speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text), v = voiceFor(kid);
+      if (v) { u.voice = v; u.lang = v.lang; }
+      u.rate = 1.02; u.pitch = 1;
+      speechSynthesis.speak(u);
+    } catch (e) { /* no voice */ }
   }
+  let sayTurn = Math.floor(Math.random() * 5);
   let audio = null;
   function tone(notes) {
     if (!state.settings.sound) return;
@@ -441,6 +453,12 @@
     }
     h += '<div class="field words-field">Font<div class="fonts">' + G.FONTS.map(([k, name, stack]) => '<button class="font-opt' + (kid.font === k ? " on" : "") +
       '" data-a="setFont" data-v="' + k + '" aria-pressed="' + (kid.font === k) + '" style="font-family:' + esc(stack) + '"><span class="font-aa">Aa</span>' + name + "</button>").join("") + "</div></div>";
+    h += '<div class="field words-field">Voice <span class="soft">(reads items out loud)</span>' +
+      (voices.length ? '<div class="voice-row"><select class="voice-pick" data-kid="' + kid.id + '"><option value="">Most natural on this phone' + (voices[0] ? " (" + esc(voices[0].name) + ")" : "") + "</option>" +
+        voices.map((v) => '<option value="' + esc(v.name) + '"' + (kid.voice === v.name ? " selected" : "") + ">" + esc(v.name) + "</option>").join("") +
+        '</select><button class="btn small" data-a="testVoice">▶ Test</button></div>' +
+        '<div class="soft small-note">For the most natural voice, download one on your iPhone: Settings › Accessibility › Spoken Content › Voices › English, then pick a voice marked Enhanced or Premium.</div>'
+        : '<div class="soft small-note">This phone hasn\'t listed its voices yet. Tap Test to try.</div><button class="btn small" data-a="testVoice">▶ Test</button>') + "</div>";
     h += '<div class="field words-field">Wording<div class="seg">' +
       '<button class="' + (kid.plain ? "" : "on") + '" data-a="setPlain" data-v="0">Fun <span class="soft">("Cleared for takeoff!")</span></button>' +
       '<button class="' + (kid.plain ? "on" : "") + '" data-a="setPlain" data-v="1">Simple <span class="soft">("All packed")</span></button></div></div>' +
@@ -652,7 +670,8 @@
         const item = G.bagById(state, view.bagId).items.find((i) => i.id === id);
         const wasLost = item.status === "lost";
         const inBag = G.togglePacked(state, view.bagId, id, d); save();
-        if (inBag) { tone(DING); say(item.name); if (wasLost) toast("Found it! " + item.name + ": back in the bag."); } else tone(UNDO);
+        const pk = G.kidById(state, G.bagById(state, view.bagId).kidId);
+        if (inBag) { tone(DING); say(G.packLine(item.name, pk && pk.plain, sayTurn++), pk); if (wasLost) toast("Found it! " + item.name + ": back in the bag."); } else tone(UNDO);
         const sm = G.summary(state, view.bagId, d);
         render();
         if (inBag && sm.allPacked) { tone(FANFARE); }
@@ -660,15 +679,17 @@
       }
       case "packFromDone": {
         const item = G.bagById(state, view.bagId).items.find((i) => i.id === id);
-        G.togglePacked(state, view.bagId, id, d); save(); tone(DING); say(item.name); render(); break;
+        const pk = G.kidById(state, G.bagById(state, view.bagId).kidId);
+        G.togglePacked(state, view.bagId, id, d); save(); tone(DING); say(G.packLine(item.name, pk && pk.plain, sayTurn++), pk); render(); break;
       }
       case "report": { const bag = G.bagById(state, view.bagId); reportModal(bag, bag.items.find((i) => i.id === id)); break; }
       case "startOver": G.startOver(state, view.bagId, d); save(); render(); break;
       case "ready": {
         const sm = G.summary(state, view.bagId, d);
         const w = W(G.kidById(state, G.bagById(state, view.bagId).kidId));
-        if (sm.allPacked) { G.finishCheck(state, view.bagId, d); save(); tone(FANFARE); say(w.sayGood); }
-        else say(w.sayMiss(sm.missing.length));
+        const rk = G.kidById(state, G.bagById(state, view.bagId).kidId);
+        if (sm.allPacked) { G.finishCheck(state, view.bagId, d); save(); tone(FANFARE); say(G.doneLine(rk && rk.plain, sayTurn++), rk); }
+        else say(w.sayMiss(sm.missing.length), rk);
         go({ name: "done", bagId: view.bagId }); break;
       }
       case "leave": G.finishCheck(state, view.bagId, d); save(); go({ name: "home" }); break;
@@ -680,6 +701,7 @@
       case "setTheme": G.kidById(state, view.kidId).theme = v; save(); render(); break;
       case "setPlain": G.kidById(state, view.kidId).plain = v === "1"; save(); render(); break;
       case "homeStyle": homeModal(); break;
+      case "testVoice": { const k = G.kidById(state, view.kidId); say(G.packLine("Water bottle", k && k.plain, 3) + " " + G.doneLine(k && k.plain, 1), k, true); break; }
       case "setFont": G.kidById(state, view.kidId).font = v; save(); render(); break;
       case "wheelTarget": wheelTarget = v; render(); break;
       case "setFaith": G.kidById(state, view.kidId).faith = v === "1"; save(); render(); break;
@@ -729,6 +751,7 @@
     const b = ev.target.closest("[data-m],[data-a]"); if (!b || !modalCtx) return;
     const m = b.dataset.m || b.dataset.a, v = b.dataset.v, c = modalCtx, d = now();
     if (m === "close") { closeModal(); return; }
+    if (c.kind === "style" && m === "testVoice") { const k = G.kidById(state, c.kidId); say(G.packLine("Water bottle", k && k.plain, 3) + " " + G.doneLine(k && k.plain, 1), k, true); return; }
     if (c.kind === "style" && (m === "setTheme" || m === "setPlain" || m === "setFaith" || m === "palette" || m === "setFont" || m === "wheelTarget")) {
       const kid = G.kidById(state, c.kidId);
       if (m === "wheelTarget") wheelTarget = v; else if (m === "setFont") kid.font = v; else if (m === "setTheme") kid.theme = v; else if (m === "setPlain") kid.plain = v === "1"; else if (m === "setFaith") kid.faith = v === "1"; else setPalette(kid, Number(v));
@@ -783,6 +806,12 @@
     if (act === "kidAvatar") G.kidById(state, view.kidId).avatar = v;
     if (act === "bagEmoji") G.bagById(state, view.bagId).emoji = v;
     save(); render();
+  });
+  document.addEventListener("change", (ev) => {
+    const t = ev.target; if (!t.classList || !t.classList.contains("voice-pick")) return;
+    const k = G.kidById(state, t.dataset.kid); if (!k) return;
+    k.voice = t.value; save();
+    say(G.packLine("Cleats", k.plain, 0), k, true);
   });
   function colorKid() { return G.kidById(state, (modalCtx && modalCtx.kidId) || view.kidId); }
   document.addEventListener("input", (ev) => {

@@ -336,3 +336,5 @@ body[data-view="check"] .wrap { padding-bottom: 170px; }
 .next-hol { margin: 4px 0 0; font-weight: 600; }
 .small-note { font-size: 13px; margin: 10px 0 0; }
 .avatar.sm { width: 26px; height: 26px; font-size: 14px; border-width: 2px; vertical-align: middle; }
+.voice-row { display: flex; gap: 8px; align-items: center; margin-top: 6px; }
+.voice-pick { flex: 1; min-width: 0; padding: 10px; border-radius: 12px; border: 2px solid var(--line); background: var(--card); font-size: 16px; }
