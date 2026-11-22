@@ -87,6 +87,11 @@
     const fn = { home: homeView, kid: kidView, check: checkView, done: doneView, grown: grownView, editKid: editKidView, editBag: editBagView }[view.name];
     app.innerHTML = fn();
     document.body.dataset.view = view.name;
+    const bag = view.bagId && G.bagById(state, view.bagId);
+    const kid = G.kidById(state, view.kidId || (bag && bag.kidId));
+    document.documentElement.dataset.theme = kid ? kid.theme : "field";
+    const tc = document.querySelector('meta[name="theme-color"]');
+    if (tc) tc.content = getComputedStyle(document.documentElement).getPropertyValue("--bg").trim() || "#EEF4F0";
   }
 
   function grownButton() {
@@ -122,7 +127,7 @@
   function kidView() {
     const kid = G.kidById(state, view.kidId), d = now();
     const bags = G.bagsFor(state, kid.id).slice().sort((a, b) => Number(G.isToday(b, d)) - Number(G.isToday(a, d)));
-    let h = topBar(avatar(kid) + " " + esc(kid.name) + "'s bags", true);
+    let h = topBar(avatar(kid) + " " + esc(kid.name) + "'s bags", true, '<button class="round" data-a="style" aria-label="Change my style">🎨</button>');
     h += '<div class="wrap">';
     if (!bags.length) h += '<section class="card welcome"><div class="big-emoji">🎒</div><p>No bags yet. Ask a grown-up to add one.</p></section>';
     h += '<div class="bags">';
@@ -255,13 +260,19 @@
       '" aria-label="' + esc(e) + '" aria-pressed="' + (e === current) + '">' + esc(e) + "</button>").join("") + "</div>";
   }
 
+  function styleChoices(kid) {
+    return '<div class="styles">' + G.THEMES.map(([k, name, desc]) => '<button class="style-opt' + (kid.theme === k ? " on" : "") + '" data-a="setTheme" data-v="' + k +
+      '" aria-pressed="' + (kid.theme === k) + '"><span class="style-swatch sw-' + k + '"><i></i><i></i><i></i></span><b>' + name + '</b><span class="soft">' + desc + "</span></button>").join("") + "</div>";
+  }
+
   function editKidView() {
     const kid = G.kidById(state, view.kidId);
     let h = topBar("Player", true);
     h += '<div class="wrap"><section class="card"><label class="field">Name<input id="kidName" maxlength="20" value="' + esc(kid.name) + '" autocomplete="off"></label>' +
       '<div class="field">Picture' + pickGrid(G.AVATARS, kid.avatar, "kidAvatar") + "</div>" +
       '<div class="field">Color<div class="swatches">' + G.COLORS.map((c) => '<button class="swatch' + (c === kid.color ? " on" : "") +
-      '" style="background:' + c + '" data-a="kidColor" data-v="' + c + '" aria-label="Color ' + c + '"></button>').join("") + "</div></div></section>";
+      '" style="background:' + c + '" data-a="kidColor" data-v="' + c + '" aria-label="Color ' + c + '"></button>').join("") + "</div></div>" +
+      '<div class="field">Style' + styleChoices(kid) + "</div></section>";
     h += '<section class="card"><h2>' + esc(kid.name) + "'s bags</h2><div class=\"list\">";
     G.bagsFor(state, kid.id).forEach((b) => {
       h += '<button class="list-row" data-a="editBag" data-id="' + b.id + '"><span class="list-emoji">' + esc(b.emoji) + '</span><span class="grow"><b>' + esc(b.name) +
@@ -291,7 +302,8 @@
         '<button class="mini" data-a="up" data-id="' + i.id + '" aria-label="Move up"' + (n === 0 ? " disabled" : "") + ">▲</button>" +
         '<button class="mini" data-a="down" data-id="' + i.id + '" aria-label="Move down"' + (n === bag.items.length - 1 ? " disabled" : "") + ">▼</button></li>";
     });
-    h += '</ul><button class="btn" data-a="addItem">+ Add something</button></section>';
+    h += '</ul><div class="row"><button class="btn" data-a="addItem">+ Add something</button>' +
+      '<button class="btn" data-a="hairKit">🎀 Add hair kit</button></div></section>';
     const others = state.kids.filter((k) => k.id !== kid.id);
     if (others.length) h += '<section class="card"><h2>Copy this bag</h2><p class="soft">Gives another player the same list, with their own gear.</p><div class="row wrap-row">' +
       others.map((k) => '<button class="btn" data-a="copyBag" data-v="' + k.id + '">' + esc(k.avatar + " " + k.name) + "</button>").join("") + "</div></section>";
@@ -374,6 +386,11 @@
       case "fixed": G.setStatus(state, b.dataset.bag, id, "ok", "", d); save(); render(); break;
       case "editKid": go({ name: "editKid", kidId: id }); break;
       case "kidAvatar": G.kidById(state, view.kidId).avatar = v; save(); render(); break;
+      case "style": openModal("<h2>Pick your style</h2>" + styleChoices(G.kidById(state, view.kidId)) +
+        '<button class="btn ghost full" data-m="close">Done</button>', { kind: "style", kidId: view.kidId }); break;
+      case "setTheme": G.kidById(state, view.kidId).theme = v; save(); render(); break;
+      case "hairKit": { const n = G.addKit(G.bagById(state, view.bagId), G.HAIR_KIT); save(); render();
+        toast(n ? "Added the hair kit." : "This bag already has the hair kit."); break; }
       case "kidColor": G.kidById(state, view.kidId).color = v; save(); render(); break;
       case "addBag": { const bag = G.addBag(state, view.kidId, v || { name: "My bag", emoji: "🎒" }); save(); go({ name: "editBag", bagId: bag.id }); break; }
       case "removeKid": { const kid = G.kidById(state, view.kidId);
@@ -410,6 +427,11 @@
     const b = ev.target.closest("[data-m],[data-a]"); if (!b || !modalCtx) return;
     const m = b.dataset.m || b.dataset.a, v = b.dataset.v, c = modalCtx, d = now();
     if (m === "close") { closeModal(); return; }
+    if (c.kind === "style" && m === "setTheme") {
+      G.kidById(state, c.kidId).theme = v; save(); render();
+      modal.querySelectorAll(".style-opt").forEach((o) => { o.classList.toggle("on", o.dataset.v === v); o.setAttribute("aria-pressed", o.dataset.v === v); });
+      return;
+    }
     if (c.kind === "confirm" && m === "yes") { const f = c.onYes; closeModal(); f(); return; }
     if (c.kind === "report" && m === "status") {
       const note = (document.getElementById("reportNote") || {}).value || "";

@@ -127,6 +127,21 @@ assert.notEqual(dup.items[0].id, soccer.items[0].id);
 assert.equal(G.copyBag(s, soccer.id, "ghost"), null);
 G.removeBag(s, dup.id);
 
+// Hair kit and styles
+assert(G.CAT_KEYS.includes("hair"));
+assert.equal(ava.theme, "field");
+const hairBag = G.addBag(s, ben.id, "basketball"); // already has hair ties
+assert.equal(G.addKit(hairBag, G.HAIR_KIT), 2, "hair ties not added twice");
+assert.deepEqual(hairBag.items.filter((i) => i.cat === "hair").map((i) => i.name), ["Hair ties", "Hair gel", "Slick-back brush"]);
+assert.equal(G.addKit(hairBag, G.HAIR_KIT), 0, "second tap adds nothing");
+const oldBag = G.addBag(s, ben.id, { name: "Old" }); G.addItem(oldBag, { name: "Hair tie", cat: "uniform" });
+assert.equal(G.addKit(oldBag, G.HAIR_KIT), 2, "an old 'Hair tie' counts as hair ties");
+G.removeBag(s, hairBag.id); G.removeBag(s, oldBag.id);
+ava.theme = "berry";
+assert.equal(G.normalize(JSON.parse(JSON.stringify(s))).kids[0].theme, "berry");
+assert.equal(G.normalize({ kids: [{ id: "x", theme: "neon" }], bags: [] }).kids[0].theme, "field");
+assert.equal(G.normalize({ kids: [{ id: "x" }], bags: [{ id: "b", kidId: "x", items: [{ id: "i", cat: "hair" }] }] }).bags[0].items[0].cat, "hair");
+
 // Removing a kid removes their bags
 G.removeKid(s, ava.id);
 assert.equal(s.kids.length, 1); assert.equal(s.bags.length, 1);

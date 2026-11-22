@@ -198,3 +198,52 @@ body[data-view="check"] .wrap { padding-bottom: 170px; }
 .toast[hidden] { display: none; }
 
 @media print { .dock, .foot, .round, .tile-more { display: none; } body { background: #fff; } }
+
+/* ---------- Player styles ---------- */
+.styles { display: grid; gap: 8px; margin-top: 6px; }
+.style-opt { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 14px; background: var(--bg); border: 2px solid transparent; text-align: left; font-weight: 600; }
+.style-opt b { min-width: 76px; }
+.style-opt.on { border-color: var(--field); }
+.style-swatch { display: flex; gap: 3px; padding: 5px; border-radius: 10px; flex: none; }
+.style-swatch i { width: 14px; height: 26px; border-radius: 5px; }
+.sw-field { background: #EEF4F0; } .sw-field i:nth-child(1) { background: #1F7A4D; } .sw-field i:nth-child(2) { background: #F57C00; } .sw-field i:nth-child(3) { background: #14283C; }
+.sw-berry { background: #FFF0F6; } .sw-berry i:nth-child(1) { background: #C2306F; } .sw-berry i:nth-child(2) { background: #8E5BD6; } .sw-berry i:nth-child(3) { background: #3A1734; }
+.sw-midnight { background: #151626; } .sw-midnight i:nth-child(1) { background: #8C7BFF; } .sw-midnight i:nth-child(2) { background: #FF7AB6; } .sw-midnight i:nth-child(3) { background: #F2F0FF; }
+
+/* Berry: pink and plum, a sleeker, more grown-up look */
+:root[data-theme="berry"] {
+  --bg: #FFF0F6; --card: #FFFFFF; --ink: #3A1734; --soft: #8A5E7F; --line: #F2D3E3;
+  --field: #C2306F; --field-soft: #FCE0EC; --navy: #3A1734; --orange: #8E5BD6; --orange-soft: #EFE5FC;
+  --amber-soft: #FFF1CC; --radius: 18px;
+  --shadow: 0 1px 0 rgba(58, 23, 52, 0.05), 0 10px 28px rgba(194, 48, 111, 0.10);
+  font-family: "Avenir Next", "Avenir", "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="berry"] { --bg: #1F0E1B; --card: #2E1729; --ink: #FFEAF4; --soft: #CFA5C2; --line: #4A2A42; --field: #F0609E; --field-soft: #4A1D35;
+    --navy: #FFEAF4; --orange: #B68CFF; --orange-soft: #36254F; --amber-soft: #463A10; }
+}
+/* Midnight: dark with violet and pink, any time of day */
+:root[data-theme="midnight"] {
+  --bg: #151626; --card: #20223A; --ink: #F2F0FF; --soft: #A9A7CC; --line: #33365A;
+  --field: #8C7BFF; --field-soft: #2E2A5A; --navy: #F2F0FF; --orange: #FF7AB6; --orange-soft: #4A2340;
+  --red: #FF6B7A; --red-soft: #4A1F2A; --amber-soft: #463A10; --radius: 18px;
+  --shadow: 0 1px 0 rgba(0, 0, 0, 0.3), 0 10px 28px rgba(0, 0, 0, 0.35);
+  font-family: "Avenir Next", "Avenir", "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+:root[data-theme="midnight"] .s-small { color: #FFD45C; }
+
+/* Berry and Midnight use calmer, smaller sizes */
+:root[data-theme="berry"] .top h1, :root[data-theme="midnight"] .top h1 { font-size: 24px; font-weight: 700; letter-spacing: -0.3px; }
+:root[data-theme="berry"] .tile-main, :root[data-theme="midnight"] .tile-main { min-height: 128px; border-width: 2px; }
+:root[data-theme="berry"] .tile-emoji, :root[data-theme="midnight"] .tile-emoji { font-size: 40px; }
+:root[data-theme="berry"] .tile-name, :root[data-theme="midnight"] .tile-name { font-size: 16px; font-weight: 600; }
+:root[data-theme="berry"] .bag-name, :root[data-theme="midnight"] .bag-name { font-size: 20px; font-weight: 700; }
+:root[data-theme="berry"] .bag-emoji, :root[data-theme="midnight"] .bag-emoji { font-size: 38px; }
+:root[data-theme="berry"] .btn, :root[data-theme="midnight"] .btn { font-weight: 700; }
+:root[data-theme="berry"] .btn.primary, :root[data-theme="midnight"] .btn.primary { box-shadow: none; letter-spacing: 0.2px; }
+:root[data-theme="berry"] .done h2, :root[data-theme="midnight"] .done h2 { font-size: 26px; font-weight: 700; }
+:root[data-theme="berry"] .big-emoji, :root[data-theme="midnight"] .big-emoji { font-size: 60px; }
+:root[data-theme="berry"] .sect, :root[data-theme="midnight"] .sect { font-size: 13px; letter-spacing: 2px; font-weight: 700; }
+:root[data-theme="berry"] .check, :root[data-theme="midnight"] .check { width: 28px; height: 28px; font-size: 16px; border-width: 2px; }
+:root[data-theme="berry"] .tile-more, :root[data-theme="midnight"] .tile-more { width: 32px; height: 32px; font-size: 16px; }
+:root[data-theme="berry"] .bar, :root[data-theme="midnight"] .bar { height: 10px; }

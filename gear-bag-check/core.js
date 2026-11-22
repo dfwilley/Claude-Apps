@@ -11,7 +11,14 @@
   const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
   // Where an item shows on the checklist.
-  const CATS = [["gear", "Gear"], ["uniform", "Uniform"], ["water", "Water & snacks"]];
+  const CATS = [["gear", "Gear"], ["uniform", "Uniform"], ["hair", "Hair"], ["water", "Water & snacks"]];
+
+  // Each player picks their own look for their screens.
+  const THEMES = [["field", "Field", "Green and orange"], ["berry", "Berry", "Pink and plum"], ["midnight", "Midnight", "Dark with violet"]];
+  const THEME_KEYS = THEMES.map((t) => t[0]);
+
+  // One tap adds the hair things to a bag.
+  const HAIR_KIT = [["🎀", "Hair ties", "hair", 3], ["🧴", "Hair gel", "hair", 1], ["🪮", "Slick-back brush", "hair", 1]];
   const CAT_KEYS = CATS.map((c) => c[0]);
 
   // What can be wrong with an item. "ok" means nothing.
@@ -41,18 +48,18 @@
       ["🧤", "Glove", "gear", 1], ["🏏", "Bat", "gear", 1], ["⛑️", "Helmet with face mask", "gear", 1],
       ["🧤", "Batting gloves", "gear", 1], ["👟", "Cleats", "uniform", 1], ["👕", "Jersey", "uniform", 1],
       ["👖", "Softball pants", "uniform", 1], ["🎗️", "Belt", "uniform", 1], ["🧦", "Socks", "uniform", 1],
-      ["🧢", "Visor or cap", "uniform", 1], ["🎀", "Hair tie", "uniform", 1], ["🧴", "Sunscreen", "gear", 1],
+      ["🧢", "Visor or cap", "uniform", 1], ["🎀", "Hair ties", "hair", 3], ["🧴", "Sunscreen", "gear", 1],
       ["💧", "Water bottle", "water", 2], ["🍎", "Snack", "water", 1],
     ] },
     basketball: { name: "Basketball", emoji: "🏀", items: [
       ["👟", "Basketball shoes", "uniform", 1], ["👕", "Jersey", "uniform", 1], ["🩳", "Shorts", "uniform", 1],
-      ["🧦", "Socks", "uniform", 1], ["🏀", "Basketball", "gear", 1], ["🎀", "Hair tie", "uniform", 1],
+      ["🧦", "Socks", "uniform", 1], ["🏀", "Basketball", "gear", 1], ["🎀", "Hair ties", "hair", 3],
       ["💧", "Water bottle", "water", 2], ["🍎", "Snack", "water", 1],
     ] },
   };
   const TEMPLATE_KEYS = Object.keys(TEMPLATES);
 
-  const ITEM_PICS = ["👟", "🦵", "🧦", "👕", "🩳", "👖", "🎗️", "🧢", "🎀", "🧤", "⛑️", "🏏", "⚽", "⚾", "🥎", "🏀", "🏈", "🏐",
+  const ITEM_PICS = ["🎀", "🪮", "🧴", "💇", "👟", "🦵", "🧦", "👕", "🩳", "👖", "🎗️", "🧢", "🎀", "🧤", "⛑️", "🏏", "⚽", "⚾", "🥎", "🏀", "🏈", "🏐",
     "🎾", "🏒", "🥅", "🥍", "🏸", "🛼", "🛹", "🚲", "🏊", "🥽", "🩱", "🩴", "🧥", "🧣", "🕶️", "🧴", "🩹", "🪥", "🎒", "👜",
     "💧", "🥤", "🧃", "🍎", "🍌", "🥨", "🍫", "🍪", "🧊", "🏅", "📋", "📱", "🔑", "🪪", "💵", "🎧", "🧸", "⭐"];
   const BAG_PICS = ["⚽", "⚾", "🥎", "🏀", "🏈", "🏐", "🎾", "🏒", "🥍", "🏊", "🤸", "🥋", "🩰", "⛳", "🏃", "🚴", "🎒", "⛺", "🎵", "⭐"];
@@ -85,7 +92,7 @@
 
   function addKid(s, name, avatar, color) {
     const kid = { id: newId("k"), name: cleanText(name, 20) || "Player", avatar: avatar || AVATARS[s.kids.length % AVATARS.length],
-      color: color || COLORS[s.kids.length % COLORS.length] };
+      color: color || COLORS[s.kids.length % COLORS.length], theme: "field" };
     s.kids.push(kid);
     return kid;
   }
@@ -119,6 +126,14 @@
     src.items.forEach((i) => bag.items.push(makeItem(i)));
     s.bags.push(bag);
     return bag;
+  }
+  /** Adds a kit's items to a bag, skipping any the bag already has (hair tie = hair ties). Returns how many were added. */
+  function addKit(bag, kit) {
+    const key = (n) => cleanText(n, 30).toLowerCase().replace(/s$/, "");
+    const have = new Set(bag.items.map((i) => key(i.name)));
+    let added = 0;
+    kit.forEach((x) => { if (!have.has(key(x[1]))) { addItem(bag, { emoji: x[0], name: x[1], cat: x[2], count: x[3] }); added++; } });
+    return added;
   }
   function addItem(bag, o) { const it = makeItem(o); bag.items.push(it); return it; }
   function removeItem(s, bagId, itemId) {
@@ -211,7 +226,8 @@
     const s = defaultState();
     raw.kids.forEach((k) => {
       if (!k || !k.id) return;
-      s.kids.push({ id: String(k.id), name: cleanText(k.name, 20) || "Player", avatar: k.avatar || "⭐", color: /^#[0-9a-f]{6}$/i.test(k.color) ? k.color : COLORS[0] });
+      s.kids.push({ id: String(k.id), name: cleanText(k.name, 20) || "Player", avatar: k.avatar || "⭐", color: /^#[0-9a-f]{6}$/i.test(k.color) ? k.color : COLORS[0],
+        theme: THEME_KEYS.includes(k.theme) ? k.theme : "field" });
     });
     const kidIds = new Set(s.kids.map((k) => k.id));
     raw.bags.forEach((b) => {
@@ -238,7 +254,7 @@
     return s;
   }
 
-  return { VERSION, CATS, CAT_KEYS, STATUS, TEMPLATES, TEMPLATE_KEYS, ITEM_PICS, BAG_PICS, AVATARS, COLORS, DAY_LETTERS, DAY_NAMES,
-    newId, dayKey, defaultState, kidById, bagById, bagsFor, addKid, removeKid, addBag, removeBag, copyBag, addItem, removeItem, moveItem,
+  return { VERSION, CATS, CAT_KEYS, THEMES, THEME_KEYS, HAIR_KIT, STATUS, TEMPLATES, TEMPLATE_KEYS, ITEM_PICS, BAG_PICS, AVATARS, COLORS, DAY_LETTERS, DAY_NAMES,
+    newId, dayKey, defaultState, kidById, bagById, bagsFor, addKid, removeKid, addBag, removeBag, copyBag, addKit, addItem, removeItem, moveItem,
     isToday, bagsToday, currentCheck, isPacked, togglePacked, startOver, setStatus, summary, finishCheck, attention, normalize };
 });
