@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Squadron Flashback</title>
+<meta name="description" content="One question a day about your Navy flying days. Type or dictate the answer and it is saved to a journal your grandchildren can read.">
+<meta name="theme-color" content="#f4f1e8" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0f1826" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Flashback">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main id="app">
+
+  <!-- TODAY -->
+  <section id="v-today" class="view" aria-labelledby="todayDate">
+    <header class="top">
+      <p class="eyebrow" id="todayDate"></p>
+      <p class="sub" id="todayCount"></p>
+    </header>
+
+    <article class="qcard" id="qcard">
+      <p class="group" id="qGroup"></p>
+      <h1 class="question" id="qText"></h1>
+      <p class="hint" id="qHint"></p>
+    </article>
+
+    <!-- write -->
+    <div class="stage" id="st-write">
+      <label class="fl" for="answer">Your answer</label>
+      <textarea id="answer" rows="8" placeholder="Type here, or tap the microphone on the keyboard and just talk."></textarea>
+      <p class="listening" id="listening" hidden>Listening… talk as long as you like.</p>
+      <div class="row big">
+        <button class="secondary" id="btnDictate" hidden>🎤 Dictate</button>
+        <button class="primary" id="btnSave">Save to journal</button>
+      </div>
+      <p class="sub" id="draftNote"></p>
+      <div class="row" id="pickRow">
+        <button class="ghost" id="btnSwap">A different question</button>
+        <button class="ghost" id="btnSkip">Not for me</button>
+      </div>
+    </div>
+
+    <!-- done -->
+    <div class="stage center" id="st-done" hidden>
+      <p class="done-mark" aria-hidden="true">✓</p>
+      <h2 class="done-title">Logged. That's today's story.</h2>
+      <p class="sub" id="doneNote">Tomorrow's question will be waiting for you.</p>
+      <div class="row big">
+        <button class="secondary" id="btnRead">Read it back</button>
+        <button class="primary" id="btnAnother">I have time for another</button>
+      </div>
+    </div>
+
+    <!-- nothing left -->
+    <div class="stage center" id="st-empty" hidden>
+      <h2 class="done-title">You've answered every question.</h2>
+      <p class="sub">Bravo Zulu. Add your own on the Questions page, or write a story of your own from the Journal.</p>
+    </div>
+  </section>
+
+  <!-- JOURNAL -->
+  <section id="v-journal" class="view" hidden aria-labelledby="bookTitle">
+    <header class="top">
+      <p class="eyebrow">Your journal</p>
+      <h1 class="title" id="bookTitle"></h1>
+      <p class="sub" id="bookStats"></p>
+    </header>
+    <div class="row tools">
+      <input id="find" type="search" placeholder="Find a word, a name, a place" aria-label="Find in the journal" autocomplete="off">
+      <select id="sortBy" aria-label="Sort the journal">
+        <option value="new">Newest first</option>
+        <option value="group">By chapter</option>
+      </select>
+    </div>
+    <button class="secondary wide" id="btnOwn">＋ Write a story of my own</button>
+    <form class="card" id="ownForm" hidden>
+      <label class="fl" for="ownTitle">What is this story about?</label>
+      <input id="ownTitle" type="text" autocomplete="off" placeholder="For example: The night the generator quit">
+      <label class="fl" for="ownText">The story</label>
+      <textarea id="ownText" rows="7" placeholder="Type here, or tap the microphone on the keyboard and just talk."></textarea>
+      <div class="row big">
+        <button class="secondary" type="button" id="ownCancel">Cancel</button>
+        <button class="primary" type="submit">Save to journal</button>
+      </div>
+    </form>
+    <div id="journalList"></div>
+  </section>
+
+  <!-- QUESTIONS -->
+  <section id="v-questions" class="view" hidden aria-labelledby="qhead">
+    <header class="top">
+      <p class="eyebrow">Questions</p>
+      <h1 class="title" id="qhead">Every question</h1>
+      <p class="sub">Tap one to answer it now. Your own questions are asked first.</p>
+    </header>
+    <form class="card" id="addQ">
+      <label class="fl" for="newQ">Add your own question</label>
+      <textarea id="newQ" rows="2" placeholder="For example: Tell me about the cross-country to Pensacola."></textarea>
+      <div class="row">
+        <select id="newQGroup" aria-label="Chapter"></select>
+        <button class="primary" type="submit">Add</button>
+      </div>
+      <p class="sub">Family and old squadron mates can suggest questions too. Type theirs in here.</p>
+    </form>
+    <div id="qList"></div>
+  </section>
+
+  <!-- SHARE / SETTINGS -->
+  <section id="v-share" class="view" hidden aria-labelledby="sharehead">
+    <header class="top">
+      <p class="eyebrow">Share and settings</p>
+      <h1 class="title" id="sharehead">For the grandchildren</h1>
+    </header>
+
+    <div class="card">
+      <label class="fl" for="setTitle">Journal title</label>
+      <input id="setTitle" type="text" autocomplete="off">
+      <label class="fl" for="setAuthor">Told by</label>
+      <input id="setAuthor" type="text" autocomplete="off" placeholder="Your name, or Granddad">
+      <label class="fl" for="setDedication">Dedication</label>
+      <textarea id="setDedication" rows="2"></textarea>
+    </div>
+
+    <div class="card">
+      <h2 class="h2">Share the journal</h2>
+      <p class="sub">Makes one file with every story, sorted into chapters. It opens in any web browser on a phone or computer, and prints as a book.</p>
+      <div class="col">
+        <button class="primary wide" id="btnBook">Make the book</button>
+        <button class="secondary wide" id="btnText">Plain text (for email or Word)</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 class="h2">Daily reminder</h2>
+      <p class="sub">Adds a repeating event to your iPhone Calendar that reminds you each day. Tap <b>Add All</b> when the Calendar asks.</p>
+      <div class="row">
+        <label class="fl inline" for="setTime">Time</label>
+        <input id="setTime" type="time" value="19:00" step="1800">
+        <button class="secondary" id="btnRemind">Add to Calendar</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 class="h2">Back up your stories</h2>
+      <p class="sub">Your stories are stored only on this phone, in this app. Back up now and then (save the file to iCloud Drive or Dropbox) so nothing is lost if the phone is replaced.</p>
+      <div class="row">
+        <button class="primary" id="btnBackup">Back up everything</button>
+        <label class="secondary filebtn">Restore from a backup<input type="file" id="fileRestore" accept=".json,application/json"></label>
+      </div>
+      <p class="sub" id="lastBackup"></p>
+    </div>
+
+    <div class="card">
+      <h2 class="h2">Install on your Home Screen</h2>
+      <p class="sub">In Safari, tap the Share button, then <b>Add to Home Screen</b>. It then opens like a regular app, and the iPhone is much less likely to clear its storage.</p>
+    </div>
+
+    <div class="card">
+      <h2 class="h2">Dictating</h2>
+      <p class="sub">Tap in the answer box, then tap the microphone at the bottom of the iPhone keyboard and talk. Say "period" or "new paragraph" as you go. Where the browser offers it, a <b>Dictate</b> button also appears under the answer box.</p>
+    </div>
+
+    <p class="sub foot">Squadron Flashback keeps everything on this phone. Nothing is uploaded anywhere.</p>
+  </section>
+
+</main>
+
+<nav class="tabs" aria-label="Sections">
+  <button data-v="today" aria-current="page"><span aria-hidden="true">★</span>Today</button>
+  <button data-v="journal"><span aria-hidden="true">❖</span>Journal</button>
+  <button data-v="questions"><span aria-hidden="true">?</span>Questions</button>
+  <button data-v="share"><span aria-hidden="true">✎</span>Share</button>
+</nav>
+
+<dialog id="dlg">
+  <form method="dialog">
+    <h2 class="h2" id="dlgTitle"></h2>
+    <p class="sub" id="dlgText"></p>
+    <div class="col">
+      <button class="primary" id="dlgShare" value="share">Share or save…</button>
+      <a class="secondary btnlink" id="dlgDownload" download>Download</a>
+      <button class="ghost" value="close">Close</button>
+    </div>
+  </form>
+</dialog>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<noscript>Squadron Flashback needs JavaScript turned on.</noscript>
+
+<script src="questions.js"></script>
+<script src="core.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

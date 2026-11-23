@@ -1,0 +1,21 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Squadron Flashback//EN
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+BEGIN:VEVENT
+UID:squadron-flashback-daily-1600@dfwilley.github.io
+DTSTAMP:20261123T000000Z
+DTSTART:20261123T160000
+DURATION:PT15M
+RRULE:FREQ=DAILY
+SUMMARY:Squadron Flashback: today's question
+DESCRIPTION:Open Squadron Flashback and answer today's question.\nhttps://dfwilley.github.io/Claude-Apps/squadron-flashback/
+URL:https://dfwilley.github.io/Claude-Apps/squadron-flashback/
+BEGIN:VALARM
+TRIGGER:PT0M
+ACTION:DISPLAY
+DESCRIPTION:Time for today's flashback
+END:VALARM
+END:VEVENT
+END:VCALENDAR
