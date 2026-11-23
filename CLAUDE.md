@@ -32,7 +32,7 @@ Each app is a plain web app in its own top-level folder: HTML, CSS and JavaScrip
 | `squadron-flashback/` | Squadron Flashback | none |
 | `sketch-match/` | Sketch Match | none |
 | `brick-pile/` | Brick Pile Builder (called Brick Pile in the code and workflows). **Shelved** November 21, 2026 | `native/brick-pile/`, web app inside a native shell; builds only when started by hand |
-| `blue-book/` | Blue Book | `native/blue-book/`, web app inside a native shell (TestFlight) |
+| `blue-book/` | Blue Book. **Shelved** November 23, 2026 | `native/blue-book/`, web app inside a native shell; builds only when started by hand |
 | `hgvc-binder/` | HGVC Binder | `native/hgvc-binder/`, web app inside a native shell (TestFlight) |
 | `bin-finder/` | Bin Finder | `native/bin-finder/`, separately written in SwiftUI |
 | `job-jar/` | The Job Jar! | `native/job-jar/`, separately written in SwiftUI, iPhone and iPad (TestFlight) |
@@ -72,7 +72,7 @@ All fourteen passed on November 23, 2026. Knot of the Day, Wire Bender and Ask M
 **A push to `main` is a release.** There is no staging step.
 
 - The web apps go live on GitHub Pages as soon as they are pushed.
-- **Blue Book is the exception:** its two iPhone workflows (`blue-book-ios.yml`, `blue-book-testflight.yml`) run only when started by hand, at the owner's request (November 16, 2026). A push to `main` updates the Blue Book web app only. Start both workflows when he asks for an iPhone build, and tell him the web and iPhone versions may differ until then.
+- **Blue Book is shelved** (the owner's decision, November 23, 2026: MyFlightbook already has his military flight data). Its files and web page are kept, and its two iPhone workflows (`blue-book-ios.yml`, `blue-book-testflight.yml`) run only when started by hand (since November 16, 2026). Don't work on it or start its builds unless he asks.
 - **Brick Pile Builder is shelved** (the owner's decision, November 21, 2026: an existing app already does the same job). Its files, web page and last Sideloadly build are kept, but its two workflows (`brick-pile-ios.yml`, `brick-pile-testflight.yml`) run only when started by hand. Don't work on it or start its builds unless he asks.
 - Each other `...-ios.yml` workflow runs when its app's files change: it runs the tests, builds an unsigned `.ipa`, and replaces the `<app>-latest` release (for Sideloadly).
 - Blue Book, HGVC Binder and The Job Jar! also have `...-testflight.yml` workflows that sign and upload to TestFlight on every push that touches them. Blue Book's runs its Node tests first; the other two **do not run the tests**, so a change with failing tests can still be uploaded. Check the test run before calling work finished.
