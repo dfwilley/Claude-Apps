@@ -7,7 +7,7 @@
   const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
   // ---------- what is kept on this device ----------
-  let store = { tries: [], grid: false, code: "", workerUrl: "" };
+  let store = { tries: [], grid: false, code: "", workerUrl: "", limit: null, time: null, pin: "" };
   try { const saved = JSON.parse(localStorage.getItem(KEY) || "null"); if (saved && typeof saved === "object") store = Object.assign(store, saved); } catch (e) { /* start fresh */ }
   if (!Array.isArray(store.tries)) store.tries = [];
   function save() {
@@ -16,6 +16,9 @@
   }
   const workerUrl = () => S.cleanWorkerUrl(CFG.workerUrl) || S.cleanWorkerUrl(store.workerUrl);
   const ready = () => !!(workerUrl() && store.code);
+  const timeNow = () => S.timeStatus(store.time, store.limit, new Date());
+  const timeUp = () => { const t = timeNow(); return t.limited && t.locked; };
+  function clock() { const t = timeNow(), text = S.clockText(t); return text ? `<p id="clock" class="clock${t.limited && t.left <= 300 ? " low" : ""}">${t.limited ? "⏱ " : ""}${text}</p>` : ""; }
 
   let view = { name: "home", level: "all" };
   let photo = null; // the photo waiting to be sent: { send: base64 JPEG, thumb: data URL }
@@ -30,11 +33,12 @@
   // ---------- screens ----------
   function home() {
     const today = S.ofTheDay(new Date());
+    if (!S.LEVELS[view.level]) view.level = "all";
     const shown = S.DRAWINGS.filter((d) => view.level === "all" || d.level === view.level);
     const chips = [["all", "All"]].concat(Object.entries(S.LEVELS)).map(([k, v]) => `<button class="chip${view.level === k ? " sel" : ""}" data-act="level" data-id="${k}">${v}</button>`).join("");
     return `<header class="top home"><h1>Sketch Match</h1><span class="grow"></span>
         <button class="link" data-act="book">Sketchbook${store.tries.length ? ` (${store.tries.length})` : ""}</button><button class="link" data-act="setup" aria-label="Setup">⚙</button></header>
-      ${ready() ? "" : `<button class="note warn" data-act="setup">Not set up yet. A grown-up needs to open Setup before drawings can be checked.</button>`}
+      ${clock()}${ready() ? "" : `<button class="note warn" data-act="setup">Not set up yet. A grown-up needs to open Setup before drawings can be checked.</button>`}
       <button class="today" data-act="open" data-id="${today.id}"><span class="pic">${S.svg(today)}</span>
         <span class="txt"><small>Today's sketch</small><b>${esc(today.name)}</b><span>${S.LEVELS[today.level]}</span><em>Start drawing ›</em></span></button>
       <p class="how">Pick a picture, draw it on paper, then take a photo of your drawing to see how it matches.</p>
@@ -43,7 +47,7 @@
         return `<button class="card" data-act="open" data-id="${d.id}"><span class="pic">${S.svg(d)}</span><b>${esc(d.name)}</b><span class="meta">${b ? starRow(b) : S.LEVELS[d.level]}</span></button>`; }).join("")}</div>`;
   }
 
-  function draw() {
+  function draw(locked) {
     const d = S.byId(view.id);
     const photoPart = photo
       ? `<section class="panel"><h2>Your photo</h2><img class="shot" src="${photo.thumb}" alt="Your drawing">
@@ -54,7 +58,8 @@
           <ul class="tips"><li>Lay your paper flat in good light.</li><li>Fill the photo with your drawing, and nothing else.</li><li>Hold the phone straight above it.</li></ul>
           ${view.error ? `<p class="note warn">${esc(view.error)}</p>` : ""}
           <div class="row"><button class="btn primary" data-act="camera">Take a photo</button><button class="btn" data-act="library">Choose a photo</button></div></section>`;
-    return `${top(d.name, "home")}
+    if (locked) return `${top(d.name, "home")}<p class="note warn">Time's up for today, so the picture is put away. If you've finished this drawing, you can still take a photo and check it.</p>${photoPart}`;
+    return `${top(d.name, "home")}${clock()}
       <div class="ref">${S.svg(d, { grid: store.grid })}</div>
       <div class="row center"><button class="chip${store.grid ? " sel" : ""}" data-act="grid" aria-pressed="${store.grid}">Grid ${store.grid ? "on" : "off"}</button><span class="fine">${S.LEVELS[d.level]}${store.grid ? " · fold your paper in half twice each way to make the same squares" : ""}</span></div>
       <section class="panel"><h2>How to start</h2><ol class="steps">${d.steps.map((s) => `<li>${esc(s)}</li>`).join("")}</ol></section>
@@ -92,7 +97,26 @@
       <p class="fine center">Kept on this device only (the newest ${S.MAX_TRIES}).</p>`;
   }
 
+  function timesUp() {
+    const mins = S.cleanLimit(store.limit).minutes, today = S.dayKey(new Date()), done = store.tries.filter((t) => S.dayKey(new Date(t.when)) === today).length;
+    return `<header class="top home"><h1>Sketch Match</h1><span class="grow"></span><button class="link" data-act="setup" aria-label="Setup">⚙</button></header>
+      <div class="busy done"><div class="bigmark" aria-hidden="true">✓</div><h2>That's your ${mins} minutes for today</h2>
+      <p>${done ? `You checked ${done} drawing${done === 1 ? "" : "s"} today. Nice work!` : "Nice work today!"}</p><p class="fine">Sketch Match opens again tomorrow, and there's no time limit on weekends.</p>
+      <div class="row"><button class="btn" data-act="parent">A parent can allow more time</button></div></div>`;
+  }
+  function pin() {
+    return `${top("Parents only", "home")}<section class="panel"><label>Parent PIN<input id="pinTry" type="password" inputmode="numeric" autocomplete="off" maxlength="8"></label>
+      ${view.msg ? `<p class="note warn" role="status">${esc(view.msg)}</p>` : ""}<div class="row"><button class="btn primary" data-act="pinOk">Continue</button></div></section>`;
+  }
+  function allow() {
+    const t = timeNow();
+    return `${top("More time", "home")}<section class="panel"><h2>Allow more time today</h2><p>${esc(S.clockText(t) || "The time limit is switched off.")}</p>
+      <div class="row"><button class="btn primary" data-act="more" data-id="20">20 more minutes</button><button class="btn" data-act="more" data-id="day">No limit for the rest of today</button></div>
+      <p class="fine">The usual limit comes back tomorrow. To change it for every day, open Setup.</p><div class="row"><button class="btn" data-act="openSetup">Open Setup</button></div></section>`;
+  }
+
   function setup() {
+    const lim = S.cleanLimit(store.limit);
     const fixed = S.cleanWorkerUrl(CFG.workerUrl);
     return `${top("Setup", "home")}<section class="panel"><h2>For a grown-up</h2>
       <p>Sketch Match checks drawings with Claude, an AI made by Anthropic. It reaches Claude through your own small worker script, so the Claude key is never on this device. The steps are in the app's <b>worker/SETUP.md</b> file.</p>
@@ -100,12 +124,23 @@
       <label>Family code<input id="code" type="password" autocapitalize="off" autocomplete="off" spellcheck="false" value="${esc(store.code)}"></label>
       ${view.msg ? `<p class="note ${view.ok ? "ok" : "warn"}" role="status">${esc(view.msg)}</p>` : ""}
       <div class="row"><button class="btn primary" data-act="saveSetup">Save and test</button></div></section>
+      <section class="panel"><h2>Time limit</h2><p>On school days (Monday to Friday) the app can be used for a set time, counted while it is open on the screen. Weekends have no limit.</p>
+      <label class="check"><input id="limOn" type="checkbox"${lim.on ? " checked" : ""}> Limit time on weekdays</label>
+      <label>Minutes each weekday<select id="limMin">${[10, 15, 20, 30, 45, 60, 90].map((m) => `<option${m === lim.minutes ? " selected" : ""}>${m}</option>`).join("")}</select></label>
+      <label>${store.pin ? "Change the parent PIN (leave empty to keep it)" : "Parent PIN (4 to 8 digits)"}<input id="pinNew" type="password" inputmode="numeric" autocomplete="off" maxlength="8"></label>
+      ${store.pin ? "" : `<p class="note warn">No parent PIN is set yet, so anyone can open Setup or allow more time. Set one now.</p>`}
+      ${view.limMsg ? `<p class="note ${view.limOk ? "ok" : "warn"}" role="status">${esc(view.limMsg)}</p>` : ""}
+      <div class="row"><button class="btn primary" data-act="saveLimit">Save time limit</button><button class="btn" data-act="allow">Allow more time today</button></div></section>
       <section class="panel"><h2>What leaves this device</h2><p>Only when "Check my drawing" is tapped: the picture to copy and the photo of the drawing go to your worker, and from there to Anthropic's Claude API. Nothing else is sent, and the sketchbook stays on this device.</p>
       ${store.tries.length ? `<div class="row"><button class="btn danger" data-act="clear">Empty the sketchbook</button></div>` : ""}</section>`;
   }
 
-  const SCREENS = { home, draw, busy, result, book, setup };
-  function render() { app.innerHTML = SCREENS[view.name](); }
+  const SCREENS = { home, draw, busy, result, book, setup, timesUp, pin, allow };
+  const PARENT = ["setup", "pin", "allow"]; // screens for a parent: time on them is not counted
+  function render() {
+    const locked = timeUp();
+    app.innerHTML = SCREENS[locked && (view.name === "home" || view.name === "book") ? "timesUp" : view.name](locked);
+  }
   function go(v) { view = v; render(); window.scrollTo(0, 0); }
 
   // ---------- pictures ----------
@@ -167,20 +202,60 @@
     view.ok = !!r.ok; view.msg = r.ok ? "It works. Sketch Match is ready." : S.explain(r.code); render();
   }
 
+  // ---------- the time limit ----------
+  // Counts a second at a time while the app is on the screen, and puts the pictures away when the day's time runs out.
+  let unsaved = 0;
+  setInterval(() => {
+    if (document.visibilityState !== "visible" || PARENT.includes(view.name)) return;
+    const before = timeNow(); if (!before.limited || before.locked) return;
+    store.time = S.addTime(store.time, new Date(), 1);
+    if (++unsaved >= 10) { save(); unsaved = 0; }
+    const t = timeNow();
+    if (t.locked) { save(); render(); return; }
+    const c = document.getElementById("clock"); if (c) { c.textContent = "⏱ " + S.clockText(t); c.classList.toggle("low", t.left <= 300); }
+  }, 1000);
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState !== "visible") save(); else if (view.name === "home" || view.name === "book") render(); });
+  window.addEventListener("pagehide", save);
+
+  // A parent's screens ask for the PIN first, once one has been set.
+  function parent(then) { if (store.pin) go({ name: "pin", then }); else go({ name: then }); }
+  function pinOk() {
+    if (S.pinHash(document.getElementById("pinTry").value.trim()) !== store.pin) { view.msg = "That PIN isn't right."; return render(); }
+    go({ name: view.then });
+  }
+  function saveLimit() {
+    const pinNew = document.getElementById("pinNew").value.trim();
+    store.limit = S.cleanLimit({ on: document.getElementById("limOn").checked, minutes: document.getElementById("limMin").value });
+    if (pinNew && !S.validPin(pinNew)) { view.limMsg = "The PIN should be 4 to 8 digits."; view.limOk = false; save(); return render(); }
+    if (pinNew) store.pin = S.pinHash(pinNew);
+    save(); view.limOk = true;
+    view.limMsg = store.limit.on ? `Saved: ${store.limit.minutes} minutes on weekdays.` : "Saved: no time limit."; render();
+  }
+
   // ---------- taps ----------
   app.addEventListener("click", (e) => {
     const b = e.target.closest("[data-act]"); if (!b) return;
     const act = b.dataset.act, id = b.dataset.id;
     if (act === "home") { photo = null; go({ name: "home", level: view.level || "all" }); }
     else if (act === "level") { view.level = id; render(); }
-    else if (act === "open") { photo = null; go({ name: "draw", id }); }
+    else if (act === "open") {
+      // Once time is up, a new picture can't be opened, but a photo for the drawing just finished can be retaken.
+      const current = view.name === "draw" ? view.id : view.name === "result" && !view.attempt.feedback.isDrawing ? view.attempt.drawingId : "";
+      photo = null; if (timeUp() && id !== current) go({ name: "home" }); else go({ name: "draw", id });
+    }
     else if (act === "grid") { store.grid = !store.grid; save(); render(); }
     else if (act === "camera") camera.click();
     else if (act === "library") library.click();
     else if (act === "send") send();
     else if (act === "book") go({ name: "book" });
     else if (act === "try") go({ name: "result", attempt: store.tries[+id], from: "book" });
-    else if (act === "setup") go({ name: "setup" });
+    else if (act === "setup") parent("setup");
+    else if (act === "parent") parent("allow");
+    else if (act === "allow") go({ name: "allow" });
+    else if (act === "openSetup") go({ name: "setup" });
+    else if (act === "pinOk") pinOk();
+    else if (act === "more") { store.time = S.allowMore(store.time, new Date(), id === "day" ? "day" : +id); save(); go({ name: "home" }); }
+    else if (act === "saveLimit") saveLimit();
     else if (act === "saveSetup") saveSetup();
     else if (act === "clear") { if (confirm("Empty the sketchbook? This removes every saved drawing and its feedback from this device.")) { store.tries = []; save(); render(); } }
   });

@@ -81,3 +81,12 @@ input[type=url], input[type=password] { display: block; width: 100%; margin-top:
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 4s; } }
 :focus-visible { outline: 3px solid #3b82f6; outline-offset: 2px; }
+
+.clock { display: inline-block; margin: 0 0 10px; padding: 5px 12px; border-radius: 999px; background: #eef3f1; color: #35604f; font-size: 15px; font-weight: 600; }
+.clock.low { background: #fff1ee; color: #8c2a1e; }
+.done { margin-top: 40px; }
+.done h2 { font-size: 22px; }
+.bigmark { width: 84px; height: 84px; margin: 0 auto 16px; border-radius: 50%; background: var(--good); color: #fff; font-size: 48px; line-height: 84px; }
+label.check { display: flex; align-items: center; gap: 10px; }
+label.check input { width: 22px; height: 22px; }
+select { display: block; margin-top: 4px; padding: 10px 12px; font: inherit; border: 1.5px solid var(--line); border-radius: 10px; background: #fff; color: var(--ink); }

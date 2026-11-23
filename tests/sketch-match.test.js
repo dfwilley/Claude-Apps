@@ -25,7 +25,7 @@ for (const d of S.DRAWINGS) {
   for (const n of d.art.replace(/#[0-9a-f]{6}/gi, "").match(/-?\d+(\.\d+)?/g) || []) assert(Math.abs(Number(n)) <= 200, `${d.id}: ${n} is off the page`);
   assert(!S.svg(d).includes("#7fb4d8"), `${d.id}: grid only when asked for`);
 }
-assert(S.DRAWINGS.length >= 12, "at least 12 drawings");
+assert(S.DRAWINGS.length >= 19, "at least 19 drawings");
 for (const level of Object.keys(S.LEVELS)) assert(S.DRAWINGS.filter((d) => d.level === level).length >= 3, `at least three ${level} drawings`);
 assert.strictEqual(S.byId("cat").name, "Sitting Cat");
 assert.strictEqual(S.byId("nope"), null);
@@ -69,6 +69,36 @@ assert.strictEqual(tries.length, S.MAX_TRIES);
 assert.strictEqual(tries[0].when, S.MAX_TRIES + 4, "newest first");
 assert.strictEqual(S.bestStars(tries, "cat"), 5);
 assert.strictEqual(S.bestStars(tries, "owl"), 0);
+
+// ---------- the weekday time limit ----------
+const mon = new Date(2026, 10, 23, 16, 0), fri = new Date(2026, 10, 27, 16, 0), sat = new Date(2026, 10, 28, 10, 0), sun = new Date(2026, 10, 29, 10, 0), tue = new Date(2026, 10, 24, 7, 0);
+assert.deepStrictEqual([mon, fri, sat, sun].map(S.isWeekend), [false, false, true, true]);
+assert.strictEqual(S.dayKey(new Date(2026, 0, 5)), "2026-01-05");
+let st = S.timeStatus(null, null, mon);
+assert.deepStrictEqual([st.limited, st.left, st.locked], [true, 20 * 60, false], "20 minutes on a weekday unless changed");
+let used = null; for (let i = 0; i < 19 * 60; i++) used = S.addTime(used, mon, 1);
+st = S.timeStatus(used, null, mon); assert.deepStrictEqual([st.left, st.locked], [60, false]); assert.strictEqual(S.clockText(st), "Less than a minute left today");
+assert.strictEqual(S.clockText(S.timeStatus(S.addTime(null, mon, 61), null, mon)), "19 min left today");
+used = S.addTime(used, mon, 60); st = S.timeStatus(used, null, mon); assert(st.locked && st.left === 0, "locked when the time is used up");
+assert.strictEqual(S.clockText(st), "Time's up for today");
+assert.strictEqual(S.timeStatus(S.addTime(used, mon, 500), null, mon).left, 0, "never below zero");
+// a parent allows more
+st = S.timeStatus(S.allowMore(used, mon, 20), null, mon); assert.deepStrictEqual([st.locked, st.left], [false, 20 * 60]);
+st = S.timeStatus(S.allowMore(used, mon, "day"), null, mon); assert.deepStrictEqual([st.limited, st.why], [false, "parent"]);
+// the next day starts fresh, and a parent's allowance does not carry over
+st = S.timeStatus(S.allowMore(used, mon, "day"), null, tue); assert.deepStrictEqual([st.limited, st.left], [true, 20 * 60]);
+assert.strictEqual(S.addTime(used, tue, 5).used, 5);
+// weekends, and the limit switched off or changed
+assert.deepStrictEqual([S.timeStatus(used, null, sat).why, S.timeStatus(used, null, sun).why], ["weekend", "weekend"]);
+assert.strictEqual(S.clockText(S.timeStatus(used, null, sat)), "Weekend: no time limit");
+assert.strictEqual(S.timeStatus(used, { on: false, minutes: 20 }, mon).limited, false);
+assert.strictEqual(S.timeStatus(used, { on: true, minutes: 30 }, mon).left, 10 * 60);
+assert.deepStrictEqual(S.cleanLimit({ minutes: "abc" }), { on: true, minutes: 20 });
+assert.deepStrictEqual(S.cleanLimit({ on: false, minutes: 9999 }), { on: false, minutes: 180 });
+assert.strictEqual(S.timeStatus({ day: "2026-11-23", used: "junk", extra: -5, free: "yes" }, null, mon).left, 20 * 60, "a damaged record is treated as unused");
+// the parent PIN
+assert.deepStrictEqual(["1234", "12345678", "123", "123456789", "12a4", ""].map(S.validPin), [true, true, false, false, false, false]);
+assert.strictEqual(S.pinHash("1234"), S.pinHash("1234")); assert.notStrictEqual(S.pinHash("1234"), S.pinHash("1235")); assert(!S.pinHash("1234").includes("1234"));
 
 // ---------- the app's files ----------
 const sw = fs.readFileSync(path.join(dir, "sw.js"), "utf8"), html = fs.readFileSync(path.join(dir, "index.html"), "utf8");

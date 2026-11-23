@@ -18,7 +18,25 @@
   const cloud = (x, y) => `<path d="M${x} ${y} h44 c8 0 8 -12 -2 -12 c0 -12 -16 -14 -20 -4 c-4 -8 -16 -4 -14 4 c-12 -2 -16 12 -8 12 Z"/>`;
   const gull = (x, y) => `<path d="M${x} ${y} q5 -7 10 0 q5 -7 10 0"/>`;
 
-  const LEVELS = { easy: "Easy", medium: "Medium", tricky: "Tricky" };
+  // Evenly spaced spokes of a wheel, and a ring of pointed petals around the middle of the page (for the mandala).
+  function spokes(cx, cy, r, n) {
+    let p = "";
+    for (let i = 0; i < n; i++) { const a = (i * Math.PI) / n, x = (r * Math.cos(a)).toFixed(1), y = (r * Math.sin(a)).toFixed(1); p += `M${(cx - x).toFixed(1)} ${(cy - y).toFixed(1)} L${(cx + +x).toFixed(1)} ${(cy + +y).toFixed(1)} `; }
+    return `<path d="${p.trim()}" stroke-width="1.4"/>`;
+  }
+  function petals(n, r0, r1, spread, turn) {
+    const at = (r, a) => (100 + r * Math.cos(a)).toFixed(1) + " " + (100 + r * Math.sin(a)).toFixed(1);
+    let p = "";
+    for (let i = 0; i < n; i++) { const a = -Math.PI / 2 + turn + (i * 2 * Math.PI) / n, mid = (r0 + r1) / 2; p += `M${at(r0, a)} Q${at(mid, a - spread)} ${at(r1, a)} Q${at(mid, a + spread)} ${at(r0, a)} `; }
+    return `<path d="${p.trim()}"/>`;
+  }
+  function ringOfDots(n, r, size) {
+    let s = "";
+    for (let i = 0; i < n; i++) { const a = (i * 2 * Math.PI) / n; s += `<circle cx="${(100 + r * Math.cos(a)).toFixed(1)}" cy="${(100 + r * Math.sin(a)).toFixed(1)}" r="${size}"/>`; }
+    return s;
+  }
+
+  const LEVELS = { easy: "Easy", medium: "Medium", tricky: "Tricky", expert: "Expert" };
 
   const DRAWINGS = [
     { id: "cupcake", name: "Cupcake", level: "easy", about: "a cupcake in a pleated paper case with swirled frosting, sprinkles and a cherry on top",
@@ -99,6 +117,41 @@
         <path d="M36 172 C46 152 68 150 82 152 H118 C138 150 158 156 166 172"/>
         <path d="M16 180 q10 -9 20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0"/>
         <path d="M84 48 L40 36 M84 54 L40 60 M116 48 L160 36 M116 54 L160 60"/>${gull(30, 96)}${gull(150, 90)}` },
+    { id: "turtle", name: "Sea Turtle", level: "expert", about: "a sea turtle seen from above, swimming up the page, the same on both sides: an oval shell with a rim and a pattern of plates (two six-sided plates down the middle with plates fanning out to the rim), a rounded head with two eyes, two long front flippers sweeping back, two short back flippers and a small pointed tail",
+      steps: ["Lightly draw the big oval shell, then a second oval just inside it for the rim.", "Add the head at the top, the long front flippers, the short back flippers and the tail.", "Draw the two six-sided plates down the middle of the shell, then the lines that fan out from their corners to the rim."],
+      art: `<ellipse cx="100" cy="104" rx="44" ry="54"/><ellipse cx="100" cy="104" rx="35" ry="45"/><path d="M100 59 V64 M100 136 V149"/>` +
+        both(`<path d="M100 64 L114 73 V90 L100 99 L114 108 V126 L100 136"/><path d="M114 73 L125 68 M114 90 L134 99 L114 108 M114 126 L126 134"/>
+        <path d="M110 52 C114 30 100 30 100 30"/>${dot(106, 42, 2.2)}<path d="M136 74 C158 58 176 64 180 84 C164 84 150 90 142 98"/><path d="M130 144 C144 150 152 164 146 174 C136 170 126 162 120 152"/><path d="M104 157 L100 172"/>`) },
+    { id: "cottage", name: "Cottage", level: "expert", about: "a small cottage seen from the front: a pointed roof with rows of shingles and a chimney with a curl of smoke, a round attic window, an arched front door with a doorknob, a square four-pane window on each side of the door, a winding path to the door, a round tree on the left and a picket fence on the right",
+      steps: ["Draw the house first: a wide box with a big triangle roof that overhangs it on both sides.", "Add the door in the middle, a window on each side, the round attic window and the chimney.", "Add the shingle rows, the path, the tree, the fence and the smoke."],
+      art: `<path d="M50 102 V170 H150 V102"/><path d="M40 102 L100 52 L160 102 Z"/><path d="M124 72 V54 H138 V84"/><path d="M131 48 C125 41 137 36 131 27 C128 22 134 18 132 14"/>
+        <path d="M90 170 V134 A10 10 0 0 1 110 134 V170"/>${dot(105, 152, 1.8)}
+        <rect x="58" y="118" width="22" height="22"/><path d="M69 118 V140 M58 129 H80"/><rect x="120" y="118" width="22" height="22"/><path d="M131 118 V140 M120 129 H142"/><path d="M56 144 H82 M118 144 H144"/>
+        <circle cx="100" cy="82" r="8"/><path d="M100 74 V90 M92 82 H108"/>
+        <path d="M70 90 q5 5 10 0 M112 96 q5 5 10 0 q5 5 10 0 M60 98 q5 5 10 0 M84 70 q4 4 8 0 M110 70 q4 4 8 0"/>
+        <path d="M92 170 C90 180 82 188 74 196 M108 170 C112 180 122 188 134 196"/>
+        <path d="M21 170 V140 M29 170 V140"/><path d="M12 138 C2 130 6 114 16 114 C16 102 34 100 38 110 C48 112 48 130 40 136 C36 142 18 142 12 138 Z"/>
+        <path d="M4 170 H50 M150 170 H196"/><path d="M158 170 V152 L162 146 L166 152 V170 M172 170 V152 L176 146 L180 152 V170 M186 170 V152 L190 146 L194 152 V170 M152 158 H196"/>` },
+    { id: "bicycle", name: "Bicycle", level: "expert", about: "a bicycle seen from the side, facing right: two equal wheels with spokes and hubs, a frame of straight tubes forming two triangles, a saddle on a post, curved handlebars at the front, and a crank with a pedal at the bottom of the frame",
+      steps: ["Draw the two wheels first: the same size, level with each other, with a gap about one wheel wide between them.", "Join them with the frame. Find the bottom corner between the wheels, then build the two triangles from it.", "Add the saddle, the handlebars, the crank and pedal, and last of all the spokes."],
+      art: `<circle cx="50" cy="128" r="36"/><circle cx="150" cy="128" r="36"/><circle cx="50" cy="128" r="4"/><circle cx="150" cy="128" r="4"/>${spokes(50, 128, 36, 6)}${spokes(150, 128, 36, 6)}
+        <path d="M50 128 L92 128 L80 80 M50 128 L83 92 L134 86 L92 128 M132 78 L150 128"/>
+        <path d="M68 78 H94 C94 83 78 85 68 78 Z"/><path d="M132 78 L130 66 C130 60 142 58 148 64"/>
+        <circle cx="92" cy="128" r="8"/><path d="M92 128 L102 146 M96 146 H108"/><path d="M6 166 H194"/>` },
+    { id: "mandala", name: "Mandala", level: "expert", about: "a round mandala pattern centred on the page: a small circle in the middle, a ring of eight short pointed petals around it, a ring of eight longer petals behind those and set between them, a circle around the petals, a ring of sixteen small circles, and an outer circle",
+      steps: ["Lightly draw a cross and an X through the middle of your page: eight guide lines to keep everything even.", "Draw the middle circle and the eight short petals, one along each guide line.", "Add the eight long petals in the gaps, then the circles and the ring of sixteen small circles."],
+      art: `<circle cx="100" cy="100" r="8"/>${petals(8, 8, 40, 0.36, 0)}${petals(8, 30, 66, 0.3, Math.PI / 8)}<circle cx="100" cy="100" r="70"/>${ringOfDots(16, 79, 4.5)}<circle cx="100" cy="100" r="88"/>` },
+    { id: "castle", name: "Castle", level: "expert", about: "a castle seen from the front, the same on both sides: a wall with square battlements and an arched gate with a portcullis grid, a taller tower at each end with a cone roof, a flag and a narrow window, a central keep rising above the wall with battlements, a window and a flag, and a cloud and birds in the sky",
+      steps: ["Draw the wall and the ground line, then a tall tower at each end, taller than the wall.", "Add the keep in the middle rising above the wall, the cone roofs and the square battlements.", "Add the arched gate with its grid, the windows, the flags, the bricks, the cloud and the birds."],
+      art: both(`<path d="M100 62 H105 V70 H111 V62 H118 V110 H122 V102 H129 V110 H133 V102 H140"/><path d="M140 110 V80 H164 V170"/><path d="M134 80 L152 46 L170 80 Z"/><path d="M152 46 V32"/>
+        <rect x="149" y="96" width="6" height="15" rx="3"/><path d="M112 170 V142 A12 12 0 0 0 100 130"/><path d="M106 132 V170"/><path d="M122 128 h9 M126 150 h9 M146 132 h8 M150 152 h8"/>`) +
+        `<path d="M10 170 H190 M100 130 V170 M88 148 H112 M88 159 H112"/><rect x="96" y="80" width="8" height="15" rx="4"/><path d="M100 62 V44 L114 49 L100 54"/><path d="M152 32 L164 37 L152 42 M48 32 L60 37 L48 42"/>${cloud(72, 30)}${gull(14, 60)}${gull(172, 16)}` },
+    { id: "guitar", name: "Guitar", level: "expert", about: "an acoustic guitar standing upright, the same on both sides: a body with a large rounded lower part, a waist and a smaller upper part, a round sound hole with a ring around it, a bridge near the bottom, a long narrow neck with frets, a headstock with tuning pegs, and four strings running from the bridge to the headstock",
+      steps: ["Lightly draw a line down the middle of the page. Draw the body around it: a big round bottom, a waist, and a smaller round top.", "Add the long neck going up from the body, then the headstock and its pegs.", "Add the sound hole and its ring, the bridge, the frets and, last, the strings as straight lines."],
+      art: both(`<path d="M100 192 C130 192 146 174 146 154 C146 138 132 130 130 120 C128 110 136 102 136 92 C136 78 122 72 107 72"/><path d="M107 104 V26 L112 22 V6 H100"/><path d="M100 104 H107"/>
+        <circle cx="116" cy="10" r="2.5"/><circle cx="116" cy="18" r="2.5"/>`) +
+        `<circle cx="100" cy="124" r="11"/><circle cx="100" cy="124" r="15"/><rect x="84" y="158" width="32" height="7" rx="2"/><path d="M93 34 H107 M93 44 H107 M93 54 H107 M93 64 H107 M93 76 H107 M93 90 H107"/>
+        <path d="M95.5 158 V14 M98.5 158 V12 M101.5 158 V12 M104.5 158 V14" stroke-width="1.2"/>` },
   ];
 
   // The picture as SVG text. grid adds light guide squares (a classic trick for copying a picture).
@@ -174,7 +227,50 @@
   function addTry(tries, entry) { return [entry].concat(tries || []).slice(0, MAX_TRIES); }
   function bestStars(tries, drawingId) { let b = 0; for (const t of tries || []) if (t.drawingId === drawingId && t.feedback) b = Math.max(b, t.feedback.overall); return b; }
 
-  const api = { LEVELS, DRAWINGS, AREAS, STAR_WORDS, MAX_TRIES, svg, byId, dayNumber, ofTheDay, tidyFeedback, cleanWorkerUrl, requestBody, explain, PROBLEMS, fitSize, addTry, bestStars };
+  // ---------- the weekday time limit ----------
+  // Monday to Friday the app can be used for a set number of minutes a day (20 unless a parent changes it).
+  // Saturdays and Sundays have no limit, and a parent can add time or lift the limit for the rest of a day.
+  // Only the time the app is open on the screen is counted, and the count starts again each day.
+  const DEFAULT_LIMIT = { on: true, minutes: 20 };
+  const two = (n) => (n < 10 ? "0" : "") + n;
+  const dayKey = (d) => d.getFullYear() + "-" + two(d.getMonth() + 1) + "-" + two(d.getDate());
+  const isWeekend = (d) => d.getDay() === 0 || d.getDay() === 6;
+  const count = (v) => Math.max(0, Math.floor(Number(v)) || 0);
+  function cleanLimit(limit) {
+    const l = limit && typeof limit === "object" ? limit : {};
+    return { on: l.on !== false, minutes: Math.min(180, Math.max(5, Math.round(Number(l.minutes)) || DEFAULT_LIMIT.minutes)) };
+  }
+  // Today's record: seconds used, extra seconds a parent added, and whether a parent lifted the limit for today.
+  function todayTime(time, now) {
+    const day = dayKey(now);
+    return time && time.day === day ? { day, used: count(time.used), extra: count(time.extra), free: time.free === true } : { day, used: 0, extra: 0, free: false };
+  }
+  function timeStatus(time, limit, now) {
+    const l = cleanLimit(limit), t = todayTime(time, now);
+    if (!l.on) return { limited: false, why: "off" };
+    if (isWeekend(now)) return { limited: false, why: "weekend" };
+    if (t.free) return { limited: false, why: "parent" };
+    const allowed = l.minutes * 60 + t.extra, left = Math.max(0, allowed - t.used);
+    return { limited: true, allowed, left, locked: left <= 0 };
+  }
+  function addTime(time, now, seconds) { const t = todayTime(time, now); t.used += count(seconds); return t; }
+  // A parent allows more: a number of minutes, or "day" for no limit for the rest of today.
+  function allowMore(time, now, what) { const t = todayTime(time, now); if (what === "day") t.free = true; else t.extra += count(what) * 60; return t; }
+  function clockText(status) {
+    if (!status.limited) return status.why === "weekend" ? "Weekend: no time limit" : status.why === "parent" ? "No time limit today" : "";
+    if (status.locked) return "Time's up for today";
+    return status.left <= 60 ? "Less than a minute left today" : Math.ceil(status.left / 60) + " min left today";
+  }
+  // The parent PIN is kept scrambled, not as typed. It is a courtesy lock for a family, not strong security.
+  const validPin = (pin) => /^\d{4,8}$/.test(String(pin));
+  function pinHash(pin) {
+    let h = 2166136261;
+    for (const ch of "sketch-match:" + String(pin)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619) >>> 0; }
+    for (let i = 0; i < 1000; i++) h = Math.imul(h ^ (h >>> 13), 2246822519) >>> 0;
+    return h.toString(36);
+  }
+
+  const api = { DEFAULT_LIMIT, dayKey, isWeekend, cleanLimit, todayTime, timeStatus, addTime, allowMore, clockText, validPin, pinHash, LEVELS, DRAWINGS, AREAS, STAR_WORDS, MAX_TRIES, svg, byId, dayNumber, ofTheDay, tidyFeedback, cleanWorkerUrl, requestBody, explain, PROBLEMS, fitSize, addTry, bestStars };
   root.SketchMatch = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof window !== "undefined" ? window : globalThis);
