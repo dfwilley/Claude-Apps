@@ -1,0 +1,16 @@
+{
+  "name": "Sketch Match",
+  "short_name": "Sketch Match",
+  "description": "Drawing practice: copy a picture on paper, take a photo of your drawing, and get friendly feedback on how it matches.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#FBF7F0",
+  "theme_color": "#FBF7F0",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}
