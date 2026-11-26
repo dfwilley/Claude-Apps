@@ -15,6 +15,10 @@ on:
         description: Replace screenshots that are already on the App Store page
         type: boolean
         default: false
+      status_only:
+        description: Only report where each version stands with Apple; change nothing
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -40,4 +44,5 @@ jobs:
         run: |
           python3 -m pip install --quiet --break-system-packages "pyjwt[crypto]"
           python3 .github/scripts/asc_listing.py .github/app-store/job-jar.json shots \
-            ${{ inputs.replace_screenshots && '--replace-screenshots' || '' }}
+            ${{ inputs.replace_screenshots && '--replace-screenshots' || '' }} \
+            ${{ inputs.status_only && '--status-only' || '' }}

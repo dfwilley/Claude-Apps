@@ -13,6 +13,9 @@ summary at the end says what worked and what did not.
 Reads the App Store Connect API key from environment variables:
   ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8
 Usage: python3 asc_listing.py <listing.json> <screenshots folder> [--replace-screenshots]
+       python3 asc_listing.py <listing.json> <screenshots folder> --status-only
+With --status-only it only reads: it prints where each version stands with Apple
+(for example WAITING_FOR_REVIEW) and changes nothing.
 """
 import hashlib
 import json
@@ -154,6 +157,24 @@ def main():
     for v in versions:
         a = v["attributes"]
         print(f"Version {a.get('versionString')}: {a.get('appVersionState') or a.get('appStoreState')}")
+    if "--status-only" in sys.argv[3:]:
+        lines = ["## App Store status: " + app["attributes"]["name"], ""]
+        for v in versions:
+            a = v["attributes"]
+            lines.append(f"- Version {a.get('versionString')}: {a.get('appVersionState') or a.get('appStoreState')}")
+        try:
+            subs = call("GET", f"/apps/{app_id}/reviewSubmissions?filter[platform]=IOS&limit=10")["data"]
+            for s in subs:
+                a = s["attributes"]
+                lines.append(f"- Review submission: {a.get('state')}, submitted {a.get('submittedDate') or 'not yet'}")
+        except ApiError as e:
+            lines.append(f"- Review submissions could not be read: {e}")
+        lines += ["", "Nothing was changed."]
+        summary = os.environ.get("GITHUB_STEP_SUMMARY")
+        if summary:
+            open(summary, "a").write("\n".join(lines) + "\n")
+        print("\n".join(lines))
+        return
     editable_states = {"PREPARE_FOR_SUBMISSION", "DEVELOPER_REJECTED", "REJECTED", "METADATA_REJECTED", "INVALID_BINARY"}
     editable = [v for v in versions
                 if (v["attributes"].get("appVersionState") or v["attributes"].get("appStoreState")) in editable_states]
