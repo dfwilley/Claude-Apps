@@ -1,0 +1,359 @@
+[
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "A0B108A0-F23E-4C6A-85E2-D023C832F0D2",
+        "deviceName" : "iPhone 16 Pro Max",
+        "exportedFileName" : "5F5FE44B-620F-4446-8AE7-711C8A0C4D10.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "33-kid-device-menu_0_337588AF-A950-48FF-B84B-E15A447707A6.png",
+        "timestamp" : 1795701055.688
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "A0B108A0-F23E-4C6A-85E2-D023C832F0D2",
+        "deviceName" : "iPhone 16 Pro Max",
+        "exportedFileName" : "753D6E1E-FF7F-491E-AB26-D3DFFB20ECD9.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "32-kid-device-asked_0_F916FAB4-EDF1-4C68-A16A-31BB4AFA25A5.png",
+        "timestamp" : 1795701052.213
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "A0B108A0-F23E-4C6A-85E2-D023C832F0D2",
+        "deviceName" : "iPhone 16 Pro Max",
+        "exportedFileName" : "28988067-D96E-4897-8F69-3E8894504FD8.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "31-kid-device-prizes_0_959B87C8-B8BC-4D23-9E6C-302062CB6277.png",
+        "timestamp" : 1795701044.753
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "A0B108A0-F23E-4C6A-85E2-D023C832F0D2",
+        "deviceName" : "iPhone 16 Pro Max",
+        "exportedFileName" : "53CE3D5F-2302-4782-9093-6B09E3C96A9C.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "30-kid-device-today_0_A094F6A8-6222-429C-8C18-71AA9E7A606B.png",
+        "timestamp" : 1795701038.603
+      }
+    ],
+    "testIdentifier" : "ScreenshotTests/testKidDevice()",
+    "testIdentifierURL" : "test://com.apple.xcode/JobJar/JobJarUITests/ScreenshotTests/testKidDevice"
+  },
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "A0B108A0-F23E-4C6A-85E2-D023C832F0D2",
+        "deviceName" : "iPhone 16 Pro Max",
+        "exportedFileName" : "009757C2-7C2D-4EF1-9B52-907003A1447D.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "34-kid-link-screen_0_EFA27A95-8FAB-428D-816B-D2EB0045165D.png",
+        "timestamp" : 1795701086.249
+      }
+    ],
+    "testIdentifier" : "ScreenshotTests/testKidLinkScreen()",
+    "testIdentifierURL" : "test://com.apple.xcode/JobJar/JobJarUITests/ScreenshotTests/testKidLinkScreen"
+  },
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "A0B108A0-F23E-4C6A-85E2-D023C832F0D2",
+        "deviceName" : "iPhone 16 Pro Max",
+        "exportedFileName" : "6C59B01B-0C24-4CBD-A93A-BD11717E0B7E.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "21-pick-my-picture_0_4089CEF0-35EE-4D42-B966-67321103287B.png",
+        "timestamp" : 1795701260.89
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "A0B108A0-F23E-4C6A-85E2-D023C832F0D2",
+        "deviceName" : "iPhone 16 Pro Max",
+        "exportedFileName" : "950894CE-C5DA-4143-B030-211CDCE26334.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "20-earned-25c_0_D6151C6A-51E5-48CA-8437-EC56FDE91A1B.png",
+        "timestamp" : 1795701251.739
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "A0B108A0-F23E-4C6A-85E2-D023C832F0D2",
+        "deviceName" : "iPhone 16 Pro Max",
+        "exportedFileName" : "83DA672D-A0BE-4C48-A643-9F0AC7843F44.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "19-ben-money_0_21560B84-5DCC-4062-AF3B-AC2C10868DE8.png",
+        "timestamp" : 1795701250.432
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "A0B108A0-F23E-4C6A-85E2-D023C832F0D2",
+        "deviceName" : "iPhone 16 Pro Max",
+        "exportedFileName" : "03B317A4-C09D-47A4-A8C0-20A9A62EA604.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "18-home-money_0_1ADE8086-31AD-4EA2-8125-CF316E5BCBED.png",
+        "timestamp" : 1795701248.538
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "A0B108A0-F23E-4C6A-85E2-D023C832F0D2",
+        "deviceName" : "iPhone 16 Pro Max",
+        "exportedFileName" : "56ABD083-6E0A-4CF2-8712-B34E11CBF51D.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "17-chore-pays-nickels_0_CEBBAE88-4E9F-494B-8F26-1EB6D362C8BD.png",
+        "timestamp" : 1795701244.93
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "A0B108A0-F23E-4C6A-85E2-D023C832F0D2",
+        "deviceName" : "iPhone 16 Pro Max",
+        "exportedFileName" : "B9B2178B-8F0B-4F27-8C97-71A1159D0916.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "16-money-settings_0_DFD45E59-5616-4973-AA9B-62042D258259.png",
+        "timestamp" : 1795701234.547
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "A0B108A0-F23E-4C6A-85E2-D023C832F0D2",
+        "deviceName" : "iPhone 16 Pro Max",
+        "exportedFileName" : "4929BD0A-CF68-4080-8722-D46FF20CFB59.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "15-checked_0_812756E8-CFBD-476B-9474-2A8DE3B1001E.png",
+        "timestamp" : 1795701223.894
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "A0B108A0-F23E-4C6A-85E2-D023C832F0D2",
+        "deviceName" : "iPhone 16 Pro Max",
+        "exportedFileName" : "6791C267-FC03-4E99-AC7E-02AFCBB210A1.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "14-check_0_BE13743C-3CFC-4B16-9D8D-D283B38DE241.png",
+        "timestamp" : 1795701220.885
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "A0B108A0-F23E-4C6A-85E2-D023C832F0D2",
+        "deviceName" : "iPhone 16 Pro Max",
+        "exportedFileName" : "2CEB22D6-0A1C-431B-A1A4-2C3DBD345232.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "13-ben-waiting_0_6B561D05-F47D-470A-ABD0-C0D0E25EDB0F.png",
+        "timestamp" : 1795701214.623
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "A0B108A0-F23E-4C6A-85E2-D023C832F0D2",
+        "deviceName" : "iPhone 16 Pro Max",
+        "exportedFileName" : "39C43DA1-10CD-4C36-846E-8DCCF8480CD5.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "12-settings_0_452BB6CE-C11B-4822-8F6F-4029CE7A3FAC.png",
+        "timestamp" : 1795701206.373
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "A0B108A0-F23E-4C6A-85E2-D023C832F0D2",
+        "deviceName" : "iPhone 16 Pro Max",
+        "exportedFileName" : "E63F8C4B-B194-4549-8A4A-8B98E961B57B.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "25-add-match_0_FD9333DC-B70D-47C8-9497-822B76A75218.png",
+        "timestamp" : 1795701199.301
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "A0B108A0-F23E-4C6A-85E2-D023C832F0D2",
+        "deviceName" : "iPhone 16 Pro Max",
+        "exportedFileName" : "F2034296-0CEC-4EEF-84D5-1AD9C827F48C.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "24-add-special-chore_0_F059546E-1080-48FB-83F8-2549142926DB.png",
+        "timestamp" : 1795701188.541
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "A0B108A0-F23E-4C6A-85E2-D023C832F0D2",
+        "deviceName" : "iPhone 16 Pro Max",
+        "exportedFileName" : "65A0133D-DBC0-499D-91F2-194B9080841E.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "23-add-special-day_0_CA9A35DB-A82C-4BF0-B276-50CBBC5898D1.png",
+        "timestamp" : 1795701173.221
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "A0B108A0-F23E-4C6A-85E2-D023C832F0D2",
+        "deviceName" : "iPhone 16 Pro Max",
+        "exportedFileName" : "0B9BB4E2-E15E-4491-9BF2-793F0214BEDF.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "22-specials_0_A31F5263-383B-4FAB-BA1B-8F586BAF17ED.png",
+        "timestamp" : 1795701166.858
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "A0B108A0-F23E-4C6A-85E2-D023C832F0D2",
+        "deviceName" : "iPhone 16 Pro Max",
+        "exportedFileName" : "76F2B56F-F0C0-4513-900A-357C766704D2.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "11-history_0_80875A82-9510-4E40-A544-8134B7E8FCB1.png",
+        "timestamp" : 1795701164.982
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "A0B108A0-F23E-4C6A-85E2-D023C832F0D2",
+        "deviceName" : "iPhone 16 Pro Max",
+        "exportedFileName" : "6C46857F-5F1E-43D0-8748-FD112EF34901.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "10-edit-chore_0_F7928DF9-F43E-4D76-87E7-CBD64496C361.png",
+        "timestamp" : 1795701160.441
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "A0B108A0-F23E-4C6A-85E2-D023C832F0D2",
+        "deviceName" : "iPhone 16 Pro Max",
+        "exportedFileName" : "6F4FF957-0874-4A82-BAA4-4B35411F5AD4.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "9-grownups-chores_0_A7D9205C-77E4-458C-8657-D8C6D67BA4F1.png",
+        "timestamp" : 1795701157.543
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "A0B108A0-F23E-4C6A-85E2-D023C832F0D2",
+        "deviceName" : "iPhone 16 Pro Max",
+        "exportedFileName" : "7F05E74B-FED7-46E3-BF96-C88928216176.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "25-reward-asked_0_2D8D9004-1E40-4E2D-BBD8-3EF13A2BBBB3.png",
+        "timestamp" : 1795701151.348
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "A0B108A0-F23E-4C6A-85E2-D023C832F0D2",
+        "deviceName" : "iPhone 16 Pro Max",
+        "exportedFileName" : "B923D065-19D1-400F-9BE8-642C7FC790B1.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "24-link-code_0_735ADC91-47E8-447A-9F7A-BB1BB8E83E55.png",
+        "timestamp" : 1795701147.736
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "A0B108A0-F23E-4C6A-85E2-D023C832F0D2",
+        "deviceName" : "iPhone 16 Pro Max",
+        "exportedFileName" : "F97CFABD-FCD8-4AFA-B16A-2658E4C5C988.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "23-whose-device_0_7C77DECF-C0C6-4384-8548-06BE55D66A7A.png",
+        "timestamp" : 1795701144.919
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "A0B108A0-F23E-4C6A-85E2-D023C832F0D2",
+        "deviceName" : "iPhone 16 Pro Max",
+        "exportedFileName" : "15138AA6-FFBD-4EA4-A29D-CD5DF386CE23.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "22-devices_0_D1DBFEA4-AC90-486C-A577-584A5E78D682.png",
+        "timestamp" : 1795701142.892
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "A0B108A0-F23E-4C6A-85E2-D023C832F0D2",
+        "deviceName" : "iPhone 16 Pro Max",
+        "exportedFileName" : "0DFA8388-75A7-4A54-9CD1-CB7F4C5711FB.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "8-grownups-kids_0_3C16407E-C236-439F-9B26-81FDC1B400E4.png",
+        "timestamp" : 1795701141.367
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "A0B108A0-F23E-4C6A-85E2-D023C832F0D2",
+        "deviceName" : "iPhone 16 Pro Max",
+        "exportedFileName" : "07710CBD-F715-433B-A406-A368B565C243.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "7-week_0_8C14B08C-F0AC-428B-BB63-C2B4DB7AF256.png",
+        "timestamp" : 1795701133.564
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "A0B108A0-F23E-4C6A-85E2-D023C832F0D2",
+        "deviceName" : "iPhone 16 Pro Max",
+        "exportedFileName" : "4A1E17B4-FC94-41F1-B670-D2B11231784C.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "6-reward_0_44EC84AD-8DA7-406F-8C34-5DCFFD7FDDE0.png",
+        "timestamp" : 1795701129.008
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "A0B108A0-F23E-4C6A-85E2-D023C832F0D2",
+        "deviceName" : "iPhone 16 Pro Max",
+        "exportedFileName" : "A010FBFA-5A72-4A66-BB19-BCB1D0C9CCEE.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "5-pin-pad_0_0883E7C9-2EC2-41BF-80E5-089915BBEE1E.png",
+        "timestamp" : 1795701125.548
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "A0B108A0-F23E-4C6A-85E2-D023C832F0D2",
+        "deviceName" : "iPhone 16 Pro Max",
+        "exportedFileName" : "56F959FE-1C76-41E0-BF3E-1514AE675BE5.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "4-prizes_0_CF12979B-98C8-4BBD-AF23-C563E1AF59E6.png",
+        "timestamp" : 1795701122.871
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "A0B108A0-F23E-4C6A-85E2-D023C832F0D2",
+        "deviceName" : "iPhone 16 Pro Max",
+        "exportedFileName" : "26B1948B-1A21-4E47-8C39-D5292F616D10.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "3-great-job_0_D953134A-977C-4A1E-AEA7-5E50860EABF8.png",
+        "timestamp" : 1795701119.15
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "A0B108A0-F23E-4C6A-85E2-D023C832F0D2",
+        "deviceName" : "iPhone 16 Pro Max",
+        "exportedFileName" : "DEBC3CF3-EC14-4950-88C4-DA2D1A877AB1.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "2-ava-today_0_7C091BC3-1A7C-46C5-9203-BA4A2EB1103B.png",
+        "timestamp" : 1795701116.067
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "A0B108A0-F23E-4C6A-85E2-D023C832F0D2",
+        "deviceName" : "iPhone 16 Pro Max",
+        "exportedFileName" : "A6C6AADC-5A85-41DC-B84F-157C317501D9.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "1-home_0_18153E42-45E1-419C-901D-817DBB262335.png",
+        "timestamp" : 1795701113.959
+      }
+    ],
+    "testIdentifier" : "ScreenshotTests/testMainScreens()",
+    "testIdentifierURL" : "test://com.apple.xcode/JobJar/JobJarUITests/ScreenshotTests/testMainScreens"
+  },
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "A0B108A0-F23E-4C6A-85E2-D023C832F0D2",
+        "deviceName" : "iPhone 16 Pro Max",
+        "exportedFileName" : "F4EB356B-BC1C-401E-A488-30E8A76C352F.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "0-first-home_0_D2B3F3F2-5747-4588-A5F0-C2727D862CD7.png",
+        "timestamp" : 1795701312.388
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "A0B108A0-F23E-4C6A-85E2-D023C832F0D2",
+        "deviceName" : "iPhone 16 Pro Max",
+        "exportedFileName" : "DCC6D77B-E8D4-411A-AF65-0C9CA1D16D60.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "0-add-kid_0_3C964404-47FF-4FA1-9AD8-662E26DBBCED.png",
+        "timestamp" : 1795701305.971
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "A0B108A0-F23E-4C6A-85E2-D023C832F0D2",
+        "deviceName" : "iPhone 16 Pro Max",
+        "exportedFileName" : "E2EAEEE6-99CF-43E7-9D59-7FFFBF6483D3.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "0-welcome_0_4B3B20C4-66F6-471A-94D6-47D54E6DDC70.png",
+        "timestamp" : 1795701276.174
+      }
+    ],
+    "testIdentifier" : "ScreenshotTests/testWelcome()",
+    "testIdentifierURL" : "test://com.apple.xcode/JobJar/JobJarUITests/ScreenshotTests/testWelcome"
+  }
+]
