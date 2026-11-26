@@ -189,8 +189,9 @@ function route() {
 }
 const go = (h) => { location.hash = h; };
 window.addEventListener("hashchange", render);
-const VERSION = "1.9", BUILD = 10; // BUILD is the number in sw.js's cache name; VERSION matches the iPhone app (tests check both)
+const VERSION = "1.10", BUILD = 11; // BUILD is the number in sw.js's cache name; VERSION matches the iPhone app (tests check both)
 const CHANGES = [
+  { v: "1.10", date: "November 26, 2026", notes: ["Back up list only: a small backup of your bins and what's in them, without the photos."] },
   { v: "1.9", date: "November 21, 2026", notes: ["Scan photos: a checklist of what was found, to add to What's inside.", "Optional Scan with AI, which names the things in your photos. Needs your own key and sends those photos over the internet."] },
   { v: "1.8", date: "November 13, 2026", notes: ["About screen with the version, build number and what changed."] },
   { v: "1.7", date: "November 13, 2026", notes: ["Lists of bins are in A-to-Z order by name.", "Change a container's type or location and its label code follows."] },
@@ -634,8 +635,8 @@ function renderMore() {
       ${locs.map((l) => `<a class="row act" href="#/print?loc=${encodeURIComponent(l)}">${esc(l)} · ${BINS.filter((b) => S.isUnder(b.location, l)).length}</a>`).join("")}</div>
     <div class="secfoot">A place includes everything inside it.</div>
     <div class="sechead">Backup</div>
-    <div class="group"><button class="row act" id="backup">⇪&nbsp; Back up everything</button><button class="row act" id="restore">⇩&nbsp; Restore from a backup</button></div>
-    <div class="secfoot">One file with every bin and photo. Save it to iCloud Drive or Dropbox. Backups work in both directions with the native Bin Finder app.</div>
+    <div class="group"><button class="row act" id="backup">⇪&nbsp; Back up everything</button><button class="row act" id="backuplist">⇪&nbsp; Back up list only (no photos)</button><button class="row act" id="restore">⇩&nbsp; Restore from a backup</button></div>
+    <div class="secfoot">Back up everything makes one file with every bin and photo. Back up list only makes a much smaller file with your bins and what's in them, but no photos; restoring it keeps any photos already here. Save either to iCloud Drive or Dropbox. Backups work in both directions with the native Bin Finder app.</div>
     <div class="sechead">AI scanning (optional)</div>
     <div class="group">${aiKey() ? `<div class="row"><span class="grow">Key saved</span><span class="val">ends in ${esc(aiKey().slice(-4))}</span></div><button class="row danger" id="airm">Remove the key</button>`
       : `<label class="row"><input id="aikey" type="password" placeholder="Anthropic API key (starts with sk-ant-)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-label="Anthropic API key"></label><button class="row act" id="aisave">Save the key</button>`}</div>
@@ -645,7 +646,8 @@ function renderMore() {
       <div class="row"><span class="grow sub" id="store"></span></div></div>
     <div class="group" style="margin-top:22px"><a class="row act" href="#/about">ⓘ&nbsp; About Bin Finder<span class="grow"></span><span class="val">Version ${VERSION}</span><span class="chev" aria-hidden="true">›</span></a></div>
   </div>`;
-  $("backup").onclick = backup;
+  $("backup").onclick = () => backup(true);
+  $("backuplist").onclick = () => backup(false);
   $("restore").onclick = () => $("pickBackup").click();
   if ($("aisave")) $("aisave").onclick = () => { const k = $("aikey").value.trim(); if (!k) return toast("Paste the key first."); try { localStorage.setItem(AI_KEY, k); } catch { return toast("Couldn't save the key here."); } toast("Key saved."); keepScroll(renderMore); };
   if ($("airm")) $("airm").onclick = () => { try { localStorage.removeItem(AI_KEY); } catch {} toast("Key removed."); keepScroll(renderMore); };
@@ -723,14 +725,18 @@ function renderAbout() {
 async function requestPersist() { try { await navigator.storage?.persist?.(); } catch {} }
 
 const blobToB64 = (b) => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(",")[1]); r.onerror = () => rej(r.error); r.readAsDataURL(b); });
-async function backup() {
+// withPhotos false makes the small "list only" backup: the same file layout with no photos in it.
+async function backup(withPhotos) {
   toast("Packing up your bins…");
   const photos = {};
-  for (const b of BINS) for (const p of b.photos) { const blob = await getPhoto(p); if (blob) photos[p] = await blobToB64(blob); }
+  if (withPhotos) for (const b of BINS) for (const p of b.photos) { const blob = await getPhoto(p); if (blob) photos[p] = await blobToB64(blob); }
   const data = { app: "bin-finder", version: 1, exported: S.isoNow(), bins: BINS, photos };
   const day = new Date().toLocaleDateString("en-CA");
-  const file = new File([JSON.stringify(data)], `Bin Finder Backup ${day}.json`, { type: "application/json" });
-  offerFile(file, "Backup ready", `${BINS.length} bins and ${Object.keys(photos).length} photos, ${(file.size / 1048576).toFixed(1)} MB. Save it to iCloud Drive or Dropbox.`);
+  const file = new File([JSON.stringify(data)], `Bin Finder ${withPhotos ? "Backup" : "List Backup"} ${day}.json`, { type: "application/json" });
+  const size = file.size < 1048576 ? `${Math.max(1, Math.round(file.size / 1024))} KB` : `${(file.size / 1048576).toFixed(1)} MB`;
+  offerFile(file, "Backup ready", withPhotos
+    ? `${BINS.length} bins and ${Object.keys(photos).length} photos, ${size}. Save it to iCloud Drive or Dropbox.`
+    : `${BINS.length} bins, list only (no photos), ${size}. Save it to iCloud Drive or Dropbox.`);
 }
 $("pickBackup").addEventListener("change", async (e) => {
   const f = e.target.files[0]; e.target.value = ""; if (!f) return;
@@ -747,6 +753,10 @@ $("pickBackup").addEventListener("change", async (e) => {
         const { thumb } = await processImage(blob);
         await savePhotoFiles(p, blob, thumb); markRead(p);
       }
+      // A list-only backup has no photos: keep the ones already here and drop any this device doesn't have.
+      const kept = [];
+      for (const p of b.photos) if (data.photos?.[p] || await getPhoto(p)) kept.push(p);
+      b.photos = kept;
       await tx("bins", "readwrite", (s) => s.put(b));
       const i = BINS.findIndex((x) => x.id === b.id); if (i >= 0) BINS[i] = b; else BINS.push(b);
       n++;

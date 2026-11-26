@@ -7,6 +7,7 @@ enum AppInfo {
 
     struct Change: Identifiable { let version: String; let date: String; let notes: [String]; var id: String { version } }
     static let changes: [Change] = [
+        Change(version: "1.10", date: "November 26, 2026", notes: ["Back up list only: a small backup of your bins and what's in them, without the photos."]),
         Change(version: "1.9", date: "November 21, 2026", notes: ["Scan photos: a checklist of what was found, to add to What's inside.", "Optional Scan with AI, which names the things in your photos. Needs your own key and sends those photos over the internet."]),
         Change(version: "1.8", date: "November 13, 2026", notes: ["About screen with the version, build number and what changed."]),
         Change(version: "1.7", date: "November 13, 2026", notes: ["Lists of bins are in A-to-Z order by name.", "Change a container's type or location and its label code follows."]),

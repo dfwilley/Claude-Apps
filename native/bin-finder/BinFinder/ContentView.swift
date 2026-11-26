@@ -83,6 +83,7 @@ struct ContentView: View {
             }
             Section("Backup") {
                 Button { backup() } label: { Label("Back up everything", systemImage: "square.and.arrow.up") }
+                Button { backup(includePhotos: false) } label: { Label("Back up list only (no photos)", systemImage: "list.bullet") }
                 Button { importing = true } label: { Label("Restore from a backup", systemImage: "square.and.arrow.down") }
             }
             Section {
@@ -100,8 +101,8 @@ struct ContentView: View {
         catch { message = "Couldn't make the labels: \(error.localizedDescription)" }
     }
 
-    private func backup() {
-        do { share = ShareItem(url: try store.makeBackup()) }
+    private func backup(includePhotos: Bool = true) {
+        do { share = ShareItem(url: try store.makeBackup(includePhotos: includePhotos)) }
         catch { message = "Backup failed: \(error.localizedDescription)" }
     }
 

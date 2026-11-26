@@ -224,13 +224,14 @@ final class BinStore: ObservableObject {
     // MARK: Backup
 
     /// Writes one backup file (bins plus photos) to a temporary folder and returns where it is.
-    func makeBackup() throws -> URL {
+    /// With includePhotos false it makes the small "list only" backup: the same layout with no photos in it.
+    func makeBackup(includePhotos: Bool = true) throws -> URL {
         var photos: [String: Data] = [:]
-        for b in bins { for p in b.photos { if let d = try? Data(contentsOf: photoURL(p)) { photos[p] = d } } }
+        if includePhotos { for b in bins { for p in b.photos { if let d = try? Data(contentsOf: photoURL(p)) { photos[p] = d } } } }
         let file = BackupFile(bins: bins, photos: photos)
         let data = try Self.encoder.encode(file)
         let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent("Bin Finder Backup \(f.string(from: Date())).json")
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("Bin Finder \(includePhotos ? "Backup" : "List Backup") \(f.string(from: Date())).json")
         try data.write(to: url, options: .atomic)
         return url
     }
@@ -243,9 +244,11 @@ final class BinStore: ObservableObject {
         let file = try Self.decoder.decode(BackupFile.self, from: data)
         guard file.app == "bin-finder" else { throw NSError(domain: "BinFinder", code: 1, userInfo: [NSLocalizedDescriptionKey: "That file isn't a Bin Finder backup."]) }
         var changed = 0
-        for b in file.bins {
+        for var b in file.bins {
             if let current = bin(b.id), current.updated >= b.updated { continue }
             for p in b.photos { if let d = file.photos[p] { try? d.write(to: photoURL(p), options: .atomic) } }
+            // A list-only backup has no photos: keep the ones already here and drop any this phone doesn't have.
+            b.photos = b.photos.filter { FileManager.default.fileExists(atPath: photoURL($0).path) }
             if let i = bins.firstIndex(where: { $0.id == b.id }) { bins[i] = b } else { bins.append(b) }
             changed += 1
         }

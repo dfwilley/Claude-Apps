@@ -35,7 +35,7 @@ Install it with Sideloadly (USB or Wi-Fi). With a free Apple ID, re-install ever
 5. **Places**: on the main list tap the **Hangar** heading, then **Shelf 2**. Try *Rename or move this place* and check the bin's location changed.
 6. **Trip checklist**: switch on *Pack for trips* for the RV bin, open *Trip checklist*, check two things off, close the app, reopen, and see they're still checked. Then *Start a new trip*.
 7. **Label**: print one QR label on plain paper, scan it with the Camera, and see that it opens the bin.
-8. **Backup**: *⋯ › Back up everything*, save to Files; restore it in the other version to check backups move both ways.
+8. **Backup**: *⋯ › Back up everything*, save to Files; restore it in the other version to check backups move both ways. *Back up list only* makes a small file with the bins but no photos; restoring it keeps the photos already on the phone.
 
 Anything odd: note the step number and what you saw.
 
