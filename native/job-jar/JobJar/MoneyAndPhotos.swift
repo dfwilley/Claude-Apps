@@ -223,7 +223,7 @@ struct MyPictureSheet: View {
                             store.say("Looking good!")
                             dismiss()
                         }
-                        Text("Or pick an animal").font(.headline).foregroundStyle(.secondary)
+                        Text("Or pick a picture").font(.headline).foregroundStyle(.secondary)
                         LazyVGrid(columns: [GridItem(.adaptive(minimum: 62), spacing: 8)], spacing: 8) {
                             ForEach(avatars, id: \.self) { a in
                                 Button {
