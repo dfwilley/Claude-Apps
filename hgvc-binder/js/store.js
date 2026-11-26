@@ -128,6 +128,8 @@
       let best = null;
       for await (const [name, entry] of h.entries()) {
         if (entry.kind !== 'file' || !name.includes(DATA_NAME) || !/\.json$/i.test(name)) continue;
+        // "HGVC Binder Data.json" is the current file; older dated files are used only when it is missing.
+        if (name.toLowerCase() === DATA_NAME.toLowerCase() + '.json') { best = { name, entry }; break; }
         if (!best || stamp(name) > stamp(best.name)) best = { name, entry };
       }
       if (!best) return null;

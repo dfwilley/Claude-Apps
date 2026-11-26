@@ -1,9 +1,11 @@
 import Foundation
 
-/// The Dropbox folder (opened through the iPhone Files app) where the scheduled Claude task saves
-/// "Claude - HGVC Binder Data <date> <time>.json" (older name: "HGVC Binder Data …"). The app only reads from it.
+/// The folder (iCloud Drive "HGVC Binder", or Dropbox, opened through the iPhone Files app) where the scheduled
+/// Claude task saves "HGVC Binder Data.json", overwriting it each run. Older runs wrote dated names
+/// ("Claude - HGVC Binder Data <date> <time>.json"); those are still read if the current file isn't there. The app only reads from it.
 enum DataFolder {
     static let prefix = "HGVC Binder Data"
+    static let current = "HGVC Binder Data.json"
     private static let bookmarkKey = "dataFolderBookmark"
     private static let nameKey = "dataFolderName"
 
@@ -18,8 +20,9 @@ enum DataFolder {
         UserDefaults.standard.set(url.lastPathComponent, forKey: nameKey)
     }
 
-    /// Picks the newest data file by the date and time in its name.
+    /// Picks "HGVC Binder Data.json" when it's there, otherwise the newest dated file by the date and time in its name.
     static func newest(in names: [String]) -> String? {
+        if let exact = names.first(where: { $0.caseInsensitiveCompare(current) == .orderedSame }) { return exact }
         let stamp = { (n: String) -> String in n.components(separatedBy: prefix).last ?? n }
         return names.filter { $0.contains(prefix) && $0.lowercased().hasSuffix(".json") }.max { stamp($0) < stamp($1) }
     }

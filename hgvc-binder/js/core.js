@@ -35,6 +35,14 @@
   const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
   // Dates are always written out in full (e.g. "January 1, 2027") so they can't be misread.
   function longDate(d) { d = parseDate(d); return d ? MONTHS[d.getMonth()] + ' ' + d.getDate() + ', ' + d.getFullYear() : ''; }
+  // "2026-11-04T13:30:00-07:00" -> "November 4, 2026 at 1:30 PM" (shown in this device's time zone)
+  function stampText(t) {
+    if (!t) return '';
+    if (/^\d{4}-\d{2}-\d{2}$/.test(String(t))) return longDate(t);
+    const d = new Date(t); if (isNaN(d)) return '';
+    const h = d.getHours(), m = String(d.getMinutes()).padStart(2, '0');
+    return MONTHS[d.getMonth()] + ' ' + d.getDate() + ', ' + d.getFullYear() + ' at ' + ((h % 12) || 12) + ':' + m + (h < 12 ? ' AM' : ' PM');
+  }
   function shortDate(d) { d = parseDate(d); return d ? MONTHS[d.getMonth()].slice(0, 3) + ' ' + d.getDate() + ', ' + d.getFullYear() : ''; }
 
   // ---------- money and numbers ----------
@@ -264,7 +272,7 @@
       changes.push('Updated ' + p.name);
     }
     if (incoming.honors && !(s.locked && s.locked.honors)) s.honors = normalizeHonors(incoming.honors);
-    s.meta = Object.assign({}, s.meta, { hgvAsOf: incoming.asOf || incoming.generated || null, importedAt: new Date().toISOString(), source: incoming.source || 'data file' });
+    s.meta = Object.assign({}, s.meta, { hgvAsOf: incoming.asOf || incoming.generated || null, downloaded: incoming.downloaded || incoming.generated || incoming.asOf || null, generated: incoming.generated || null, importedAt: new Date().toISOString(), source: incoming.source || 'data file' });
     if (incoming.notes) s.meta.syncNotes = incoming.notes;
     return { state: s, changes };
   }
@@ -302,7 +310,7 @@
     return rows.map(r => ({ id: uid(), year, label: r.label, kind: /dues/i.test(r.label) ? 'Club dues' : /credit/i.test(r.label) ? 'Credit' : 'Maintenance fee', amount: r.amount, due: st.due, paid: false, source: 'manual', from: 'statement' }));
   }
 
-  const api = { SCHEMA, DEFAULT_SETTINGS, parseDate, iso, addDays, daysBetween, longDate, shortDate, money, pts, num, last4, mask, scrub,
+  const api = { SCHEMA, DEFAULT_SETTINGS, parseDate, iso, addDays, daysBetween, longDate, shortDate, stampText, money, pts, num, last4, mask, scrub,
     batchUsed, pointsSummary, feeYears, feesDue, deadlines, notifications, buildICS, summary, slug, uid, emptyState, normalizeProperty,
     validateDataFile, mergeData, normalizeHonors, parseStatement, statementToFees, MONTHS };
   if (typeof module === 'object' && module.exports) module.exports = api; else root.HB = api;
