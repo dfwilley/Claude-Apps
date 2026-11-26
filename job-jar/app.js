@@ -671,7 +671,7 @@
       openSheet(`<div class="sheet-head"><h2>Pick your picture</h2><button class="btn" data-act="close">Done</button></div>
         <div class="photo-row">${avatarHTML(k, 88)}${k.photo ? `<button class="btn" data-act="my-nophoto">Remove photo</button>` : ""}</div>
         ${photoButton("self")}
-        <span class="field">Or pick an animal</span>${picGrid(J.AVATARS, k.photo ? "" : k.avatar, "my-avatar")}`);
+        <span class="field">Or pick a picture</span>${picGrid(J.AVATARS, k.photo ? "" : k.avatar, "my-avatar")}`);
       say("Pick your picture!");
     },
     "my-avatar"(d) { const k = kid(); k.avatar = d.pic; k.photo = ""; save(); closeSheet(); render(); },
