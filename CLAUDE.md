@@ -27,6 +27,7 @@ Each app is a plain web app in its own top-level folder: HTML, CSS and JavaScrip
 | `gear-bag-check/` | Gear Bag Check | none |
 | `squadron-flashback/` | Squadron Flashback | none |
 | `sketch-match/` | Sketch Match | none |
+| `analemma-planner/` | Pico Analemma Planner | none (makes files for a Raspberry Pi Pico; `pico/main.py` is the MicroPython script) |
 | `brick-pile/` | Brick Pile Builder (called Brick Pile in the code and workflows). **Shelved** November 21, 2026 | `native/brick-pile/`, web app inside a native shell; builds only when started by hand |
 | `blue-book/` | Blue Book. **Shelved** November 23, 2026 | `native/blue-book/`, web app inside a native shell; builds only when started by hand |
 | `hgvc-binder/` | HGVC Binder | `native/hgvc-binder/`, web app inside a native shell (TestFlight) |
@@ -45,6 +46,7 @@ Each native app is defined by a `project.yml` that XcodeGen turns into an Xcode 
 No install is needed. Run them with Node from the repository root:
 
 ```
+node tests/analemma-planner.test.js
 node tests/bin-finder.test.js
 node tests/blue-book.test.js
 node tests/brick-pile.test.js
@@ -87,6 +89,7 @@ For anything larger than a small fix, work on a branch and merge to `main` only 
 - Sketch Match's pictures (`DRAWINGS` in `sketch-match/core.js`) are line art drawn in code on a 200 x 200 square, each with a plain description for the coach and three starting steps. The worker and the app must agree on the feedback areas; `tests/sketch-match.test.js` checks that and runs the worker with a pretend Claude.
 - Brick Pile's built-in builds (`BUILDS` in `brick-pile/builds.js`) are each written as a side view, one line of text per layer from the bottom up (`B24@0:a` is a 2 x 4 brick starting 0 studs from the left, in colour group a). The pieces needed, the picture and the steps all come from that. A new build needs every piece to rest on a piece below it; `tests/brick-pile.test.js` checks that.
 - Squadron Flashback's questions (`squadron-flashback/questions.js`) get their ids from their place in a chapter, and saved answers point at those ids. Add new questions at the end of a chapter; don't reorder or remove old ones. The question of the day is picked from the date, so the same day always shows the same question.
+- Pico Analemma Planner: `analemma-planner/core.js` and `pico/main.py` both hold the NOAA sun formulas; change both together (the test checks they agree). The Waveshare driver isn't in the repo: the owner copies Waveshare's 7.5 inch MicroPython file to the Pico as `epd.py`, and `main.py` looks for its class and buffer by name. `main.py` has only been run against a pretend panel, not a real Pico.
 - Who Was Here uses live Wikidata, Wikipedia and OpenStreetMap services. Be gentle with request volume and keep the attribution.
 - New web apps go in a new top-level folder and get a line in `README.md`. A native version goes under `native/<app>/` with its own workflows copied from an existing app of the same kind.
 

@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Pico Analemma Planner</title>
+  <meta name="description" content="Draw the analemma (the sun's figure eight) for your place on an 800 x 480 black and white picture, and get the files to show it on a Raspberry Pi Pico with a 7.5 inch e-paper.">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Analemma">
+  <meta name="theme-color" content="#F3F1EC" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#14171C" media="(prefers-color-scheme: dark)">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <img src="icon.svg" alt="" class="logo">
+    <h1>Pico Analemma Planner</h1>
+  </header>
+
+  <main>
+    <section class="preview">
+      <div class="frame"><canvas id="screen" width="800" height="480" aria-label="Preview of the e-paper picture"></canvas></div>
+      <p class="soft small" id="caption"></p>
+    </section>
+
+    <form id="controls" class="controls" autocomplete="off" onsubmit="return false">
+      <fieldset>
+        <legend>Picture</legend>
+        <div class="seg" role="radiogroup" aria-label="Kind of picture">
+          <label><input type="radio" name="style" value="sky"><span>In the sky</span></label>
+          <label><input type="radio" name="style" value="wall"><span>On a wall</span></label>
+          <label><input type="radio" name="style" value="floor"><span>On the floor</span></label>
+          <label><input type="radio" name="style" value="classic"><span>Graph</span></label>
+        </div>
+        <p class="soft small" id="styleHelp"></p>
+      </fieldset>
+
+      <fieldset>
+        <legend>Time of day</legend>
+        <div class="row">
+          <label>Sun at <select name="hour" id="hour"></select></label>
+          <label><select name="minute"><option value="0">:00</option><option value="15">:15</option><option value="30">:30</option><option value="45">:45</option></select></label>
+        </div>
+        <div class="row">
+          <label class="chk"><input type="radio" name="timeKind" value="clock"> Clock time</label>
+          <label class="chk"><input type="radio" name="timeKind" value="sun"> Sun time (centred on due south)</label>
+        </div>
+        <div class="row" id="manyRow">
+          <label class="chk"><input type="checkbox" name="manyHours"> Every hour from</label>
+          <select name="fromHour" id="fromHour"></select>
+          <span>to</span>
+          <select name="toHour" id="toHour"></select>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Marks</legend>
+        <div class="row">
+          <label>Months <select name="months"><option value="labels">Dots and names</option><option value="dots">Dots only</option><option value="none">None</option></select></label>
+        </div>
+        <label class="chk"><input type="checkbox" name="seasons"> Solstices and equinoxes</label>
+        <div class="row">
+          <label class="chk"><input type="checkbox" name="markDate"> Mark a date</label>
+          <input type="date" name="markWhen" id="markWhen" aria-label="Date to mark">
+          <button type="button" class="link" id="todayBtn">Today</button>
+        </div>
+        <label class="chk"><input type="checkbox" name="grid"> Grid lines</label>
+        <label class="chk"><input type="checkbox" name="gridLabels"> Grid numbers</label>
+        <div class="row">
+          <label class="chk"><input type="checkbox" name="title"> Title</label>
+          <input type="text" name="titleText" maxlength="40" aria-label="Title text">
+        </div>
+        <label class="chk"><input type="checkbox" name="panel"> Side panel with the numbers</label>
+      </fieldset>
+
+      <fieldset>
+        <legend>Look</legend>
+        <div class="row">
+          <label>Line <select name="line"><option value="thin">Thin</option><option value="medium">Medium</option><option value="thick">Thick</option><option value="dashed">Dashed</option><option value="dots">A dot each day</option><option value="weekly">A dot each week</option></select></label>
+        </div>
+        <div class="row">
+          <label class="chk"><input type="radio" name="layout" value="landscape"> Wide (800 × 480)</label>
+          <label class="chk"><input type="radio" name="layout" value="portrait"> Tall (480 × 800)</label>
+        </div>
+        <div class="row">
+          <label class="chk"><input type="radio" name="ink" value="black"> Black on white</label>
+          <label class="chk"><input type="radio" name="ink" value="white"> White on black</label>
+        </div>
+        <div class="row" id="widenRow">
+          <label>Width <select name="widen"><option value="1">True shape</option><option value="2">2× wider</option><option value="3">3× wider</option><option value="4">4× wider</option></select></label>
+        </div>
+        <div class="row" id="gnomonRow">
+          <label><span id="gnomonWord">Nodus</span> <input type="number" name="gnomon" step="any" min="0.01" inputmode="decimal" class="num"></label>
+          <select name="unit"><option value="in">in</option><option value="ft">ft</option><option value="cm">cm</option><option value="m">m</option></select>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Place</legend>
+        <div class="row">
+          <label>Name <input type="text" name="place" maxlength="40"></label>
+          <button type="button" class="link" id="tucsonBtn">Tucson</button>
+        </div>
+        <div class="row">
+          <label>Latitude <input type="number" name="lat" step="any" inputmode="decimal" class="num"></label>
+          <label>Longitude <input type="number" name="lon" step="any" inputmode="decimal" class="num"></label>
+        </div>
+        <div class="row">
+          <label>Clock is UTC <input type="number" name="utcOffset" step="0.5" class="num sm"> h</label>
+          <label>Zone name <input type="text" name="zoneName" maxlength="6" class="num sm"></label>
+          <label>Year <input type="number" name="year" step="1" class="num sm"></label>
+        </div>
+        <p class="soft small">North and east are plus; Tucson is 32.22, −110.93. Arizona stays on MST (UTC −7) all year.</p>
+      </fieldset>
+
+      <fieldset class="exports">
+        <legend>Get the files</legend>
+        <h3>For the Pico</h3>
+        <p class="small">Three files that go on the Pico next to Waveshare's driver. The Pico moves the sun's dot to the right day by itself.</p>
+        <div class="btns">
+          <button type="button" data-get="bin">analemma.bin</button>
+          <button type="button" data-get="py">analemma_data.py</button>
+          <button type="button" data-get="main">main.py</button>
+        </div>
+        <details>
+          <summary>How to set up the Pico</summary>
+          <ol class="small">
+            <li>Put MicroPython on the Pico (hold BOOTSEL, plug in, drag the .uf2 file from micropython.org onto it).</li>
+            <li>From Waveshare's <b>Pico_ePaper_Code</b> on GitHub, folder <b>python</b>, take the file for the 7.5 inch panel and save it on the Pico as <b>epd.py</b>.</li>
+            <li>In Thonny, save <b>analemma.bin</b>, <b>analemma_data.py</b> and <b>main.py</b> from this page onto the Pico.</li>
+            <li>On a Pico W, open main.py and type your Wi-Fi name and password at the top so it can get the date. On a plain Pico, start it from Thonny once, which sets its clock.</li>
+            <li>Press Run (or unplug and plug in). The panel refreshes once a day.</li>
+          </ol>
+          <p class="small">If the picture comes out as a negative (white where it should be black), tick this and download analemma.bin and analemma_data.py again:</p>
+          <label class="chk small"><input type="checkbox" name="flipBits"> Flip black and white in the Pico file</label>
+          <div class="row small" id="rotateRow">
+            <span>Tall picture: the panel is turned</span>
+            <label class="chk"><input type="radio" name="rotate" value="cw"> clockwise</label>
+            <label class="chk"><input type="radio" name="rotate" value="ccw"> counter-clockwise</label>
+          </div>
+        </details>
+
+        <h3>Other ways</h3>
+        <div class="btns">
+          <button type="button" data-get="png">Picture (PNG)</button>
+          <button type="button" data-get="bmp">1-bit BMP</button>
+          <button type="button" data-get="h">C header (.h)</button>
+          <button type="button" data-get="csv">Every day (CSV)</button>
+          <button type="button" data-get="copy">Copy point list</button>
+        </div>
+        <p class="soft small">The PNG is the picture as you see it. The BMP and C header are already turned to 800 × 480 for the panel; the C header suits Arduino or ESP32 code. The CSV lists the sun for every day, with distances in your units for a wall or floor mark.</p>
+      </fieldset>
+
+      <p class="soft small foot">Everything is worked out on this device; nothing is sent anywhere. Sun positions use NOAA's formulas and are good to a small fraction of a degree. <button type="button" class="link" id="resetBtn">Start over</button></p>
+    </form>
+  </main>
+  <div id="toast" class="toast" hidden role="status"></div>
+  <noscript>Pico Analemma Planner needs JavaScript turned on.</noscript>
+  <script src="core.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
