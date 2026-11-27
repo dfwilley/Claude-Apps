@@ -36,7 +36,7 @@ enum AIScanner {
         var errorDescription: String? { message }
     }
 
-    static func scan(jpeg: Data, key: String) async throws -> [String] {
+    static func scan(jpeg: Data, key: String, items: [String]) async throws -> [String] {
         var req = URLRequest(url: URL(string: "https://api.anthropic.com/v1/messages")!)
         req.httpMethod = "POST"
         req.timeoutInterval = 60
@@ -45,7 +45,7 @@ enum AIScanner {
         req.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
         let source: [String: Any] = ["type": "base64", "media_type": "image/jpeg", "data": jpeg.base64EncodedString()]
         let image: [String: Any] = ["type": "image", "source": source]
-        let text: [String: Any] = ["type": "text", "text": BinScan.prompt]
+        let text: [String: Any] = ["type": "text", "text": BinScan.prompt(for: items)]
         let message: [String: Any] = ["role": "user", "content": [image, text]]
         let body: [String: Any] = ["model": model, "max_tokens": 1024, "messages": [message]]
         req.httpBody = try JSONSerialization.data(withJSONObject: body)
@@ -89,28 +89,61 @@ struct ScanView: View {
     @State private var key = AIKey.load()
     @State private var showKey = false
     @State private var started = false
+    /// Photos left out of the AI scan: tapped out by the owner, or already scanned on this screen.
+    @State private var skip = Set<String>()
 
     private var photos: [String] { store.bin(binID)?.photos ?? [] }
-    private var photoCount: String { photos.count == 1 ? "1 photo" : "\(photos.count) photos" }
+    private var picked: [String] { photos.filter { !skip.contains($0) } }
+    private var photoCount: String { picked.count == 1 ? "1 photo" : "\(picked.count) photos" }
     private var ticked: Int { rows.filter(\.on).count }
 
     var body: some View {
         NavigationStack {
             List {
+                if !key.isEmpty && photos.count > 1 {
+                    Section {
+                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 76), spacing: 8)], spacing: 8) {
+                            ForEach(Array(photos.enumerated()), id: \.element) { i, name in
+                                let on = !skip.contains(name)
+                                Button { if on { skip.insert(name) } else { skip.remove(name) } } label: {
+                                    ZStack(alignment: .topTrailing) {
+                                        Group {
+                                            if let img = store.thumbnail(name) { Image(uiImage: img).resizable().scaledToFill() }
+                                            else { Color.secondary.opacity(0.2) }
+                                        }
+                                        .frame(minWidth: 0, maxWidth: .infinity).aspectRatio(1, contentMode: .fit).clipped()
+                                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                                        .overlay(RoundedRectangle(cornerRadius: 10).stroke(on ? Color.accentColor : .clear, lineWidth: 3))
+                                        .opacity(on ? 1 : 0.45)
+                                        if on { Image(systemName: "checkmark.circle.fill").font(.title3).foregroundStyle(.white, Color.accentColor).padding(4) }
+                                    }
+                                }
+                                .buttonStyle(.plain)
+                                .disabled(!busy.isEmpty)
+                                .accessibilityLabel("Photo \(i + 1), \(on ? "will be scanned" : "left out")")
+                            }
+                        }
+                        .padding(.vertical, 4)
+                    } header: {
+                        Text("Photos to scan · \(picked.count) of \(photos.count)")
+                    } footer: {
+                        Text("Tap a photo to leave it out, for example one you've already scanned.")
+                    }
+                }
                 Section {
                     if key.isEmpty {
                         Button { showKey = true } label: { Label("Set up Scan with AI", systemImage: "sparkles") }
                     } else {
                         Button { Task { await scanWithAI() } } label: {
-                            Label(busy.isEmpty ? "Scan with AI · \(photoCount)" : busy, systemImage: "sparkles")
+                            Label(!busy.isEmpty ? busy : picked.isEmpty ? "Pick at least one photo" : "Scan with AI · \(photoCount)", systemImage: "sparkles")
                         }
-                        .disabled(!busy.isEmpty || photos.isEmpty)
+                        .disabled(!busy.isEmpty || picked.isEmpty)
                         .accessibilityIdentifier("scanWithAI")
                     }
                 } footer: {
                     Text(key.isEmpty
                          ? "AI can name the things in your photos. It needs your own key and sends the photos over the internet. Without it, this screen lists what the phone itself can recognise: printed words and general kinds of things."
-                         : "Sends this bin's photos over the internet to Anthropic's Claude service to name what's in them. Well under a cent a photo.")
+                         : "Sends the chosen photos over the internet to Anthropic's Claude service to name what's in them, with the list of what's inside so it leaves those out. Well under a cent a photo.")
                 }
                 if !note.isEmpty {
                     Section { Text(note).foregroundStyle(.secondary) }
@@ -182,12 +215,14 @@ struct ScanView: View {
     private func scanWithAI() async {
         note = ""
         var found: [String] = []
-        let names = photos
+        let names = picked
+        let items = store.bin(binID)?.items ?? []
         do {
             for (i, name) in names.enumerated() {
                 busy = "Asking AI… photo \(i + 1) of \(names.count)"
                 guard let data = try? Data(contentsOf: store.photoURL(name)) else { continue }
-                found += try await AIScanner.scan(jpeg: data, key: key)
+                found += try await AIScanner.scan(jpeg: data, key: key, items: items)
+                skip.insert(name) // scanned now, so left out next time unless tapped back in
             }
         } catch {
             note = error.localizedDescription

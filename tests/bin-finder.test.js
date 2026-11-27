@@ -89,6 +89,11 @@ assert.deepEqual(S.scanFound(["- Zip ties", "2. hose clamp", "", " zip  ties ", 
   ["Zip ties", "Hose clamp", "10 mm socket", "Oil filter"]);
 assert.equal(S.scanFound(Array.from({ length: 60 }, (_, i) => "Thing " + i), []).length, 40);
 assert(S.SCAN_PROMPT.includes("JSON array"));
+// Other names for what's already in the bin are left out; a one-word item doesn't hide longer names
+assert.deepEqual(S.scanFound(["Brake fluid jar", "zip tie", "Brake pads", "Oil", "Oil filter", "Spare fuses", "Fuse puller"], ["Brake fluid", "Zip ties (assorted)", "Fuses", "oil"]), ["Brake pads", "Oil filter", "Spare fuses", "Fuse puller"]);
+assert.deepEqual(S.scanFound(["Hose clamps", "Hose clamp", "Large hose clamps"], []), ["Hose clamps"]);
+assert(S.sameThing("Brake fluid", "brake fluid jar") && !S.sameThing("Oil", "Oil filter") && S.sameThing("Zip ties", "zip tie"));
+assert(S.scanPrompt([]) === S.SCAN_PROMPT && S.scanPrompt(["Brake fluid", " ", "Cleco pliers"]).endsWith("leave out other names for the same things: Brake fluid; Cleco pliers."));
 // About screen: the web version and build numbers match the iPhone app's version and the offline cache name
 {
   const fs = require("fs"), path = require("path"), read = (f) => fs.readFileSync(path.join(__dirname, "..", f), "utf8");

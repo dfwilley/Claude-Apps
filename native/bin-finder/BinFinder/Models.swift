@@ -332,6 +332,20 @@ enum BinScan {
         + "Use brand names or printed labels when you can read them. Leave out the container itself, the background, and anything you are not reasonably sure of. "
         + "Give at most 25 things. Answer with only a JSON array of strings and nothing else."
 
+    /// The question for one photo, with what the bin already holds so the AI leaves those out.
+    static func prompt(for items: [String]) -> String {
+        let have = items.map(\.trimmed).filter { !$0.isEmpty }.prefix(100)
+        return have.isEmpty ? prompt : prompt + " The owner has already listed these, so leave them out, and leave out other names for the same things: " + have.joined(separator: "; ") + "."
+    }
+
+    /// True when two names are the same thing: every word of one is in the other (plurals count as the same word).
+    /// A one-word name only covers longer names inside it, so "Oil" doesn't hide "Oil filter".
+    static func sameThing(_ a: String, _ b: String) -> Bool {
+        let x = BinSearch.terms(a), y = BinSearch.terms(b)
+        func inside(_ p: [String], _ q: [String]) -> Bool { p.allSatisfy(q.contains) }
+        return (inside(x, y) && (x.count >= 2 || y.count <= 1)) || (inside(y, x) && (y.count >= 2 || x.count <= 1))
+    }
+
     /// Reads the AI's answer: a JSON list if there is one, otherwise one thing per line.
     static func parseAnswer(_ text: String) -> [String] {
         if let a = text.firstIndex(of: "["), let z = text.lastIndex(of: "]"), a < z,
@@ -352,7 +366,7 @@ enum BinScan {
             t = t.split(whereSeparator: \.isWhitespace).joined(separator: " ")
             guard t.count >= 2, t.count <= 60, t.contains(where: \.isLetter) else { continue }
             let k = BinSearch.normalize(t)
-            if seen.contains(k) || have.contains(where: { $0.contains(k) }) { continue }
+            if seen.contains(k) || have.contains(where: { $0.contains(k) }) || items.contains(where: { sameThing(t, $0) }) || out.contains(where: { sameThing(t, $0) }) { continue }
             seen.insert(k); out.append(t.prefix(1).uppercased() + t.dropFirst())
             if out.count >= 40 { break }
         }

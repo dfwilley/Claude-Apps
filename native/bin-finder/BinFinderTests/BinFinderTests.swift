@@ -295,5 +295,12 @@ final class BinFinderTests: XCTestCase {
                        ["Zip ties", "Hose clamp", "10 mm socket", "Oil filter"])
         XCTAssertEqual(BinScan.found((0..<60).map { "Thing \($0)" }, items: []).count, 40)
         XCTAssertTrue(BinScan.prompt.contains("JSON array"))
+        // Other names for what's already in the bin are left out; a one-word item doesn't hide longer names
+        XCTAssertEqual(BinScan.found(["Brake fluid jar", "zip tie", "Brake pads", "Oil", "Oil filter", "Spare fuses", "Fuse puller"], items: ["Brake fluid", "Zip ties (assorted)", "Fuses", "oil"]),
+                       ["Brake pads", "Oil filter", "Spare fuses", "Fuse puller"])
+        XCTAssertEqual(BinScan.found(["Hose clamps", "Hose clamp", "Large hose clamps"], items: []), ["Hose clamps"])
+        XCTAssertTrue(BinScan.sameThing("Brake fluid", "brake fluid jar") && !BinScan.sameThing("Oil", "Oil filter") && BinScan.sameThing("Zip ties", "zip tie"))
+        XCTAssertEqual(BinScan.prompt(for: []), BinScan.prompt)
+        XCTAssertTrue(BinScan.prompt(for: ["Brake fluid", " ", "Cleco pliers"]).hasSuffix("leave out other names for the same things: Brake fluid; Cleco pliers."))
     }
 }

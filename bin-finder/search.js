@@ -195,6 +195,17 @@
     + "Use short, specific names of 1 to 5 words, the way the owner would write them on a packing list, such as \"Brake fluid jar\" or \"Cleco pliers\". "
     + "Use brand names or printed labels when you can read them. Leave out the container itself, the background, and anything you are not reasonably sure of. "
     + "Give at most 25 things. Answer with only a JSON array of strings and nothing else.";
+  // The question for one photo, with what the bin already holds so the AI leaves those out.
+  function scanPrompt(items) {
+    const have = (items || []).map((i) => String(i).trim()).filter(Boolean).slice(0, 100);
+    return SCAN_PROMPT + (have.length ? " The owner has already listed these, so leave them out, and leave out other names for the same things: " + have.join("; ") + "." : "");
+  }
+  // True when two names are the same thing: every word of one is in the other (plurals count as the same word).
+  // A one-word name only covers longer names inside it, so "Oil" doesn't hide "Oil filter".
+  function sameThing(a, b) {
+    const x = terms(a), y = terms(b), inside = (p, q) => p.every((w) => q.includes(w));
+    return (inside(x, y) && (x.length >= 2 || y.length <= 1)) || (inside(y, x) && (y.length >= 2 || x.length <= 1));
+  }
   // Reads the AI's answer: a JSON list if there is one, otherwise one thing per line.
   function parseScanAnswer(text) {
     const t = String(text ?? ""), a = t.indexOf("["), z = t.lastIndexOf("]");
@@ -208,7 +219,7 @@
       let t = String(raw ?? "").replace(/^\s*(?:[-•*]\s+|\d+[.)]\s+)/, "").replace(/^["'\s]+|["',\s]+$/g, "").replace(/\s+/g, " ");
       if (t.length < 2 || t.length > 60 || !/\p{L}/u.test(t)) continue;
       const k = normalize(t);
-      if (seen.has(k) || have.some((i) => i.includes(k))) continue;
+      if (seen.has(k) || have.some((i) => i.includes(k)) || (items || []).some((i) => sameThing(t, i)) || out.some((o) => sameThing(t, o))) continue;
       seen.add(k); out.push(t[0].toUpperCase() + t.slice(1));
       if (out.length >= 40) break;
     }
@@ -217,7 +228,7 @@
 
   const isoNow = (d = new Date()) => d.toISOString().replace(/\.\d{3}Z$/, "Z");
 
-  const api = { normalize, stem, terms, search, SCAN_PROMPT, parseScanAnswer, scanFound, codePrefix, codeStem, isAutoCode, nextCode, renumber, photoWords, displayName, isoNow,
+  const api = { normalize, stem, terms, search, SCAN_PROMPT, scanPrompt, sameThing, parseScanAnswer, scanFound, codePrefix, codeStem, isAutoCode, nextCode, renumber, photoWords, displayName, isoNow,
     kindOf, kindWord, kindNoun, kindLabel, allItems, holderOf, heldBy, canHold, placeParts, tidyPlace, isUnder, allPlaces, childPlaces, nearestPlace, placeLevels, placeBelow, renamePlace, tripKeys, tripProgress };
   if (typeof module !== "undefined" && module.exports) module.exports = api; else root.BinSearch = api;
 })(typeof window !== "undefined" ? window : globalThis);

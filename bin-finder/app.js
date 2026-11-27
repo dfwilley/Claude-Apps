@@ -189,8 +189,9 @@ function route() {
 }
 const go = (h) => { location.hash = h; };
 window.addEventListener("hashchange", render);
-const VERSION = "1.10", BUILD = 11; // BUILD is the number in sw.js's cache name; VERSION matches the iPhone app (tests check both)
+const VERSION = "1.11", BUILD = 12; // BUILD is the number in sw.js's cache name; VERSION matches the iPhone app (tests check both)
 const CHANGES = [
+  { v: "1.11", date: "November 27, 2026", notes: ["Scan with AI: choose which photos to scan, and it leaves out things already in What's inside, even under another name."] },
   { v: "1.10", date: "November 26, 2026", notes: ["Back up list only: a small backup of your bins and what's in them, without the photos."] },
   { v: "1.9", date: "November 21, 2026", notes: ["Scan photos: a checklist of what was found, to add to What's inside.", "Optional Scan with AI, which names the things in your photos. Needs your own key and sends those photos over the internet."] },
   { v: "1.8", date: "November 13, 2026", notes: ["About screen with the version, build number and what changed."] },
@@ -657,14 +658,14 @@ function renderMore() {
 // The optional AI scan sends a photo to Anthropic's Claude service, only when the Scan with AI button is tapped.
 const AI_KEY = "bf-ai-key", AI_MODEL = "claude-haiku-5-5";
 const aiKey = () => { try { return localStorage.getItem(AI_KEY) || ""; } catch { return ""; } };
-async function aiScan(blob) {
+async function aiScan(blob, items) {
   const type = ["image/jpeg", "image/png", "image/webp", "image/gif"].includes(blob.type) ? blob.type : "image/jpeg";
   let r;
   try {
     r = await fetch("https://api.anthropic.com/v1/messages", { method: "POST",
       headers: { "content-type": "application/json", "x-api-key": aiKey(), "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
       body: JSON.stringify({ model: AI_MODEL, max_tokens: 1024, messages: [{ role: "user", content: [
-        { type: "image", source: { type: "base64", media_type: type, data: await blobToB64(blob) } }, { type: "text", text: S.SCAN_PROMPT }] }] }) });
+        { type: "image", source: { type: "base64", media_type: type, data: await blobToB64(blob) } }, { type: "text", text: S.scanPrompt(items) }] }] }) });
   } catch { throw new Error("Couldn't reach the AI service. Check the internet connection."); }
   const data = await r.json().catch(() => ({}));
   if (r.status === 401) throw new Error("Anthropic didn't accept the key. Check it under ⋯ More.");
@@ -672,18 +673,21 @@ async function aiScan(blob) {
   if (!r.ok) throw new Error(data?.error?.message || `The AI service answered with error ${r.status}.`);
   return S.parseScanAnswer((data.content || []).filter((c) => c.type === "text").map((c) => c.text).join("\n"));
 }
-let scan = null; // what the open Scan screen has found: { id, rows: [{ text, ai, on }], busy, note }
+let scan = null; // what the open Scan screen has found: { id, rows: [{ text, ai, on }], busy, note, skip: photos left out of the AI scan }
 function renderScan(id) {
   const b = binById(id); if (!b) return go("#/");
-  if (!scan || scan.id !== id) scan = { id, rows: S.scanFound(b.autoWords, b.items).map((text) => ({ text, ai: false, on: false })), busy: "", note: "" };
-  const n = b.photos.length, photos = n === 1 ? "1 photo" : n + " photos", ticked = scan.rows.filter((r) => r.on).length;
+  if (!scan || scan.id !== id) scan = { id, rows: S.scanFound(b.autoWords, b.items).map((text) => ({ text, ai: false, on: false })), busy: "", note: "", skip: new Set() };
+  const picked = b.photos.filter((p) => !scan.skip.has(p)), n = picked.length, photos = n === 1 ? "1 photo" : n + " photos", ticked = scan.rows.filter((r) => r.on).length;
   app.innerHTML = `<div class="page">
     <div class="bar"><a class="link" href="#/bin/${b.id}">‹ Back</a><span class="center">Scan photos</span><span style="width:60px"></span></div>
-    ${!n ? `<div class="group"><div class="row"><span class="grow sub">This ${S.kindNoun(b)} has no photos yet. Take one of what's inside first.</span></div></div>` : `
+    ${!b.photos.length ? `<div class="group"><div class="row"><span class="grow sub">This ${S.kindNoun(b)} has no photos yet. Take one of what's inside first.</span></div></div>` : `
+    ${aiKey() && b.photos.length > 1 ? `<div class="sechead">Photos to scan · ${n} of ${b.photos.length}</div>
+    <div class="picks">${b.photos.map((p) => `<button class="pick${scan.skip.has(p) ? "" : " on"}" data-pick="${esc(p)}" aria-pressed="${!scan.skip.has(p)}" aria-label="Photo ${b.photos.indexOf(p) + 1}" ${scan.busy ? "disabled" : ""}><span class="thumb" data-thumb="${esc(p)}">📷</span><span class="tick" aria-hidden="true">✓</span></button>`).join("")}</div>
+    <div class="secfoot">Tap a photo to leave it out, for example one you've already scanned.</div>` : ""}
     <div class="group">${aiKey()
-      ? `<button class="row act" id="aigo" ${scan.busy ? "disabled" : ""}>✨&nbsp; ${scan.busy ? esc(scan.busy) : "Scan with AI · " + photos}</button>`
+      ? `<button class="row act" id="aigo" ${scan.busy || !n ? "disabled" : ""}>✨&nbsp; ${scan.busy ? esc(scan.busy) : n ? "Scan with AI · " + photos : "Pick at least one photo"}</button>`
       : `<a class="row act" href="#/more">✨&nbsp; Set up Scan with AI<span class="grow"></span><span class="chev" aria-hidden="true">›</span></a>`}</div>
-    <div class="secfoot">${aiKey() ? `Sends ${n === 1 ? "this photo" : "these " + photos} over the internet to Anthropic's Claude service to name what's in ${n === 1 ? "it" : "them"}. Well under a cent a photo.`
+    <div class="secfoot">${aiKey() ? `Sends ${n === 1 ? "that photo" : "those " + photos} over the internet to Anthropic's Claude service to name what's in ${n === 1 ? "it" : "them"}, with the list of what's inside so it leaves those out. Well under a cent a photo.`
       : `AI can name the things in your photos. It needs your own key and sends the photos over the internet; set it up under ⋯ More. Without it, this screen lists the printed words read from the photos on this phone.`}</div>
     ${scan.note ? `<div class="group" style="margin-top:14px"><div class="row"><span class="grow sub">${esc(scan.note)}</span></div></div>` : ""}
     <div class="sechead">Found · ${scan.rows.length}</div>
@@ -692,17 +696,20 @@ function renderScan(id) {
     <div class="secfoot">Tick the ones that are right, then add them to What's inside.</div>
     <p style="margin-top:18px"><button class="btn primary" id="scanadd" ${ticked ? "" : "disabled"} style="width:100%">${ticked ? `Add ${ticked} to What's inside` : "Nothing ticked"}</button></p>`}
   </div>`;
+  fillThumbs(app);
+  app.querySelectorAll("[data-pick]").forEach((x) => x.onclick = () => { const p = x.dataset.pick; scan.skip.has(p) ? scan.skip.delete(p) : scan.skip.add(p); keepScroll(() => renderScan(id)); });
   app.querySelectorAll("[data-row]").forEach((x) => x.onchange = () => { scan.rows[+x.dataset.row].on = x.checked; keepScroll(() => renderScan(id)); });
   if ($("aigo")) $("aigo").onclick = async () => {
     const found = []; scan.note = "";
     try {
-      for (let i = 0; i < b.photos.length; i++) {
-        scan.busy = `Asking AI… photo ${i + 1} of ${b.photos.length}`; if (route().name === "scan") renderScan(id);
-        const blob = await getPhoto(b.photos[i]); if (blob) found.push(...await aiScan(blob));
+      for (let i = 0; i < picked.length; i++) {
+        scan.busy = `Asking AI… photo ${i + 1} of ${picked.length}`; if (route().name === "scan") renderScan(id);
+        const blob = await getPhoto(picked[i]); if (blob) found.push(...await aiScan(blob, b.items));
       }
     } catch (e) { scan.note = e.message; }
     const fresh = S.scanFound(found, b.items), keys = new Set(fresh.map(S.normalize));
     scan.rows = [...fresh.map((text) => ({ text, ai: true, on: true })), ...scan.rows.filter((r) => !keys.has(S.normalize(r.text)))];
+    for (const p of picked) scan.skip.add(p); // scanned now, so left out next time unless tapped back in
     if (!scan.note && !fresh.length) scan.note = "AI didn't find anything new in the photos.";
     scan.busy = ""; if (route().name === "scan" && route().id === id) renderScan(id);
   };
